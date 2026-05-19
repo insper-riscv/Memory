@@ -28,6 +28,7 @@ architecture rtl of RAM_simulation is
   signal widx : std_logic_vector(memoryAddrWidth-1 downto 0):= (others => '0');
 
   signal data_out_reg : std_logic_vector(31 downto 0) := (others => '0'); -- registro de saída
+
 begin
   widx <= addr(8 downto 0);
 

@@ -2,19 +2,18 @@
   use IEEE.std_logic_1164.all;
   use ieee.numeric_std.all;
   use std.textio.all;
-  use ieee.std_logic_textio.all;
 
   entity ROM_simulation is
     generic (
       dataWidth: natural := 32;
       addrWidth: natural := 30;
       memoryAddrWidth: natural := 9;
-      ROM_FILE: string := "initROM.hex"   -- novo generic
+      ROM_FILE: string := "initROM.hex"
     );
     port (
       addr : in  std_logic_vector (addrWidth-1 downto 0);
-      clk  : in  std_logic;                               -- adicionado
-      re   : in  std_logic;                               -- adicionado (read enable)
+      clk  : in  std_logic;
+      re   : in  std_logic;
       data : out std_logic_vector (dataWidth-1 downto 0)
     );
   end entity;
@@ -25,33 +24,74 @@
 
     signal memROM : blocoMemoria := (others => (others => '0'));
     signal localAddress : std_logic_vector(memoryAddrWidth-1 downto 0) := (others => '0');
+    signal data_reg : std_logic_vector(dataWidth-1 downto 0) := (others => '0');
 
-    signal data_reg : std_logic_vector(dataWidth-1 downto 0) := (others => '0'); -- registrador de saída
+    -- Converte um caractere hex num nibble
+    function hex_char_to_nibble(c : character) return std_logic_vector is
+      variable nibble : std_logic_vector(3 downto 0);
+    begin
+      case c is
+        when '0' => nibble := "0000";
+        when '1' => nibble := "0001";
+        when '2' => nibble := "0010";
+        when '3' => nibble := "0011";
+        when '4' => nibble := "0100";
+        when '5' => nibble := "0101";
+        when '6' => nibble := "0110";
+        when '7' => nibble := "0111";
+        when '8' => nibble := "1000";
+        when '9' => nibble := "1001";
+        when 'a'|'A' => nibble := "1010";
+        when 'b'|'B' => nibble := "1011";
+        when 'c'|'C' => nibble := "1100";
+        when 'd'|'D' => nibble := "1101";
+        when 'e'|'E' => nibble := "1110";
+        when 'f'|'F' => nibble := "1111";
+        when others  => nibble := "0000";
+      end case;
+      return nibble;
+    end function;
+
+    -- Converte string hex de 8 chars numa std_logic_vector(31 downto 0)
+    function hex_string_to_slv(s : string) return std_logic_vector is
+      variable result : std_logic_vector(31 downto 0) := (others => '0');
+    begin
+      for i in 1 to s'length loop
+        result := result(27 downto 0) & hex_char_to_nibble(s(i));
+      end loop;
+      return result;
+    end function;
+
   begin
 
-    -- inicializa a ROM lendo de um arquivo texto com 1 palavra (32 bits) por linha, em hex
     init: process
       file f : text open read_mode is ROM_FILE;
-      variable l : line;
-      variable v : std_logic_vector(dataWidth-1 downto 0);
-      variable idx : integer := 0;
+      variable l    : line;
+      variable idx  : integer := 0;
+      variable s    : string(1 to 8);
+      variable slen : integer;
+      variable ch   : character;
+      variable ok   : boolean;
     begin
       while not endfile(f) loop
         readline(f, l);
-        hread(l, v);
-        if idx <= memROM'high then
-          memROM(idx) <= v;
+        slen := l'length;
+        if slen >= 8 then
+          for i in 1 to 8 loop
+            read(l, ch, ok);
+            s(i) := ch;
+          end loop;
+          if idx <= memROM'high then
+            memROM(idx) <= hex_string_to_slv(s);
+          end if;
+          idx := idx + 1;
         end if;
-        idx := idx + 1;
       end loop;
-      wait;  -- processo só roda uma vez
+      wait;
     end process;
 
-    -- WORD-addressable: 'addr' é interpretado como índice de palavra,
-    -- portanto usamos os bits menos-significativos necessários para indexar memROM.
     localAddress <= addr(memoryAddrWidth-1 downto 0);
 
-    -- leitura síncrona: na subida do clock, quando re = '1', captura a palavra.
     sync_read: process(clk)
     begin
       if rising_edge(clk) then
