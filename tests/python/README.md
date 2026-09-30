@@ -1,4 +1,13 @@
-# `tests/python`: per-entity VHDL unit tests (cocotb + GHDL)
+# `tests/python`: VHDL unit tests that need the simulation memories (cocotb + GHDL)
+
+The per-entity tests of the core itself (ALU, register file, control, hazard and
+forwarding units, extenders, store manager, bubble mux, instruction decoder)
+moved to [Core](https://github.com/insper-riscv/Core) with their history. What
+stays here needs the simulation memories or the clock generator: `RAM`, `ROM`,
+`clk_gen_3way` and the whole-core instruction tests (`unittests/instructions`).
+Paths in `tests.json` are relative to this repository's root: `../Core/...` for
+the core, `../src/...` for RV32IM's memories and tops.
+
 
 Cocotb testbenches that exercise individual VHDL entities (`ALU`,
 `RegFile`, `ROM_simulation`, control/hazard/forwarding units, etc.)
@@ -40,7 +49,7 @@ Each entry is a test name (used as the CLI argument above) mapping to:
 | Field | Meaning |
 | :--- | :--- |
 | `toplevel` | The VHDL entity to elaborate (lowercase, matching the `.vhd`'s own entity name) |
-| `sources` | Every `.vhd` file the entity needs, as paths relative to this repo's parent (`RV32IM`), e.g. `../src/ALU.vhd` |
+| `sources` | Every `.vhd` file the entity needs, as paths relative to this repo's parent (`RV32IM`), e.g. `../Core/I/ALU.vhd` |
 | `test_module` | Dotted Python path to the test file, e.g. `tests.python.unittests.entities.ALU` |
 | `parameters` | Optional: VHDL generics to pass (e.g. `ROM_FILE` for an entity that loads a memory image) |
 | `skip` / `skip_reason` | Optional: excluded from the `all` sweep with the reason printed, but still runs if invoked by name explicitly |
