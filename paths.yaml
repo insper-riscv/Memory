@@ -1,0 +1,6 @@
+# Every file path this repository's configuration references, checked by
+#   uv run riscv-tools --root . check-paths --manifest paths.yaml
+references:
+  - {name: per-entity tests.json, file: tests/python/tests.json, yaml: "*.sources", base: .}
+  - {name: Quartus IP files, paths: [ips/BOOT_ROM1PORT/boot_rom1port.qip, ips/FLASH1PORT/flash1port.qip, ips/FLASH_MEM1PORT/flash_mem1port.qip, ips/RAM1PORT/ram1port.qip]}
+  - {name: entry points, paths: [tests/python/runner.py, sim]}
