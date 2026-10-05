@@ -12,7 +12,7 @@ use ieee.numeric_std.all;
 --   1  read the word at addr
 --   2  write data to the word at addr, bytes by be
 --   3  fill count words from addr with data (all bytes); count is set by op 4
---   4  set the count of op 3 to data(23:0)
+--   4  set the count of op 3 to data(24:0), up to 2**24 words: the whole SDRAM
 --   5  read the word after the one accessed last
 --   6  write data to the word after the one accessed last, bytes by be
 --
@@ -65,8 +65,8 @@ architecture rtl of sdram_dbg_master is
   signal data_l   : std_logic_vector(31 downto 0) := (others => '0');
   signal cur_addr : unsigned(23 downto 0) := (others => '0');   -- the word being accessed
   signal last     : unsigned(23 downto 0) := (others => '0');   -- the word accessed last
-  signal count    : unsigned(23 downto 0) := (others => '0');   -- count set for op 3
-  signal left     : unsigned(23 downto 0) := (others => '0');   -- words of a fill still to write
+  signal count    : unsigned(24 downto 0) := (others => '0');   -- count set for op 3 (up to 2**24)
+  signal left     : unsigned(24 downto 0) := (others => '0');   -- words of a fill still to write
   signal wcnt     : natural range 0 to TIMEOUT_CYCLES := 0;
   signal err      : std_logic := '0';
   signal init_s   : std_logic_vector(1 downto 0) := "00";
@@ -106,7 +106,7 @@ begin
         req_i  <= '0';
         err    <= '0';
         last   <= (others => '0');
-        count  <= to_unsigned(1, 24);
+        count  <= to_unsigned(1, 25);
         init_s <= "00";
       else
         case st is
@@ -131,7 +131,7 @@ begin
                     issue(unsigned(addr), '1', data, "1111");
                   end if;
                 when "0100" =>
-                  count  <= unsigned(data(23 downto 0));
+                  count  <= unsigned(data(24 downto 0));
                   done_i <= cmd_s(1);
                 when "0101" =>
                   issue(last + 1, '0', (others => '0'), "1111");

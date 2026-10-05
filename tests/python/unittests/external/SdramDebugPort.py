@@ -138,6 +138,18 @@ async def test_fill(dut):
 
 
 @cocotb.test()
+async def test_the_fill_count_reaches_the_whole_sdram(dut):
+    """The count of a fill holds 2**24 words, the whole SDRAM (a 24-bit count would read it as 0)."""
+    await start_debug(dut)
+    await debug(dut, OP_COUNT, data=1 << 24)
+    await settle(dut)
+    assert int(dut.u_dbg.count.value) == 1 << 24, int(dut.u_dbg.count.value)
+    await debug(dut, OP_COUNT, data=(1 << 24) - 1)
+    await settle(dut)
+    assert int(dut.u_dbg.count.value) == (1 << 24) - 1
+
+
+@cocotb.test()
 async def test_next_word_commands(dut):
     """Read-next and write-next continue from the word accessed last."""
     await start_debug(dut)

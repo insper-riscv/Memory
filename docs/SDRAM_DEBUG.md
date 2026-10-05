@@ -55,7 +55,7 @@ busy; the next one does not.
 | 1 | read | reads the word at `addr` |
 | 2 | write | writes `data` to the word at `addr`, bytes by `be` |
 | 3 | fill | writes `data` (all bytes) to `count` words from `addr` |
-| 4 | set count | `count` $=$ `data[23:0]` (it starts at 1) |
+| 4 | set count | `count` $=$ `data[24:0]`, up to $2^{24}$ words, the whole SDRAM (it starts at 1) |
 | 5 | read next | reads the word after the one accessed last |
 | 6 | write next | writes `data` to the word after the one accessed last, bytes by `be` |
 
