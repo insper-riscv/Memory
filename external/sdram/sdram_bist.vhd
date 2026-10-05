@@ -151,6 +151,7 @@ architecture rtl of sdram_bist is
   signal idx       : natural range 0 to 31 := 0;
   signal cur       : phase_def_t := (K_END, 0, "1111", false, 0);
   signal n         : unsigned(31 downto 0) := (others => '0');   -- word of the phase
+  signal limit     : unsigned(31 downto 0) := (others => '0');   -- last word of the phase
   signal lf        : unsigned(31 downto 0) := SEED;              -- address source of the random phases
   signal req_i     : std_logic := '0';
   signal exp_r     : std_logic_vector(31 downto 0) := (others => '0');
@@ -217,6 +218,7 @@ begin
             cur <= def(mode_l, idx);
             n   <= (others => '0');
             lf  <= SEED;
+            limit <= shift_left(to_unsigned(1, 32), def(mode_l, idx).cnt_log2) - 1;
             if def(mode_l, idx).kind = K_END then
               busy_i <= '0';
               done_i <= '1';
@@ -233,7 +235,11 @@ begin
             end if;
             addr_r  <= a;
             c_addr  <= std_logic_vector(a);
-            c_we    <= '1' when cur.kind = K_WRITE else '0';
+            if cur.kind = K_WRITE then
+              c_we <= '1';
+            else
+              c_we <= '0';
+            end if;
             c_be    <= cur.be;
             c_wdata <= expected(cur.pat, a);
             exp_r   <= expected(cur.pat, a);
@@ -257,7 +263,7 @@ begin
                 fail_i <= '1';
               end if;
               -- next word of the phase
-              last := n = shift_left(to_unsigned(1, 32), cur.cnt_log2) - 1;
+              last := n = limit;
               if last then
                 idx <= idx + 1;
                 st  <= ST_PHASE;

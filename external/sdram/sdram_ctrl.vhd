@@ -54,6 +54,15 @@ end entity sdram_ctrl;
 
 architecture rtl of sdram_ctrl is
 
+  -- (the VHDL-2008 maximum is not accepted by Quartus)
+  function larger (a, b : natural) return natural is
+  begin
+    if a > b then
+      return a;
+    end if;
+    return b;
+  end function;
+
   constant C_RCD : natural := cycles(T_RCD_PS, TCK_PS);
   constant C_RP  : natural := cycles(T_RP_PS, TCK_PS);
   constant C_RC  : natural := cycles(T_RC_PS, TCK_PS);
@@ -63,7 +72,7 @@ architecture rtl of sdram_ctrl is
   -- the read path (ACTIVE, tRCD, CAS latency, two beats, one clock of margin);
   -- the write path (tRCD, two beats, tWR, tRP) is never longer than the read path.
   constant ACT_TO_ACT : natural :=
-    maximum(C_RC, maximum(C_RCD + CAS_LATENCY + 4, C_RCD + 2 + C_WR + C_RP));
+    larger(C_RC, larger(C_RCD + CAS_LATENCY + 4, C_RCD + 2 + C_WR + C_RP));
 
   type state_t is (ST_INIT_WAIT, ST_INIT_PRE, ST_INIT_REF, ST_INIT_MRS, ST_WAIT,
                    ST_IDLE, ST_RW, ST_READ, ST_WRITE2);
