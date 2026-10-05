@@ -44,10 +44,11 @@ The core holds the access on the port until `ready`, which stays high as a level
 | ---: | :--- | :--- | :--- |
 | 0 | TXDATA | 0 | queue bits 7:0 for the host; dropped and flagged if the queue is full |
 | 1 | RXDATA | bit 8 = a byte was waiting, bits 7:0 = that byte (removed); 0 when empty | ignored |
-| 2 | STATUS | bits 7:0 free places in the transmit queue (0 to 64), bits 15:8 bytes in the receive queue, bit 16 a byte was dropped since the last read (the read clears it) | ignored |
+| 2 | STATUS | bits 7:0 free places in the transmit queue (0 to 64), bits 15:8 bytes in the receive queue, bit 16 a byte was dropped since the last read (the read clears it), bit 17 a host has scanned since the reset | ignored |
 
-A program that must not stop when no host is attached reads STATUS before a write and gives up
-after a bounded wait; a write to a full queue never blocks the core.
+A write to a full queue never blocks the core. A program that must not stop when no host is
+attached reads bit 17 of STATUS: while it is 0 nobody listens and the program does not print;
+once it is 1 the program waits for a free place, up to a bound.
 
 ## 5. The host side
 

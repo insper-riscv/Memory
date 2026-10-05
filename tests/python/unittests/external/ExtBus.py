@@ -275,3 +275,12 @@ async def test_the_load_in_the_last_stage_keeps_its_data(dut):
     dut.mem_advance.value = 0
     assert int(dut.rdata.value) == 0x142
     dut.rden.value = 0
+
+
+@cocotb.test()
+async def test_status_tells_whether_a_host_has_scanned(dut):
+    await start(dut)
+    assert (await _status(dut)) >> 17 & 1 == 0
+    await scan(dut)
+    await Timer(1, unit="us")
+    assert (await _status(dut)) >> 17 & 1 == 1

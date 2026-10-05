@@ -13,7 +13,9 @@ use ieee.numeric_std.all;
 --                   bit 8 = 0 when empty; write: ignored
 --   word 2  STATUS  read: bits 7:0 free places in the transmit queue (0 to 64), bits 15:8 bytes
 --                   waiting in the receive queue (0 to 64), bit 16 a byte was dropped since the
---                   last read of this register (the read clears it); write: ignored
+--                   last read of this register (the read clears it), bit 17 a host has scanned
+--                   since the reset (a program that prints only when someone listens reads it);
+--                   write: ignored
 --
 -- Host side: the logic behind a Virtual JTAG instance (sld_virtual_jtag in the board's top, driven
 -- by the testbench in simulation) on tck. Instruction 1 selects a 48-bit register. A scan sends
@@ -71,6 +73,7 @@ architecture rtl of jtag_uart is
   signal tx_w, tx_r : unsigned(LOG2_DEPTH downto 0) := (others => '0');
   signal rx_w, rx_r : unsigned(LOG2_DEPTH downto 0) := (others => '0');
   signal lost      : std_logic := '0';
+  signal attached  : std_logic := '0';
   signal cmd_s     : std_logic_vector(1 downto 0) := "00";
   signal done_i    : std_logic := '0';
   signal resp      : std_logic_vector(47 downto 0) := (others => '0');
@@ -98,7 +101,7 @@ begin
   tdo      <= sr(0) when ir = "01" else bypass;
 
   -- the registers read by the core
-  process (addr, rx_mem, rx_r, rx_level, tx_level, lost)
+  process (addr, rx_mem, rx_r, rx_level, tx_level, lost, attached)
     variable free : unsigned(15 downto 0);
   begin
     rdata <= (others => '0');
@@ -113,6 +116,7 @@ begin
         rdata(7 downto 0)  <= std_logic_vector(free(7 downto 0));
         rdata(15 downto 8) <= std_logic_vector(resize(rx_level, 8));
         rdata(16)          <= lost;
+        rdata(17)          <= attached;
       when others =>
         null;
     end case;
@@ -134,6 +138,7 @@ begin
         rx_w <= (others => '0');
         rx_r <= (others => '0');
         lost <= '0';
+        attached <= '0';
         done_i <= cmd_s(1);   -- a command that was pending before the reset is not run
         resp <= (others => '0');
       else
@@ -156,6 +161,7 @@ begin
 
         -- a command from the host
         if cmd_s(1) /= done_i then
+          attached <= '1';
           if tx_level > 4 then
             n := 4;
           else
