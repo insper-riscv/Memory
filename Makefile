@@ -5,12 +5,13 @@ WDIR  := build/ghdl
 
 .PHONY: check test paths clean
 
-# GHDL syntax check of the simulation models. The Quartus IPs (ips/) need
+# GHDL syntax check of the simulation models and of the external memory (the SDRAM
+# controller, its bridge and the chip model). The Quartus IPs (ips/) need
 # Intel's altera_mf library, which the toolchain image does not carry: they are
 # analyzed by the hardware-top simulation in the Tests repository.
 check:
 	@mkdir -p $(WDIR)
-	@$(GHDL) -a $(STD) --work=work --workdir=$(WDIR) $$(uv run riscv-tools vhdl-sort sim/*.vhd)
+	@$(GHDL) -a $(STD) --work=work --workdir=$(WDIR) $$(uv run riscv-tools vhdl-sort sim/*.vhd external/sdram/*.vhd external/sdram/sim/*.vhd)
 	@echo "VHDL syntax check passed"
 
 # Per-entity cocotb tests; `make test TEST=RAM` for one entry of tests/python/tests.json.

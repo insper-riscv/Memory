@@ -15,5 +15,100 @@
         "parameters": {
             "ROM_FILE": "tests/python/unittests/sim/data/testROM.hex"
         }
+    },
+    "SdramSystem": {
+        "toplevel": "sdram_system",
+        "sources": [
+            "external/sdram/sdram_pkg.vhd",
+            "external/sdram/sdram_ctrl.vhd",
+            "external/sdram/sdram_cpu_bridge.vhd",
+            "external/sdram/sdram_arbiter.vhd",
+            "external/sdram/sdram_dbg_master.vhd",
+            "external/sdram/sdram_jtag_core.vhd",
+            "external/sdram/sim/sdram_model.vhd",
+            "external/sdram/sim/sdram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.SdramSystem",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramBist": {
+        "toplevel": "sdram_bist_system",
+        "sources": [
+            "external/sdram/sdram_pkg.vhd",
+            "external/sdram/sdram_ctrl.vhd",
+            "external/sdram/sdram_bist.vhd",
+            "external/sdram/sim/sdram_model.vhd",
+            "external/sdram/sim/sdram_bist_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.SdramBist",
+        "parameters": {
+            "CAPTURE_EXTRA": 0
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramBistRegisteredPins": {
+        "toplevel": "sdram_bist_system",
+        "sources": [
+            "external/sdram/sdram_pkg.vhd",
+            "external/sdram/sdram_ctrl.vhd",
+            "external/sdram/sdram_bist.vhd",
+            "external/sdram/sim/sdram_model.vhd",
+            "external/sdram/sim/sdram_bist_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.SdramBist",
+        "parameters": {
+            "CAPTURE_EXTRA": 1
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramDebugPort": {
+        "toplevel": "sdram_system",
+        "sources": [
+            "external/sdram/sdram_pkg.vhd",
+            "external/sdram/sdram_ctrl.vhd",
+            "external/sdram/sdram_cpu_bridge.vhd",
+            "external/sdram/sdram_arbiter.vhd",
+            "external/sdram/sdram_dbg_master.vhd",
+            "external/sdram/sdram_jtag_core.vhd",
+            "external/sdram/sim/sdram_model.vhd",
+            "external/sdram/sim/sdram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.SdramDebugPort",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "ExtBus": {
+        "toplevel": "ext_bus_system",
+        "sources": [
+            "external/bus/jtag_uart.vhd",
+            "external/bus/ext_interconnect.vhd",
+            "external/bus/sim/ext_bus_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.ExtBus",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
