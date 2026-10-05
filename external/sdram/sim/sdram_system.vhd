@@ -3,9 +3,10 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.sdram_pkg.all;
 
--- Simulation top: the bridge, the controller and the chip model on two clocks.
--- The core side is the port list a core would drive; the debug ports reach the
--- model (see sdram_model).
+-- Simulation top: the bridge, the debug port, the controller and the chip model on two clocks
+-- plus the JTAG clock. The core side is the port list a core would drive; the debug ports reach
+-- the model (see sdram_model); the jtag_* ports stand for a Virtual JTAG instance (see
+-- sdram_jtag_core) and may be left unconnected.
 entity sdram_system is
   generic (
     TCK_PS         : natural := T_CK_PS;
@@ -34,7 +35,16 @@ entity sdram_system is
     dbg_flip_addr   : in  std_logic_vector(23 downto 0);
     dbg_flip_bit    : in  std_logic_vector(4 downto 0);
     dbg_refreshes   : out std_logic_vector(31 downto 0);
-    dbg_init_ok     : out std_logic
+    dbg_init_ok     : out std_logic;
+
+    jtag_tck        : in  std_logic := '0';
+    jtag_tdi        : in  std_logic := '0';
+    jtag_tdo        : out std_logic;
+    jtag_ir_in      : in  std_logic_vector(1 downto 0) := "00";
+    jtag_state_cdr  : in  std_logic := '0';
+    jtag_state_sdr  : in  std_logic := '0';
+    jtag_state_udr  : in  std_logic := '0';
+    jtag_state_uir  : in  std_logic := '0'
   );
 end entity sdram_system;
 
@@ -43,6 +53,23 @@ architecture sim of sdram_system is
   signal c_addr  : std_logic_vector(23 downto 0);
   signal c_wdata, c_rdata : std_logic_vector(31 downto 0);
   signal c_be    : std_logic_vector(3 downto 0);
+
+  -- master A (the core's bridge) and master B (the debug master) of the arbiter
+  signal a_req, a_ack, a_we : std_logic;
+  signal a_addr  : std_logic_vector(23 downto 0);
+  signal a_wdata, a_rdata : std_logic_vector(31 downto 0);
+  signal a_be    : std_logic_vector(3 downto 0);
+  signal b_req, b_ack, b_we : std_logic;
+  signal b_addr  : std_logic_vector(23 downto 0);
+  signal b_wdata, b_rdata : std_logic_vector(31 downto 0);
+  signal b_be    : std_logic_vector(3 downto 0);
+
+  -- the debug port
+  signal cmd_tog, done_tog : std_logic;
+  signal d_op, d_be : std_logic_vector(3 downto 0);
+  signal d_addr, r_addr : std_logic_vector(23 downto 0);
+  signal d_data, r_data : std_logic_vector(31 downto 0);
+  signal r_status : std_logic_vector(7 downto 0);
 
   signal cke, cs_n, ras_n, cas_n, we_n : std_logic;
   signal ba   : std_logic_vector(1 downto 0);
@@ -60,12 +87,43 @@ begin
       clk_cpu => clk_cpu, rst_cpu => rst_cpu,
       addr => addr, wdata => wdata, byteena => byteena, rden => rden, wren => wren,
       mem_advance => mem_advance, ready => ready, rdata => rdata,
-      req_tog => req_tog, ack_tog => ack_tog, init_done => init_i,
-      c_we => c_we, c_addr => c_addr, c_wdata => c_wdata, c_be => c_be, c_rdata => c_rdata
+      req_tog => a_req, ack_tog => a_ack, init_done => init_i,
+      c_we => a_we, c_addr => a_addr, c_wdata => a_wdata, c_be => a_be, c_rdata => a_rdata
+    );
+
+  u_jtag : entity work.sdram_jtag_core
+    port map (
+      tck => jtag_tck, tdi => jtag_tdi, tdo => jtag_tdo, ir_in => jtag_ir_in,
+      state_cdr => jtag_state_cdr, state_sdr => jtag_state_sdr,
+      state_udr => jtag_state_udr, state_uir => jtag_state_uir,
+      cmd_tog => cmd_tog, op => d_op, be => d_be, addr => d_addr, data => d_data,
+      done_tog => done_tog, rsp_addr => r_addr, rsp_data => r_data, rsp_status => r_status
+    );
+
+  u_dbg : entity work.sdram_dbg_master
+    port map (
+      clk => clk_mem, rst => rst_mem,
+      cmd_tog => cmd_tog, done_tog => done_tog, op => d_op, be => d_be, addr => d_addr, data => d_data,
+      rsp_addr => r_addr, rsp_data => r_data, rsp_status => r_status,
+      init_done => init_i,
+      b_req_tog => b_req, b_ack_tog => b_ack, b_we => b_we, b_addr => b_addr,
+      b_wdata => b_wdata, b_be => b_be, b_rdata => b_rdata
+    );
+
+  u_arb : entity work.sdram_arbiter
+    port map (
+      clk => clk_mem, rst => rst_mem,
+      a_req_tog => a_req, a_ack_tog => a_ack, a_we => a_we, a_addr => a_addr,
+      a_wdata => a_wdata, a_be => a_be, a_rdata => a_rdata,
+      b_req_tog => b_req, b_ack_tog => b_ack, b_we => b_we, b_addr => b_addr,
+      b_wdata => b_wdata, b_be => b_be, b_rdata => b_rdata,
+      c_req_tog => req_tog, c_ack_tog => ack_tog, c_we => c_we, c_addr => c_addr,
+      c_wdata => c_wdata, c_be => c_be, c_rdata => c_rdata
     );
 
   u_ctrl : entity work.sdram_ctrl
-    generic map (TCK_PS => TCK_PS, INIT_CYCLES => INIT_CYCLES, REFRESH_CYCLES => REFRESH_CYCLES)
+    generic map (TCK_PS => TCK_PS, INIT_CYCLES => INIT_CYCLES, REFRESH_CYCLES => REFRESH_CYCLES,
+                 SYNC_REQ => false)
     port map (
       clk => clk_mem, rst => rst_mem,
       req_tog => req_tog, ack_tog => ack_tog, init_done => init_i,

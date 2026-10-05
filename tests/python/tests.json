@@ -22,6 +22,9 @@
             "external/sdram/sdram_pkg.vhd",
             "external/sdram/sdram_ctrl.vhd",
             "external/sdram/sdram_cpu_bridge.vhd",
+            "external/sdram/sdram_arbiter.vhd",
+            "external/sdram/sdram_dbg_master.vhd",
+            "external/sdram/sdram_jtag_core.vhd",
             "external/sdram/sim/sdram_model.vhd",
             "external/sdram/sim/sdram_system.vhd"
         ],
@@ -66,6 +69,26 @@
         "parameters": {
             "CAPTURE_EXTRA": 1
         },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramDebugPort": {
+        "toplevel": "sdram_system",
+        "sources": [
+            "external/sdram/sdram_pkg.vhd",
+            "external/sdram/sdram_ctrl.vhd",
+            "external/sdram/sdram_cpu_bridge.vhd",
+            "external/sdram/sdram_arbiter.vhd",
+            "external/sdram/sdram_dbg_master.vhd",
+            "external/sdram/sdram_jtag_core.vhd",
+            "external/sdram/sim/sdram_model.vhd",
+            "external/sdram/sim/sdram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.SdramDebugPort",
         "build_args": [
             "--std=08"
         ],

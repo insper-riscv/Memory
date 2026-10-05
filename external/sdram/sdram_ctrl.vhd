@@ -23,7 +23,10 @@ entity sdram_ctrl is
     INIT_CYCLES    : natural := cycles(T_INIT_PS, T_CK_PS);
     REFRESH_CYCLES : natural := cycles(T_REFI_PS, T_CK_PS) * 9 / 10;
     -- extra clocks before the read data is sampled (board and clock phase tuning)
-    CAPTURE_EXTRA  : natural := 0
+    CAPTURE_EXTRA  : natural := 0;
+    -- true: req_tog comes from another clock and is synchronized here; false: it comes from
+    -- this clock (the arbiter) and is used as it is, with no synchronizer latency
+    SYNC_REQ       : boolean := true
   );
   port (
     clk       : in  std_logic;
@@ -86,6 +89,7 @@ architecture rtl of sdram_ctrl is
   signal init_ref : natural range 0 to INIT_REFRESHES := 0;
 
   signal req_s    : std_logic_vector(1 downto 0) := "00";
+  signal req_eff  : std_logic;                      -- the request toggle the controller acts on
   signal ack_i    : std_logic := '0';
   signal tog_l    : std_logic := '0';  -- the toggle of the request in service
 
@@ -100,6 +104,7 @@ architecture rtl of sdram_ctrl is
 begin
 
   ack_tog   <= ack_i;
+  req_eff   <= req_s(1) when SYNC_REQ else req_tog;
   init_done <= init_i;
   rdata     <= rdata_i;
   dram_cke  <= '1';
@@ -200,9 +205,9 @@ begin
               ref_due <= '0';
               act_cnt <= C_RFC;
               goto_after(C_RFC, ST_IDLE);
-            elsif req_s(1) /= ack_i and act_cnt = 0 then
+            elsif req_eff /= ack_i and act_cnt = 0 then
               -- the request buses are stable from the flip of req_tog on
-              tog_l   <= req_s(1);
+              tog_l   <= req_eff;
               we_l    <= we;
               addr_l  <= addr;
               wdata_l <= wdata;
