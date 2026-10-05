@@ -15,5 +15,22 @@
         "parameters": {
             "ROM_FILE": "tests/python/unittests/sim/data/testROM.hex"
         }
+    },
+    "SdramSystem": {
+        "toplevel": "sdram_system",
+        "sources": [
+            "external/sdram/sdram_pkg.vhd",
+            "external/sdram/sdram_ctrl.vhd",
+            "external/sdram/sdram_cpu_bridge.vhd",
+            "external/sdram/sim/sdram_model.vhd",
+            "external/sdram/sim/sdram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.SdramSystem",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
