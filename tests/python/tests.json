@@ -95,5 +95,20 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "ExtBus": {
+        "toplevel": "ext_bus_system",
+        "sources": [
+            "external/bus/jtag_uart.vhd",
+            "external/bus/ext_interconnect.vhd",
+            "external/bus/sim/ext_bus_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.ExtBus",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
