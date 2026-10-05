@@ -40,6 +40,8 @@ def run_cocotb_test(toplevel: str, sources: list, test_module: str, parameters: 
         for k, v in parameters.items():
             if isinstance(v, bool):
                 abs_params[k] = "true" if v else "false"
+            elif isinstance(v, int):
+                abs_params[k] = str(v)
             else:
                 # tenta resolver como caminho absoluto relativo ao ambiente atual
                 vpath = Path(v)

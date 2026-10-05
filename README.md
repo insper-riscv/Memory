@@ -11,7 +11,7 @@ programs live in other repositories of
 | :--- | :--- |
 | `sim/` | simulation models: plain VHDL arrays that cocotb can read (`RAM_simulation`, `ROM_simulation`) |
 | `ips/` | the Quartus IPs of the board (`altsyncram`): `BOOT_ROM1PORT` (2 KB, programmed once), `FLASH1PORT` and `FLASH_MEM1PORT` (30 KB, the two physical copies of the FLASH, rewritten over JTAG per test), `RAM1PORT` (160 KB). They also simulate in GHDL through Intel's `altera_mf` models |
-| `external/sdram/` | the controller of the board's SDRAM (32M x 16, 64 MB), the bridge between the core clock and the controller clock, and a package with the chip's timings. `external/sdram/sim/` holds the chip model, which fails the simulation when the controller breaks a rule of the chip, and a top that wires the three together |
+| `external/sdram/` | the controller of the board's SDRAM (32M x 16, 64 MB), the bridge between the core clock and the controller clock, a self test that drives the controller alone (quick, patterns, whole-chip sweep and random modes), and a package with the chip's timings. `external/sdram/sim/` holds the chip model, which fails the simulation when the controller breaks a rule of the chip, and a top that wires the three together |
 | `tests/python/` | per-entity cocotb tests of the simulation models, of the SDRAM, and the catalog (`tests.json`) that drives them |
 
 The third family, **external memory** (RAM outside the FPGA, with multi-cycle

@@ -32,5 +32,45 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "SdramBist": {
+        "toplevel": "sdram_bist_system",
+        "sources": [
+            "external/sdram/sdram_pkg.vhd",
+            "external/sdram/sdram_ctrl.vhd",
+            "external/sdram/sdram_bist.vhd",
+            "external/sdram/sim/sdram_model.vhd",
+            "external/sdram/sim/sdram_bist_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.SdramBist",
+        "parameters": {
+            "CAPTURE_EXTRA": 0
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramBistRegisteredPins": {
+        "toplevel": "sdram_bist_system",
+        "sources": [
+            "external/sdram/sdram_pkg.vhd",
+            "external/sdram/sdram_ctrl.vhd",
+            "external/sdram/sdram_bist.vhd",
+            "external/sdram/sim/sdram_model.vhd",
+            "external/sdram/sim/sdram_bist_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.SdramBist",
+        "parameters": {
+            "CAPTURE_EXTRA": 1
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
