@@ -12,7 +12,7 @@ import cocotb
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.external.sdram_helpers import (
-    CPU_NS, LAST_WORD, MEM_NS, _post_edge, access, merge, model_word, start,
+    CPU_NS, LAST_WORD, MEM_NS, _post_edge, access, line_access, merge, model_word, start,
 )
 
 
@@ -175,3 +175,88 @@ async def test_latency(dut):
     _, r = await access(dut, False, 0x5)
     dut._log.info(f"stall: write {w} core cycles, read {r} core cycles (core clock {CPU_NS} ns)")
     assert w <= 8 and r <= 10, f"write {w}, read {r}"
+
+
+@cocotb.test()
+async def test_line_write_then_word_reads(dut):
+    """A line written in one request holds its four words, read back one by one and from the chip."""
+    await start(dut)
+    base = 0x00ABC0
+    words = [0x11111111, 0x22222222, 0x33333333, 0x44444444]
+    await line_access(dut, True, base, words)
+    for i, w in enumerate(words):
+        got, _ = await access(dut, False, base + i)
+        assert got == w, f"word {i}: read 0x{got:08X}"
+        assert await model_word(dut, base + i) == w
+
+
+@cocotb.test()
+async def test_line_read_of_words_written_one_by_one(dut):
+    """A line read returns the four words that were written one at a time, in order."""
+    await start(dut)
+    base = 0x7FFFF0
+    words = [0xA0000001 + i * 0x01010101 for i in range(4)]
+    for i, w in enumerate(words):
+        await access(dut, True, base + i, w)
+    got, _ = await line_access(dut, False, base)
+    assert got == words, [hex(g) for g in got]
+
+
+@cocotb.test()
+async def test_line_byte_enables(dut):
+    """Each word of a line write keeps its own byte enables."""
+    await start(dut)
+    base = 0x000100
+    old = [0xDEAD0000 + i for i in range(4)]
+    await line_access(dut, True, base, old)
+    new = [0xA1B2C3D4, 0x55667788, 0x99AABBCC, 0x0F1E2D3C]
+    bes = [0x3, 0xC, 0x5, 0xA]
+    await line_access(dut, True, base, new, bes)
+    got, _ = await line_access(dut, False, base)
+    want = [merge(o, n, b) for o, n, b in zip(old, new, bes)]
+    assert got == want, [hex(g) for g in got]
+
+
+@cocotb.test()
+async def test_line_is_faster_than_four_words(dut):
+    """One line request costs less than four word requests (one handshake, one row opening)."""
+    await start(dut)
+    base = 0x000200
+    _, line_cycles = await line_access(dut, False, base)
+    word_cycles = 0
+    for i in range(4):
+        _, c = await access(dut, False, base + i)
+        word_cycles += c
+    dut._log.info(f"line read {line_cycles} cycles, four words {word_cycles} cycles")
+    assert line_cycles < word_cycles - 4, f"{line_cycles} against {word_cycles}"
+
+
+@cocotb.test()
+async def test_lines_and_words_mixed(dut):
+    """Random lines and words over rows, banks and the ends of the memory, against a Python copy."""
+    await start(dut)
+    rng = random.Random(5)
+    lines = [0, 4, 0x1FC, 0x200, 0x7FC, 0x800, 0x1000, 0x7FFFC, 0x800000, LAST_WORD & ~3]
+    lines += [rng.randrange(1 << 22) << 2 for _ in range(12)]
+    mem = {}
+    for _ in range(80):
+        base = rng.choice(lines)
+        kind = rng.random()
+        if kind < 0.35:
+            words = [rng.getrandbits(32) for _ in range(4)]
+            bes = [rng.choice([0xF, 0xF, 0x3, 0xC, 0x1]) for _ in range(4)]
+            await line_access(dut, True, base, words, bes)
+            for i in range(4):
+                mem[base + i] = merge(mem.get(base + i, await model_word(dut, base + i) if base + i not in mem else 0), words[i], bes[i])
+        elif kind < 0.7:
+            got, _ = await line_access(dut, False, base)
+            for i in range(4):
+                if base + i in mem:
+                    assert got[i] == mem[base + i], f"line 0x{base:06X} word {i}: 0x{got[i]:08X}"
+        else:
+            w = base + rng.randrange(4)
+            v = rng.getrandbits(32)
+            await access(dut, True, w, v)
+            mem[w] = v
+    for w, v in mem.items():
+        assert await model_word(dut, w) == v, f"word 0x{w:06X}"

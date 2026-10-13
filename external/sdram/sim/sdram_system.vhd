@@ -27,6 +27,10 @@ entity sdram_system is
     mem_advance : in  std_logic;
     ready       : out std_logic;
     rdata       : out std_logic_vector(31 downto 0);
+    line        : in  std_logic := '0';
+    wdata_x     : in  std_logic_vector(95 downto 0) := (others => '0');
+    byteena_x   : in  std_logic_vector(11 downto 0) := (others => '0');
+    rdata_x     : out std_logic_vector(95 downto 0);
 
     init_done       : out std_logic;
     dbg_word_addr   : in  std_logic_vector(23 downto 0);
@@ -52,6 +56,12 @@ architecture sim of sdram_system is
   signal req_tog, ack_tog, init_i, c_we : std_logic;
   signal c_addr  : std_logic_vector(23 downto 0);
   signal c_wdata, c_rdata : std_logic_vector(31 downto 0);
+  signal c_line  : std_logic;
+  signal c_wdx, c_rdx : std_logic_vector(95 downto 0);
+  signal c_bex   : std_logic_vector(11 downto 0);
+  signal a_line  : std_logic;
+  signal a_wdx, a_rdx : std_logic_vector(95 downto 0);
+  signal a_bex   : std_logic_vector(11 downto 0);
   signal c_be    : std_logic_vector(3 downto 0);
 
   -- master A (the core's bridge) and master B (the debug master) of the arbiter
@@ -87,8 +97,10 @@ begin
       clk_cpu => clk_cpu, rst_cpu => rst_cpu,
       addr => addr, wdata => wdata, byteena => byteena, rden => rden, wren => wren,
       mem_advance => mem_advance, ready => ready, rdata => rdata,
+      line => line, wdata_x => wdata_x, byteena_x => byteena_x, rdata_x => rdata_x,
       req_tog => a_req, ack_tog => a_ack, init_done => init_i,
-      c_we => a_we, c_addr => a_addr, c_wdata => a_wdata, c_be => a_be, c_rdata => a_rdata
+      c_we => a_we, c_addr => a_addr, c_wdata => a_wdata, c_be => a_be, c_rdata => a_rdata,
+      c_line => a_line, c_wdata_x => a_wdx, c_be_x => a_bex, c_rdata_x => a_rdx
     );
 
   u_jtag : entity work.sdram_jtag_core
@@ -115,10 +127,12 @@ begin
       clk => clk_mem, rst => rst_mem,
       a_req_tog => a_req, a_ack_tog => a_ack, a_we => a_we, a_addr => a_addr,
       a_wdata => a_wdata, a_be => a_be, a_rdata => a_rdata,
+      a_line => a_line, a_wdata_x => a_wdx, a_be_x => a_bex, a_rdata_x => a_rdx,
       b_req_tog => b_req, b_ack_tog => b_ack, b_we => b_we, b_addr => b_addr,
       b_wdata => b_wdata, b_be => b_be, b_rdata => b_rdata,
       c_req_tog => req_tog, c_ack_tog => ack_tog, c_we => c_we, c_addr => c_addr,
-      c_wdata => c_wdata, c_be => c_be, c_rdata => c_rdata
+      c_wdata => c_wdata, c_be => c_be, c_rdata => c_rdata,
+      c_line => c_line, c_wdata_x => c_wdx, c_be_x => c_bex, c_rdata_x => c_rdx
     );
 
   u_ctrl : entity work.sdram_ctrl
@@ -128,6 +142,7 @@ begin
       clk => clk_mem, rst => rst_mem,
       req_tog => req_tog, ack_tog => ack_tog, init_done => init_i,
       we => c_we, addr => c_addr, wdata => c_wdata, be => c_be, rdata => c_rdata,
+      line => c_line, wdata_x => c_wdx, be_x => c_bex, rdata_x => c_rdx,
       dram_cke => cke, dram_cs_n => cs_n, dram_ras_n => ras_n, dram_cas_n => cas_n,
       dram_we_n => we_n, dram_ba => ba, dram_addr => a, dram_dqm => dqm,
       dram_dq_out => dq_out, dram_dq_oe => dq_oe, dram_dq_in => dq

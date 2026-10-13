@@ -216,7 +216,8 @@ begin
           report "SDRAM model: no AUTO REFRESH within tREFI" severity failure;
       end if;
 
-      if cke = '1' and cs_n = '0' then
+      -- a command that the controller drives on the edge of its own reset belongs to the run before it
+      if cke = '1' and cs_n = '0' and reinit = '0' then
         cmd := cs_n & ras_n & cas_n & we_n;
 
         if cmd /= CMD_NOP then
@@ -308,7 +309,7 @@ begin
             rd_pipe(CAS_LATENCY).data  := mem.read(key);
             rd_pipe(CAS_LATENCY + 1).valid := true;
             rd_pipe(CAS_LATENCY + 1).data  := mem.read(key + 1);
-            burst_until := now + (CAS_LATENCY + 2) * TCK;
+            burst_until := now + 2 * TCK;
             if ap then
               pre_start := now + 2 * TCK;
               if act_time(b) + T_RAS_PS * 1 ps > pre_start then

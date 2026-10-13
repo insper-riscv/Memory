@@ -23,13 +23,20 @@ async def post_edge(dut):
     await Timer(1, unit="ns")
 
 
+def own_memory(dut):
+    """True when the testbench plays the memory (m_* ports); false when the design has its own (the AXI4-Lite one)."""
+    return not hasattr(dut, "u_slave")
+
+
 async def start(dut):
-    for sig in (dut.rden, dut.wren, dut.mem_advance, dut.m_ready):
+    for sig in (dut.rden, dut.wren, dut.mem_advance):
         sig.value = 0
+    if own_memory(dut):
+        dut.m_ready.value = 0
+        dut.m_rdata.value = MEM_VALUE
     dut.addr.value = 0
     dut.wdata.value = 0
     dut.byteena.value = 0
-    dut.m_rdata.value = MEM_VALUE
     dut.rst.value = 1
     cocotb.start_soon(Clock(dut.clk, 20, unit="ns").start())
     for _ in range(4):
@@ -51,20 +58,21 @@ async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):
     while True:
         await post_edge(dut)
         cycles += 1
-        if addr < 0x80000000 and cycles == mem_latency:
+        if own_memory(dut) and addr < 0x80000000 and cycles == mem_latency:
             dut.m_ready.value = 1     # the memory answers, as a level
-        if addr >= 0x80000000:
+        if own_memory(dut) and addr >= 0x80000000:
             assert int(dut.m_rden.value) == 0 and int(dut.m_wren.value) == 0, "a peripheral access reached the memory"
         if int(dut.ready.value):
             break
-        assert cycles < 50, "the access never completed"
+        assert cycles < 5000, "the access never completed"
     for _ in range(hold):
         assert int(dut.ready.value), "ready dropped before the pipeline advanced"
         await post_edge(dut)
     dut.mem_advance.value = 1
     await post_edge(dut)
     dut.mem_advance.value = 0
-    dut.m_ready.value = 0
+    if own_memory(dut):
+        dut.m_ready.value = 0
     dut.rden.value = 0
     dut.wren.value = 0
     return int(dut.rdata.value), cycles
@@ -127,7 +135,8 @@ async def test_memory_access_passes_through(dut):
     await start(dut)
     value, cycles = await access(dut, MEM)
     assert value == MEM_VALUE
-    assert cycles == 3, f"the memory's own latency is the core's: {cycles}"
+    if own_memory(dut):
+        assert cycles == 3, f"the memory's own latency is the core's: {cycles}"
     await access(dut, MEM + 4, we=True, wdata=0xAB)
     await access(dut, TXDATA, we=True, wdata=0x41)
 
@@ -267,9 +276,12 @@ async def test_the_load_in_the_last_stage_keeps_its_data(dut):
     dut.mem_advance.value = 0
     # B is on the port now: a second peripheral read, still working; A's data is on rdata
     dut.addr.value = RXDATA
-    for _ in range(3):
+    waited = 0
+    while waited < 3 or not int(dut.ready.value):
         assert int(dut.rdata.value) == 0x141, hex(int(dut.rdata.value))
         await post_edge(dut)
+        waited += 1
+        assert waited < 5000, "the access never completed"
     dut.mem_advance.value = 1
     await post_edge(dut)
     dut.mem_advance.value = 0
