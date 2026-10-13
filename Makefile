@@ -3,7 +3,7 @@ GHDL  := ghdl
 STD   := --std=08
 WDIR  := build/ghdl
 
-.PHONY: check test paths clean
+.PHONY: check test paths formal clean
 
 # GHDL syntax check of the simulation models and of the external memory (the SDRAM
 # controller, its bridge and the chip model). The Quartus IPs (ips/) need
@@ -17,6 +17,10 @@ check:
 # Per-entity cocotb tests; `make test TEST=RAM` for one entry of tests/python/tests.json.
 test:
 	uv run python tests/python/runner.py $(TEST)
+
+# Formal verification of the SDRAM arbiter (docs/FORMAL.md): needs yosys and sby, in the toolchain image.
+formal:
+	bash formal/run.sh
 
 # Every path the configuration lists exists.
 paths:
