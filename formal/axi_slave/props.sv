@@ -1,4 +1,4 @@
-// Properties of axil_slave_word_bridge, checked on the Verilog netlist GHDL synthesizes from the VHDL.
+// Properties of axi_slave_word_bridge, checked on the Verilog netlist GHDL synthesizes from the VHDL.
 // The AXI4-Lite master and the memory behind the word port are free inputs held to their contracts by
 // assumptions; the assertions are what the bridge itself must guarantee.
 `ifndef K
@@ -20,7 +20,7 @@ module props (input clk);
   wire [31:0] addr, wdata; wire [3:0] byteena; wire rden, wren, mem_advance;
   wire [1:0] d_st; wire d_aw, d_w, d_we;   // state registers, exposed in the verification copy of the netlist
 
-  axil_slave_word_bridge dut (.clk(clk), .rst(rst),
+  axi_slave_word_bridge dut (.clk(clk), .rst(rst),
     .s_awvalid(awvalid), .s_awready(awready), .s_awaddr(awaddr),
     .s_wvalid(wvalid), .s_wready(wready), .s_wdata(wdata_s), .s_wstrb(wstrb),
     .s_bvalid(bvalid), .s_bready(bready), .s_bresp(bresp),

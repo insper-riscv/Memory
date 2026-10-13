@@ -15,7 +15,7 @@ use ieee.numeric_std.all;
 -- Memory side: one word at a time on d_*, with the same contract (a request is held until d_ready,
 -- and d_ready is taken by the cache itself, as the rest of the pipeline is stopped). AXI4-Lite
 -- cannot carry a burst, so the line moves as four single-word accesses; the port is the one
--- axil_master_bridge turns into AXI4-Lite.
+-- axi_master_bridge turns into AXI4-Lite.
 --
 -- flush: a request (one pulse is enough) to write back every dirty line (the lines stay valid and
 -- become clean), and with invalidate in the same clock then drops every line, as a program does
@@ -66,7 +66,10 @@ entity dcache is
     d_wren      : out std_logic;
     d_advance   : out std_logic;
     d_ready     : in  std_logic;
-    d_rdata     : in  std_logic_vector(31 downto 0)
+    d_rdata     : in  std_logic_vector(31 downto 0);
+    d_line      : out std_logic;
+    d_wdata_x   : out std_logic_vector(95 downto 0);
+    d_rdata_x   : in  std_logic_vector(95 downto 0) := (others => '0')
   );
 end entity dcache;
 
@@ -74,7 +77,7 @@ architecture rtl of dcache is
 
   type state_t is (
     S_IDLE, S_LOOK, S_DONE,
-    S_WB_RD, S_WB_REQ, S_WB_WAIT,
+    S_WB_RD, S_WB_CAP, S_WB_REQ, S_WB_WAIT,
     S_FILL_REQ, S_FILL_WAIT, S_FILL_GET,
     S_FL_TAG, S_FL_CHK, S_FL_NEXT,
     S_WT_REQ, S_WT_WAIT);
@@ -110,6 +113,9 @@ architecture rtl of dcache is
   signal rdata_q  : std_logic_vector(31 downto 0) := (others => '0');
   signal d_rden_i, d_wren_i : std_logic := '0';
   signal d_be_i   : std_logic_vector(3 downto 0) := "1111";
+  signal d_line_i : std_logic := '0';
+  signal wb_q     : std_logic_vector(127 downto 0) := (others => '0');   -- the line being written back
+  signal fill_w   : std_logic_vector(31 downto 0);                        -- word cnt of the line that arrived
   signal d_addr_i : std_logic_vector(31 downto 0) := (others => '0');
   signal d_wdata_i : std_logic_vector(31 downto 0) := (others => '0');
   signal fd_i     : std_logic := '0';
@@ -128,7 +134,11 @@ begin
   -- write port: a hit writes the word, a fill writes the word that arrived
   ram_we <= '1' when (st = S_LOOK and hit = '1' and wren = '1') or st = S_FILL_GET else '0';
   ram_wa <= addr(11 downto 2) when st = S_LOOK else req_idx & std_logic_vector(cnt);
-  ram_wd <= wdata when st = S_LOOK else d_rdata;
+  fill_w <= d_rdata when cnt = "00" else
+            d_rdata_x(31 downto 0)  when cnt = "01" else
+            d_rdata_x(63 downto 32) when cnt = "10" else
+            d_rdata_x(95 downto 64);
+  ram_wd <= wdata when st = S_LOOK else fill_w;
   ram_be <= byteena when st = S_LOOK else "1111";
   tag_we <= '1' when st = S_FILL_GET and cnt = "11" else '0';
   tag_wa <= req_idx;
@@ -162,6 +172,8 @@ begin
   d_byteena <= d_be_i;
   d_rden    <= d_rden_i;
   d_wren    <= d_wren_i;
+  d_line    <= d_line_i;
+  d_wdata_x <= wb_q(127 downto 32);
   d_advance <= d_ready;
 
   process (clk)
@@ -242,42 +254,51 @@ begin
               st       <= S_DONE;
             end if;
 
-          -- write the dirty line back: read a word of it, send it, four times
+          -- write the dirty line back: read its four words out of the RAM, then one line request
           when S_WB_RD =>
-            st <= S_WB_REQ;
+            st <= S_WB_CAP;
+
+          when S_WB_CAP =>
+            wb_q(32 * to_integer(cnt) + 31 downto 32 * to_integer(cnt)) <= ram_rd;
+            if cnt = "11" then
+              st <= S_WB_REQ;
+            else
+              cnt <= cnt + 1;
+              st  <= S_WB_RD;
+            end if;
 
           when S_WB_REQ =>
-            d_addr_i  <= BASE & tag_rd & cur_idx & std_logic_vector(cnt) & "00";
-            d_wdata_i <= ram_rd;
+            d_addr_i  <= BASE & tag_rd & cur_idx & "0000";
+            d_wdata_i <= wb_q(31 downto 0);
+            d_line_i  <= '1';
             d_wren_i  <= '1';
             st        <= S_WB_WAIT;
 
           when S_WB_WAIT =>
             if d_ready = '1' then
-              d_wren_i <= '0';
-              if cnt = "11" then
-                cnt       <= (others => '0');
-                dirty(ci) <= '0';
-                if flushing = '1' then
-                  st <= S_FL_NEXT;
-                else
-                  st <= S_FILL_REQ;
-                end if;
+              d_wren_i  <= '0';
+              d_line_i  <= '0';
+              cnt       <= (others => '0');
+              dirty(ci) <= '0';
+              if flushing = '1' then
+                st <= S_FL_NEXT;
               else
-                cnt <= cnt + 1;
-                st  <= S_WB_RD;
+                st <= S_FILL_REQ;
               end if;
             end if;
 
-          -- bring the line in, one word at a time
+          -- bring the line in: one line request, then its words into the RAM
           when S_FILL_REQ =>
-            d_addr_i <= BASE & req_tag & req_idx & std_logic_vector(cnt) & "00";
+            d_addr_i <= BASE & req_tag & req_idx & "0000";
+            d_line_i <= '1';
             d_rden_i <= '1';
             st       <= S_FILL_WAIT;
 
           when S_FILL_WAIT =>
             if d_ready = '1' then
               d_rden_i <= '0';
+              d_line_i <= '0';
+              cnt      <= (others => '0');
               st       <= S_FILL_GET;
             end if;
 
@@ -289,7 +310,6 @@ begin
               st        <= S_IDLE;
             else
               cnt <= cnt + 1;
-              st  <= S_FILL_REQ;
             end if;
 
           -- flush: the lines one by one

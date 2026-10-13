@@ -11,7 +11,7 @@ router had no record of the W handshake and offered W again after AW was accepte
 | Symptom | none in any test: found by reading the handshake rules before the router had tests |
 | Cause | the write data followed the address decision, but its handshake was recorded only together with the address handshake |
 | Fix | W is offered only in the clock in which the AW handshake completes, or after it; the W handshake is recorded in the same clock as AW's, or in its own state afterwards |
-| Test | `AxilRouter`: W before AW, W with AW and back-to-back writes; the mutant that offers W with an AW that is not yet taken fails |
+| Test | `AxiRouter`: W before AW, W with AW and back-to-back writes; the mutant that offers W with an AW that is not yet taken fails |
 
 ## 2. The mechanism
 

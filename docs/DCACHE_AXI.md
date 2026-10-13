@@ -4,8 +4,8 @@
 
 ```
                      ┌─ dcache ─┐
-core port ── split ──┤          ├── axil_master_bridge ── axil_router ──┬── axil_slave_word_bridge ── sdram_cpu_bridge ── arbiter ── controller ── chip
- (bit 31)            └─ direct ─┘                                       └── axil_slave_periph_bank ── p_* (eight peripheral slots)
+core port ── split ──┤          ├── axi_master_bridge ── axi_router ──┬── axi_slave_word_bridge ── sdram_cpu_bridge ── arbiter ── controller ── chip
+ (bit 31)            └─ direct ─┘                                       └── axi_slave_periph_bank ── p_* (eight peripheral slots)
 ```
 
 Addresses with bit 31 clear are the SDRAM space and go through the cache, except its last 4 KB (0x43FFF000 to 0x43FFFFFF); addresses with bit 31 set are the peripheral window (bits 30:28 the peripheral, 9:2 the word). Both exceptions go straight to the master, uncached. The last 4 KB hold the words the host shares with the program (mailbox, tohost, fromhost, go flag, stdout), which the host reads and writes through the debug port of the SDRAM, behind the cache. All blocks left of the SDRAM bridge run on the core clock; the bridge crosses to the memory clock as before.
@@ -51,9 +51,9 @@ An access through the peripheral bank takes more clocks than on the private bus 
 | :--- | :--- |
 | Cache, bridges and SDRAM together | `make test TEST=DataCache`: reads and writes against a Python copy of the memory, byte enables, hold after ready, evictions, 300 random accesses over conflicting lines, flush; after each flush the chip model must hold exactly the copy |
 | Same tests as the private bus | `make test TEST=ExtAxiBus` runs the tests of the private external bus (UART bytes in order, stopped pipeline pops once, full queues, unmapped window reads 0, load data stays while the next access runs) on this bus, with a word memory behind the SDRAM slave |
-| Router | `make test TEST=AxilRouter`: both slaves for writes and reads, W before AW, DECERR below, between and above the windows, back-to-back; mutants (DECERR answered OKAY, W taken before its AW, a wrong decode) fail |
-| Master bridge protocol | `bash formal/axil_master/run.sh`: valid held until ready with a stable payload, one request per access, responses only after the request, ready as a level, bounded wait; covers; mutants that must fail |
-| Slave bridge protocol | `bash formal/axil_slave/run.sh`: the same kind of properties, the payload passed on is what was accepted, one transaction at a time, bounded wait; covers; 5 mutants |
+| Router | `make test TEST=AxiRouter`: both slaves for writes and reads, W before AW, DECERR below, between and above the windows, back-to-back; mutants (DECERR answered OKAY, W taken before its AW, a wrong decode) fail |
+| Master bridge protocol | `bash formal/axi_master/run.sh`: valid held until ready with a stable payload, one request per access, responses only after the request, ready as a level, bounded wait; covers; mutants that must fail |
+| Slave bridge protocol | `bash formal/axi_slave/run.sh`: the same kind of properties, the payload passed on is what was accepted, one transaction at a time, bounded wait; covers; 5 mutants |
 | Cache mutants | A write hit that does not set dirty, a write-back that skips a word, and byte enables ignored on a hit each fail the cache tests |
 
 The peripheral bank and the router are checked by the tests above and have no formal properties yet.

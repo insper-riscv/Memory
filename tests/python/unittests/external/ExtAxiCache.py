@@ -83,3 +83,34 @@ async def test_flush_with_invalidate_drops_the_lines(dut):
     v, miss = await access(dut, SDRAM + 0x600)
     assert v == 0x77
     assert miss > hit + 4, f"the read after an invalidate was a hit ({miss} against {hit} clocks)"
+
+
+async def store_bytes(dut, addr, data, be):
+    """One store the way the core makes a byte or half-word one: the byte address, the data, the byte enables."""
+    dut.addr.value = addr
+    dut.wdata.value = data
+    dut.byteena.value = be
+    dut.wren.value = 1
+    dut.rden.value = 0
+    for _ in range(200):
+        await post_edge(dut)
+        if int(dut.ready.value):
+            break
+    else:
+        raise AssertionError("the store never completed")
+    dut.mem_advance.value = 1
+    await post_edge(dut)
+    dut.mem_advance.value = 0
+    dut.wren.value = 0
+
+
+@cocotb.test()
+async def test_a_byte_store_at_an_unaligned_address_changes_only_its_byte(dut):
+    """The window the host shares with the program is not cached: a byte store goes out as a
+    word-aligned write with the byte enable of its lane (the stdout buffer is written this way)."""
+    await start(dut)
+    await store_bytes(dut, UNCACHED + 0x40, 0x11223344, 0xF)
+    await store_bytes(dut, UNCACHED + 0x41, 0x0000AA00, 0x2)        # byte 1 of the word
+    await store_bytes(dut, UNCACHED + 0x42, 0x00BB0000, 0x4)        # byte 2
+    await store_bytes(dut, UNCACHED + 0x42, 0xCCDD0000, 0xC)        # half-word at +2
+    assert await peek(dut, 0xC10) == 0xCCDDAA44, hex(await peek(dut, 0xC10))

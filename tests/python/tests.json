@@ -122,8 +122,8 @@
             "external/sdram/sdram_jtag_core.vhd",
             "external/sdram/sim/sdram_model.vhd",
             "external/sdram/sim/sdram_system.vhd",
-            "external/axi/axil_master_bridge.vhd",
-            "external/axi/axil_slave_word_bridge.vhd",
+            "external/axi/axi_master_bridge.vhd",
+            "external/axi/axi_slave_word_bridge.vhd",
             "external/cache/dcache.vhd",
             "external/cache/sim/sdram_dcache_system.vhd"
         ],
@@ -139,10 +139,10 @@
         "toplevel": "ext_axi_bus_system",
         "sources": [
             "external/bus/jtag_uart.vhd",
-            "external/axi/axil_master_bridge.vhd",
-            "external/axi/axil_slave_word_bridge.vhd",
-            "external/axi/axil_slave_periph_bank.vhd",
-            "external/axi/axil_router.vhd",
+            "external/axi/axi_master_bridge.vhd",
+            "external/axi/axi_slave_word_bridge.vhd",
+            "external/axi/axi_slave_periph_bank.vhd",
+            "external/axi/axi_router.vhd",
             "external/cache/dcache.vhd",
             "external/axi/ext_axi_interconnect.vhd",
             "external/axi/sim/ext_axi_bus_system.vhd"
@@ -155,12 +155,12 @@
             "--std=08"
         ]
     },
-    "AxilRouter": {
-        "toplevel": "axil_router",
+    "AxiRouter": {
+        "toplevel": "axi_router",
         "sources": [
-            "external/axi/axil_router.vhd"
+            "external/axi/axi_router.vhd"
         ],
-        "test_module": "tests.python.unittests.external.AxilRouter",
+        "test_module": "tests.python.unittests.external.AxiRouter",
         "build_args": [
             "--std=08"
         ],
@@ -172,10 +172,10 @@
         "toplevel": "ext_axi_bus_system",
         "sources": [
             "external/bus/jtag_uart.vhd",
-            "external/axi/axil_master_bridge.vhd",
-            "external/axi/axil_slave_word_bridge.vhd",
-            "external/axi/axil_slave_periph_bank.vhd",
-            "external/axi/axil_router.vhd",
+            "external/axi/axi_master_bridge.vhd",
+            "external/axi/axi_slave_word_bridge.vhd",
+            "external/axi/axi_slave_periph_bank.vhd",
+            "external/axi/axi_router.vhd",
             "external/cache/dcache.vhd",
             "external/axi/ext_axi_interconnect.vhd",
             "external/axi/sim/ext_axi_bus_system.vhd"
@@ -199,8 +199,8 @@
             "external/sdram/sdram_jtag_core.vhd",
             "external/sdram/sim/sdram_model.vhd",
             "external/sdram/sim/sdram_system.vhd",
-            "external/axi/axil_master_bridge.vhd",
-            "external/axi/axil_slave_word_bridge.vhd",
+            "external/axi/axi_master_bridge.vhd",
+            "external/axi/axi_slave_word_bridge.vhd",
             "external/cache/dcache.vhd",
             "external/cache/sim/sdram_dcache_system.vhd"
         ],
@@ -214,5 +214,27 @@
         "parameters": {
             "WRITE_THROUGH": true
         }
+    },
+    "AxiSdramSlave": {
+        "toplevel": "axi_sdram_slave_system",
+        "sources": [
+            "external/sdram/sdram_pkg.vhd",
+            "external/sdram/sdram_ctrl.vhd",
+            "external/sdram/sdram_cpu_bridge.vhd",
+            "external/sdram/sdram_arbiter.vhd",
+            "external/sdram/sdram_dbg_master.vhd",
+            "external/sdram/sdram_jtag_core.vhd",
+            "external/sdram/sim/sdram_model.vhd",
+            "external/sdram/sim/sdram_system.vhd",
+            "external/axi/axi_slave_word_bridge.vhd",
+            "external/axi/sim/axi_sdram_slave_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.AxiSdramSlave",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
