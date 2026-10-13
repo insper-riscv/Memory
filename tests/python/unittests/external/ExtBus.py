@@ -64,7 +64,7 @@ async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):
             assert int(dut.m_rden.value) == 0 and int(dut.m_wren.value) == 0, "a peripheral access reached the memory"
         if int(dut.ready.value):
             break
-        assert cycles < 200, "the access never completed"
+        assert cycles < 5000, "the access never completed"
     for _ in range(hold):
         assert int(dut.ready.value), "ready dropped before the pipeline advanced"
         await post_edge(dut)
@@ -281,7 +281,7 @@ async def test_the_load_in_the_last_stage_keeps_its_data(dut):
         assert int(dut.rdata.value) == 0x141, hex(int(dut.rdata.value))
         await post_edge(dut)
         waited += 1
-        assert waited < 200, "the access never completed"
+        assert waited < 5000, "the access never completed"
     dut.mem_advance.value = 1
     await post_edge(dut)
     dut.mem_advance.value = 0

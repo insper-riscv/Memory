@@ -216,7 +216,8 @@ begin
           report "SDRAM model: no AUTO REFRESH within tREFI" severity failure;
       end if;
 
-      if cke = '1' and cs_n = '0' then
+      -- a command that the controller drives on the edge of its own reset belongs to the run before it
+      if cke = '1' and cs_n = '0' and reinit = '0' then
         cmd := cs_n & ras_n & cas_n & we_n;
 
         if cmd /= CMD_NOP then

@@ -8,9 +8,11 @@ core port ── split ──┤          ├── axil_master_bridge ── ax
  (bit 31)            └─ direct ─┘                                       └── axil_slave_periph_bank ── p_* (eight peripheral slots)
 ```
 
-Addresses with bit 31 clear are the SDRAM space and go through the cache; addresses with bit 31 set are the peripheral window (bits 30:28 the peripheral, 9:2 the word) and go straight to the master, uncached. All blocks left of the SDRAM bridge run on the core clock; the bridge crosses to the memory clock as before.
+Addresses with bit 31 clear are the SDRAM space and go through the cache, except its last 4 KB (0x43FFF000 to 0x43FFFFFF); addresses with bit 31 set are the peripheral window (bits 30:28 the peripheral, 9:2 the word). Both exceptions go straight to the master, uncached. The last 4 KB hold the words the host shares with the program (mailbox, tohost, fromhost, go flag, stdout), which the host reads and writes through the debug port of the SDRAM, behind the cache. All blocks left of the SDRAM bridge run on the core clock; the bridge crosses to the memory clock as before.
 
 The core side of the whole is the contract of the private external bus: the access sits on the port while the stage is stopped, `ready` is a level until `mem_advance`, and `rdata` stays on the last completed load until the next one completes, because the load in the last stage still reads it while the next access is on the port. The peripheral side is the same `p_*` port with one pulse per access, so a peripheral (the JTAG UART) is the same VHDL on either bus.
+
+Peripheral 7 (0xF0000000) is the cache's control: a write to its first word starts a flush, and a read gives 1 while a flush is under way, 0 otherwise. A program flushes before it ends, so the host reads what the program wrote. An access that does not use the cache waits while a flush runs; the core's access that already owns the master when a flush starts finishes first, and the flush goes on after it.
 
 ## 2. Data cache
 
@@ -25,7 +27,7 @@ The core side of the whole is the contract of the private external bus: the acce
 | Clean miss | The line's four word reads, one after the other |
 | Dirty miss | Four word writes of the old line, then the four reads |
 | Reset | All lines invalid |
-| `flush` | Writes back every dirty line; the lines stay valid and become clean; `busy` is high until `flush_done` pulses |
+| `flush` | A request, served before any access that waits: writes back every dirty line (a sweep of the 256 lines, three clocks for each clean one); the lines stay valid and become clean; `busy` is high from the clock after the request until `flush_done` pulses |
 
 AXI4-Lite has no burst, so a line moves as four single-word accesses. Another master that writes the SDRAM (the JTAG debug port) must do it while the cache holds nothing for those addresses: after the reset, or after a `flush` for data the cache still holds dirty.
 
@@ -36,6 +38,7 @@ AXI4-Lite has no burst, so a line moves as four single-word accesses. Another ma
 | Master bridge | Core word contract to the five channels, one access at a time. AW and W are offered together and accepted in any order; B and R are taken only after the request was accepted. `err` is the high bit of the response |
 | Slave bridge | The five channels to the word contract of the SDRAM bridge. Accepts AW and W in any order, reads yield to a write that is offered or half accepted, the response is always OKAY, and nothing new is accepted before the response is taken |
 | Peripheral bank | The five channels to the peripheral `p_*` port: one pulse of `p_we` or `p_re` per access, the read data taken in the clock of the pulse. A window nobody answers reads 0 and a write has no effect, both with OKAY |
+| Cache control | `make test TEST=ExtAxiCache`: a cached write reaches the memory only with the flush, the flush holds back an access that does not use the cache until it ends, the shared window writes through |
 | Router | One master, two slaves, no clock of delay. 0x40000000 to 0x43FFFFFF is the SDRAM, 0x80000000 and above the peripherals, anything else is accepted and answered with DECERR (reads give 0). A W that arrives before its AW waits; B and R return from the slave that took the request |
 
 An access through the peripheral bank takes more clocks than on the private bus (the five channels and the router), and a miss costs the line's four word accesses; a hit is two clocks.

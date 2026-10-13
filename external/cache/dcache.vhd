@@ -17,8 +17,10 @@ use ieee.numeric_std.all;
 -- cannot carry a burst, so the line moves as four single-word accesses; the port is the one
 -- axil_master_bridge turns into AXI4-Lite.
 --
--- flush: write back every dirty line (the lines stay valid and become clean); busy is high until
--- flush_done pulses. The core must not access the cache meanwhile. Nothing else writes the SDRAM
+-- flush: a request (one pulse is enough) to write back every dirty line (the lines stay valid and
+-- become clean). It starts as soon as the cache is idle, before any access that is waiting; busy is
+-- high from the clock after the request until flush_done pulses. An access that comes meanwhile
+-- waits for the flush to finish. Nothing else writes the SDRAM
 -- behind the cache's back in normal operation, so a program that loads code or data with another
 -- master (the JTAG debug port) does it with the cache invalid, as it is after the reset.
 --
@@ -88,6 +90,7 @@ architecture rtl of dcache is
   signal cur_idx  : std_logic_vector(7 downto 0);   -- the line being worked on
   signal cnt      : unsigned(1 downto 0) := (others => '0');
   signal flushing : std_logic := '0';
+  signal flush_pend : std_logic := '0';
   signal f_idx    : unsigned(7 downto 0) := (others => '0');
   signal hit      : std_logic;
 
@@ -138,7 +141,7 @@ begin
 
   ready      <= '1' when st = S_DONE else '0';
   rdata      <= rdata_q;
-  busy       <= '1' when flushing = '1' else '0';
+  busy       <= flush_pend or flushing;
   flush_done <= fd_i;
 
   d_addr    <= d_addr_i;
@@ -158,20 +161,25 @@ begin
         valid    <= (others => '0');
         dirty    <= (others => '0');
         flushing <= '0';
+        flush_pend <= '0';
         d_rden_i <= '0';
         d_wren_i <= '0';
         cnt      <= (others => '0');
       else
         ci := to_integer(unsigned(cur_idx));
+        if flush = '1' then
+          flush_pend <= '1';
+        end if;
         case st is
 
           when S_IDLE =>
-            if rden = '1' or wren = '1' then
+            if flush_pend = '1' then
+              flush_pend <= '0';
+              flushing   <= '1';
+              f_idx      <= (others => '0');
+              st         <= S_FL_TAG;
+            elsif rden = '1' or wren = '1' then
               st <= S_LOOK;
-            elsif flush = '1' then
-              flushing <= '1';
-              f_idx    <= (others => '0');
-              st       <= S_FL_TAG;
             end if;
 
           when S_LOOK =>

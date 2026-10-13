@@ -24,6 +24,10 @@ entity ext_axi_bus_system is
     flush_done  : out std_logic;
     busy        : out std_logic;
 
+    -- the word memory behind the SDRAM slave, read without going through the bus
+    dbg_word_addr : in  std_logic_vector(11 downto 0) := (others => '0');
+    dbg_word_data : out std_logic_vector(31 downto 0);
+
     jtag_tck        : in  std_logic := '0';
     jtag_tdi        : in  std_logic := '0';
     jtag_tdo        : out std_logic;
@@ -88,6 +92,7 @@ begin
   -- the memory: ready two clocks after the access starts, a level until mem_advance; the read
   -- data changes on the edge of mem_advance
   m_ready <= ready_i;
+  dbg_word_data <= mem(to_integer(unsigned(dbg_word_addr)));
   process (clk)
     variable i : integer;
   begin

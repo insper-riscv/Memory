@@ -4,8 +4,16 @@ use ieee.std_logic_1164.all;
 -- The core's external data port over AXI4-Lite: what ext_interconnect and sdram_cpu_bridge do on a
 -- private bus, here as one AXI4-Lite master with two slaves behind it.
 --
---   bit 31 = 0   the SDRAM space: through the data cache, as lines of four words
+--   bit 31 = 0   the SDRAM space: through the data cache, as lines of four words, except its
+--                last 4 KB (0x43FFF000 to 0x43FFFFFF), which is not cached: the words the host
+--                shares with the program (mailbox, tohost, fromhost, go flag, stdout) live there,
+--                and the host reads and writes them through the debug port of the SDRAM
 --   bit 31 = 1   a peripheral window (bits 30:28 the peripheral, 9:2 the word), not cached
+--
+-- Peripheral 7 is the cache's own control, not an external one: a write to its first word asks the
+-- cache to write every dirty line back (a program does it before it ends, so the host reads what
+-- the program wrote), and a read of it gives 1 while that is under way, 0 otherwise. An access that
+-- does not go through the cache waits while a flush is under way, as the cache's own accesses do.
 --
 -- Core side, the contract of ext_interconnect: the access sits on the port while the memory stage is
 -- stopped; ready is a level until mem_advance; rdata only changes when a load completes and stays
@@ -33,8 +41,8 @@ entity ext_axi_interconnect is
     ready       : out std_logic;
     rdata       : out std_logic_vector(31 downto 0);
 
-    -- the data cache
-    flush       : in  std_logic;
+    -- the data cache (flush: one pulse asks for a flush, as a write to peripheral 7 does)
+    flush       : in  std_logic := '0';
     flush_done  : out std_logic;
     busy        : out std_logic;
 
@@ -59,7 +67,13 @@ end entity ext_axi_interconnect;
 
 architecture rtl of ext_axi_interconnect is
 
-  signal mmio : std_logic;
+  signal mmio : std_logic;                   -- the address is not cached
+  signal direct : std_logic;                 -- an access that does not go through the cache owns the master
+  signal own    : std_logic := '0';          -- one that started and has not been advanced yet
+  signal c_busy : std_logic;
+  signal flush_i : std_logic;
+  signal p_we_i, p_re_i : std_logic_vector(7 downto 0);
+  signal p_rdata_i : std_logic_vector(8 * 32 - 1 downto 0);
 
   -- the data cache
   signal c_rden, c_wren, c_ready : std_logic;
@@ -93,7 +107,10 @@ architecture rtl of ext_axi_interconnect is
 
 begin
 
-  mmio   <= addr(31);
+  mmio   <= '1' when addr(31) = '1' or addr(25 downto 12) = "11111111111111" else '0';
+  -- the core's own access takes the master when the cache is not flushing, or when it already has it
+  direct <= mmio and (rden or wren) and (own or not c_busy);
+  busy   <= c_busy;
   c_rden <= rden and not mmio;
   c_wren <= wren and not mmio;
 
@@ -103,22 +120,24 @@ begin
       clk => clk, rst => rst,
       addr => addr, wdata => wdata, byteena => byteena, rden => c_rden, wren => c_wren,
       mem_advance => mem_advance, ready => c_ready, rdata => c_rdata,
-      flush => flush, flush_done => flush_done, busy => busy,
+      flush => flush_i, flush_done => flush_done, busy => c_busy,
       d_addr => d_addr, d_wdata => d_wdata, d_byteena => d_be, d_rden => d_rden, d_wren => d_wren,
       d_advance => d_advance, d_ready => d_ready, d_rdata => d_rdata
     );
 
-  -- one access at a time on the AXI4-Lite master: the core's own (a peripheral) or the cache's
-  b_addr    <= addr    when mmio = '1' else d_addr;
-  b_wdata   <= wdata   when mmio = '1' else d_wdata;
-  b_be      <= byteena when mmio = '1' else d_be;
-  b_rden    <= rden    when mmio = '1' else d_rden;
-  b_wren    <= wren    when mmio = '1' else d_wren;
-  b_advance <= mem_advance when mmio = '1' else d_advance;
-  d_ready   <= b_ready;
+  -- one access at a time on the AXI4-Lite master: the core's own (not cached) or the cache's; the
+  -- core's wins only while it has an access on the port, so a port that rests on a peripheral address
+  -- does not keep the cache from its own accesses
+  b_addr    <= addr    when direct = '1' else d_addr;
+  b_wdata   <= wdata   when direct = '1' else d_wdata;
+  b_be      <= byteena when direct = '1' else d_be;
+  b_rden    <= rden when direct = '1' else d_rden;
+  b_wren    <= wren when direct = '1' else d_wren;
+  b_advance <= mem_advance when direct = '1' else d_advance;
+  d_ready   <= b_ready and not direct;
   d_rdata   <= b_rdata;
 
-  ready <= b_ready when mmio = '1' else c_ready;
+  ready <= (b_ready and direct) when mmio = '1' else c_ready;
   rdata <= c_rdata when sel = "00" else b_rdata when sel = "01" else hold_q;
 
   process (clk)
@@ -127,11 +146,18 @@ begin
       if rst = '1' then
         sel    <= "00";
         hold_q <= (others => '0');
-      elsif rden = '1' and mem_advance = '1' and ((mmio = '1' and b_ready = '1') or (mmio = '0' and c_ready = '1')) then
+        own    <= '0';
+      elsif rden = '1' and mem_advance = '1' and ((mmio = '1' and b_ready = '1' and direct = '1') or (mmio = '0' and c_ready = '1')) then
         if mmio = '1' then sel <= "01"; else sel <= "00"; end if;
       elsif sel = "01" then
         hold_q <= b_rdata;
         sel    <= "10";
+      end if;
+      if direct = '1' then
+        own <= '1';
+      end if;
+      if direct = '1' and mem_advance = '1' and b_ready = '1' then
+        own <= '0';
       end if;
     end if;
   end process;
@@ -176,8 +202,16 @@ begin
       s_bvalid => m1_bvalid, s_bready => m1_bready, s_bresp => m1_bresp,
       s_arvalid => m1_arvalid, s_arready => m1_arready, s_araddr => m1_araddr,
       s_rvalid => m1_rvalid, s_rready => m1_rready, s_rdata => m1_rdata, s_rresp => m1_rresp,
-      p_addr => p_addr, p_wdata => p_wdata, p_byteena => p_byteena, p_we => p_we, p_re => p_re,
-      p_rdata => p_rdata
+      p_addr => p_addr, p_wdata => p_wdata, p_byteena => p_byteena, p_we => p_we_i, p_re => p_re_i,
+      p_rdata => p_rdata_i
     );
+
+  -- peripheral 7 is the cache's control
+  flush_i <= flush or p_we_i(7);
+  p_we    <= p_we_i and "01111111";
+  p_re    <= p_re_i and "01111111";
+  p_rdata_i(7 * 32)                           <= c_busy;
+  p_rdata_i(8 * 32 - 1 downto 7 * 32 + 1)     <= (others => '0');
+  p_rdata_i(7 * 32 - 1 downto 0)      <= p_rdata(7 * 32 - 1 downto 0);
 
 end architecture rtl;
