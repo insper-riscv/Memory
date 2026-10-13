@@ -18,7 +18,8 @@ use ieee.numeric_std.all;
 -- axil_master_bridge turns into AXI4-Lite.
 --
 -- flush: a request (one pulse is enough) to write back every dirty line (the lines stay valid and
--- become clean). It starts as soon as the cache is idle, before any access that is waiting; busy is
+-- become clean), and with invalidate in the same clock then drops every line, as a program does
+-- before the host loads the next one behind the cache's back. It starts as soon as the cache is idle, before any access that is waiting; busy is
 -- high from the clock after the request until flush_done pulses. An access that comes meanwhile
 -- waits for the flush to finish. Nothing else writes the SDRAM
 -- behind the cache's back in normal operation, so a program that loads code or data with another
@@ -45,6 +46,7 @@ entity dcache is
     rdata       : out std_logic_vector(31 downto 0);
 
     flush       : in  std_logic;
+    invalidate  : in  std_logic := '0';   -- with flush: after the write-back, every line becomes invalid
     flush_done  : out std_logic;
     busy        : out std_logic;
 
@@ -91,6 +93,7 @@ architecture rtl of dcache is
   signal cnt      : unsigned(1 downto 0) := (others => '0');
   signal flushing : std_logic := '0';
   signal flush_pend : std_logic := '0';
+  signal inv_pend, inv_run : std_logic := '0';
   signal f_idx    : unsigned(7 downto 0) := (others => '0');
   signal hit      : std_logic;
 
@@ -162,6 +165,8 @@ begin
         dirty    <= (others => '0');
         flushing <= '0';
         flush_pend <= '0';
+        inv_pend   <= '0';
+        inv_run    <= '0';
         d_rden_i <= '0';
         d_wren_i <= '0';
         cnt      <= (others => '0');
@@ -169,12 +174,14 @@ begin
         ci := to_integer(unsigned(cur_idx));
         if flush = '1' then
           flush_pend <= '1';
+          inv_pend   <= invalidate;
         end if;
         case st is
 
           when S_IDLE =>
             if flush_pend = '1' then
               flush_pend <= '0';
+              inv_run    <= inv_pend;
               flushing   <= '1';
               f_idx      <= (others => '0');
               st         <= S_FL_TAG;
@@ -273,6 +280,9 @@ begin
             if f_idx = 255 then
               flushing <= '0';
               fd_i     <= '1';
+              if inv_run = '1' then
+                valid <= (others => '0');
+              end if;
               st       <= S_IDLE;
             else
               f_idx <= f_idx + 1;

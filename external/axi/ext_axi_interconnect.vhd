@@ -73,6 +73,7 @@ architecture rtl of ext_axi_interconnect is
   signal c_busy : std_logic;
   signal flush_i : std_logic;
   signal p_we_i, p_re_i : std_logic_vector(7 downto 0);
+  signal p_wdata_i : std_logic_vector(31 downto 0);
   signal p_rdata_i : std_logic_vector(8 * 32 - 1 downto 0);
 
   -- the data cache
@@ -120,7 +121,7 @@ begin
       clk => clk, rst => rst,
       addr => addr, wdata => wdata, byteena => byteena, rden => c_rden, wren => c_wren,
       mem_advance => mem_advance, ready => c_ready, rdata => c_rdata,
-      flush => flush_i, flush_done => flush_done, busy => c_busy,
+      flush => flush_i, invalidate => p_wdata_i(1) and p_we_i(7), flush_done => flush_done, busy => c_busy,
       d_addr => d_addr, d_wdata => d_wdata, d_byteena => d_be, d_rden => d_rden, d_wren => d_wren,
       d_advance => d_advance, d_ready => d_ready, d_rdata => d_rdata
     );
@@ -202,12 +203,13 @@ begin
       s_bvalid => m1_bvalid, s_bready => m1_bready, s_bresp => m1_bresp,
       s_arvalid => m1_arvalid, s_arready => m1_arready, s_araddr => m1_araddr,
       s_rvalid => m1_rvalid, s_rready => m1_rready, s_rdata => m1_rdata, s_rresp => m1_rresp,
-      p_addr => p_addr, p_wdata => p_wdata, p_byteena => p_byteena, p_we => p_we_i, p_re => p_re_i,
+      p_addr => p_addr, p_wdata => p_wdata_i, p_byteena => p_byteena, p_we => p_we_i, p_re => p_re_i,
       p_rdata => p_rdata_i
     );
 
   -- peripheral 7 is the cache's control
   flush_i <= flush or p_we_i(7);
+  p_wdata <= p_wdata_i;
   p_we    <= p_we_i and "01111111";
   p_re    <= p_re_i and "01111111";
   p_rdata_i(7 * 32)                           <= c_busy;

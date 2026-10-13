@@ -67,3 +67,19 @@ async def test_cache_status_reads_zero_when_idle(dut):
     await start(dut)
     v, _c = await access(dut, CACHE)
     assert v == 0
+
+
+@cocotb.test()
+async def test_flush_with_invalidate_drops_the_lines(dut):
+    """A flush keeps the lines (the next read is a hit); a flush with bit 1 set drops them (a miss)."""
+    await start(dut)
+    await access(dut, SDRAM + 0x600, we=True, wdata=0x77)
+    await access(dut, CACHE, we=True, wdata=1)
+    await wait_idle(dut)
+    _v, hit = await access(dut, SDRAM + 0x600)
+    await access(dut, CACHE, we=True, wdata=2)
+    await wait_idle(dut)
+    assert await peek(dut, 0x180) == 0x77, "the invalidate lost the dirty data"
+    v, miss = await access(dut, SDRAM + 0x600)
+    assert v == 0x77
+    assert miss > hit + 4, f"the read after an invalidate was a hit ({miss} against {hit} clocks)"
