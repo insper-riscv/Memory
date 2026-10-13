@@ -23,7 +23,7 @@ netlist() {
   local work="$out/work_$2"; mkdir -p "$work"
   ghdl -a --std=08 --workdir="$work" "$1"
   ghdl --synth --std=08 --workdir="$work" --out=verilog sdram_arbiter > "$2.v"
-  sed -e 's/input  \[31:0\] c_rdata);/input  [31:0] c_rdata,\n  output dbg_st, output dbg_grant_b, output dbg_last_b, output dbg_a_tog_l, output [1:0] dbg_a_s);/' \
+  sed -e 's/input  \[95:0\] c_rdata_x);/input  [95:0] c_rdata_x,\n  output dbg_st, output dbg_grant_b, output dbg_last_b, output dbg_a_tog_l, output [1:0] dbg_a_s);/' \
       -e 's/^endmodule/  assign dbg_st = st;\n  assign dbg_grant_b = grant_b;\n  assign dbg_last_b = last_b;\n  assign dbg_a_tog_l = a_tog_l;\n  assign dbg_a_s = a_s;\nendmodule/' \
       "$2.v" > "$2_dbg.v"
   grep -q dbg_st "$2_dbg.v" || { echo "the netlist has no register named st: the exposure did not apply"; exit 1; }

@@ -7,6 +7,9 @@ use ieee.std_logic_1164.all;
 -- time and, when both masters are waiting, alternates, so the core never waits for more than
 -- one debug access.
 --
+-- Master A may ask for a line (four words, see sdram_ctrl) with a_line and the extra words on
+-- a_wdata_x/a_be_x/a_rdata_x; master B moves one word at a time.
+--
 -- Master A comes from another clock (the core's), so its toggle is synchronized here, and its
 -- buses hold from the flip until the answer. Master B is on this clock.
 entity sdram_arbiter is
@@ -21,6 +24,10 @@ entity sdram_arbiter is
     a_wdata   : in  std_logic_vector(31 downto 0);
     a_be      : in  std_logic_vector(3 downto 0);
     a_rdata   : out std_logic_vector(31 downto 0);
+    a_line    : in  std_logic := '0';
+    a_wdata_x : in  std_logic_vector(95 downto 0) := (others => '0');
+    a_be_x    : in  std_logic_vector(11 downto 0) := (others => '0');
+    a_rdata_x : out std_logic_vector(95 downto 0);
 
     b_req_tog : in  std_logic;
     b_ack_tog : out std_logic;
@@ -36,7 +43,11 @@ entity sdram_arbiter is
     c_addr    : out std_logic_vector(23 downto 0);
     c_wdata   : out std_logic_vector(31 downto 0);
     c_be      : out std_logic_vector(3 downto 0);
-    c_rdata   : in  std_logic_vector(31 downto 0)
+    c_rdata   : in  std_logic_vector(31 downto 0);
+    c_line    : out std_logic;
+    c_wdata_x : out std_logic_vector(95 downto 0);
+    c_be_x    : out std_logic_vector(11 downto 0);
+    c_rdata_x : in  std_logic_vector(95 downto 0)
   );
 end entity sdram_arbiter;
 
@@ -55,12 +66,14 @@ architecture rtl of sdram_arbiter is
   signal b_pend    : std_logic;
   signal a_rdata_i : std_logic_vector(31 downto 0) := (others => '0');
   signal b_rdata_i : std_logic_vector(31 downto 0) := (others => '0');
+  signal a_rdx_i   : std_logic_vector(95 downto 0) := (others => '0');
 
 begin
 
   a_ack_tog <= a_ack_i;
   b_ack_tog <= b_ack_i;
   a_rdata   <= a_rdata_i;
+  a_rdata_x <= a_rdx_i;
   b_rdata   <= b_rdata_i;
   c_req_tog <= c_req_i;
 
@@ -88,6 +101,9 @@ begin
               c_addr  <= a_addr;
               c_wdata <= a_wdata;
               c_be    <= a_be;
+              c_line    <= a_line;
+              c_wdata_x <= a_wdata_x;
+              c_be_x    <= a_be_x;
               a_tog_l <= a_s(1);
               grant_b <= '0';
               c_req_i <= not c_req_i;
@@ -97,6 +113,9 @@ begin
               c_addr  <= b_addr;
               c_wdata <= b_wdata;
               c_be    <= b_be;
+              c_line    <= '0';
+              c_wdata_x <= (others => '0');
+              c_be_x    <= (others => '0');
               grant_b <= '1';
               c_req_i <= not c_req_i;
               st      <= ST_BUSY;
@@ -109,6 +128,7 @@ begin
                 b_ack_i   <= b_req_tog;
               else
                 a_rdata_i <= c_rdata;
+                a_rdx_i   <= c_rdata_x;
                 a_ack_i   <= a_tog_l;
               end if;
               last_b <= grant_b;

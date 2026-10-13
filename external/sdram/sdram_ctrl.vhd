@@ -15,6 +15,12 @@ use work.sdram_pkg.all;
 -- flip of ack_tog. req_tog is synchronized here, so it may come from another clock.
 --
 -- addr is the 32-bit word address: row (13) & bank (2) & column (9).
+--
+-- A line request (line = 1) moves four words, the 16 bytes that start at the word address given
+-- (its two low bits are ignored), in one opening of the row: ACTIVE, four READ or WRITE commands two
+-- clocks apart (the last with auto-precharge) and eight beats on the data pins with no gap. Word 0
+-- travels on wdata/be/rdata as before and words 1 to 3 on wdata_x/be_x/rdata_x (32 bits each, word
+-- 1 in the lowest bits). The four words are in the same row because a line is aligned to 16 bytes.
 entity sdram_ctrl is
   generic (
     TCK_PS         : natural := T_CK_PS;
@@ -40,6 +46,10 @@ entity sdram_ctrl is
     wdata     : in  std_logic_vector(31 downto 0);
     be        : in  std_logic_vector(3 downto 0);
     rdata     : out std_logic_vector(31 downto 0);
+    line      : in  std_logic := '0';
+    wdata_x   : in  std_logic_vector(95 downto 0) := (others => '0');
+    be_x      : in  std_logic_vector(11 downto 0) := (others => '0');
+    rdata_x   : out std_logic_vector(95 downto 0);
 
     dram_cke   : out std_logic;
     dram_cs_n  : out std_logic;
@@ -76,9 +86,13 @@ architecture rtl of sdram_ctrl is
   -- the write path (tRCD, two beats, tWR, tRP) is never longer than the read path.
   constant ACT_TO_ACT : natural :=
     larger(C_RC, larger(C_RCD + CAS_LATENCY + 4, C_RCD + 2 + C_WR + C_RP));
+  -- the same for a line: the last command goes out six clocks after the first, and the last beat
+  -- two clocks after that
+  constant ACT_TO_ACT_LINE : natural :=
+    larger(C_RC, larger(C_RCD + 6 + CAS_LATENCY + 4, C_RCD + 8 + C_WR + C_RP));
 
   type state_t is (ST_INIT_WAIT, ST_INIT_PRE, ST_INIT_REF, ST_INIT_MRS, ST_WAIT,
-                   ST_IDLE, ST_RW, ST_READ, ST_WRITE2);
+                   ST_IDLE, ST_RW, ST_READ, ST_WRITE2, ST_RDGAP);
   signal st  : state_t := ST_INIT_WAIT;
   signal nxt : state_t := ST_INIT_WAIT;
 
@@ -97,8 +111,14 @@ architecture rtl of sdram_ctrl is
   signal addr_l   : std_logic_vector(23 downto 0) := (others => '0');
   signal wdata_l  : std_logic_vector(31 downto 0) := (others => '0');
   signal be_l     : std_logic_vector(3 downto 0) := (others => '0');
-  signal rd_t     : natural range 0 to 15 := 0;      -- clocks since the READ command
+  signal rd_t     : natural range 0 to 31 := 0;      -- clocks since the first READ command
+  signal rd_run   : std_logic := '0';                -- the read data is being sampled
   signal rdata_i  : std_logic_vector(31 downto 0) := (others => '0');
+  signal rdx_i    : std_logic_vector(95 downto 0) := (others => '0');
+  signal line_l   : std_logic := '0';
+  signal wdx_l    : std_logic_vector(95 downto 0) := (others => '0');
+  signal bex_l    : std_logic_vector(11 downto 0) := (others => '0');
+  signal lcnt     : natural range 0 to 3 := 0;       -- the word of the line the next command is for
   signal init_i   : std_logic := '0';
 
 begin
@@ -107,6 +127,7 @@ begin
   req_eff   <= req_s(1) when SYNC_REQ else req_tog;
   init_done <= init_i;
   rdata     <= rdata_i;
+  rdata_x   <= rdx_i;
   dram_cke  <= '1';
 
   process (clk)
@@ -124,6 +145,13 @@ begin
         wcnt <= n - 1;
       end if;
     end procedure;
+    function to_unsigned_bit (b : boolean) return std_logic is
+    begin
+      if b then
+        return '1';
+      end if;
+      return '0';
+    end function;
   begin
     if rising_edge(clk) then
       cmd := CMD_NOP;
@@ -150,6 +178,8 @@ begin
         tog_l    <= '0';
         init_i   <= '0';
         req_s    <= "00";
+        rd_run   <= '0';
+        lcnt     <= 0;
       else
         -- refresh timer: one AUTO REFRESH is due every REFRESH_CYCLES clocks
         if init_i = '1' then
@@ -159,6 +189,28 @@ begin
           else
             ref_cnt <= ref_cnt - 1;
           end if;
+        end if;
+
+        -- read data sampling: beat m (0 to 7) is on the pins in the cycle that ends at the edge
+        -- where rd_t = CL + 2 + m; the last beat answers the request
+        if rd_run = '1' then
+          rd_t <= rd_t + 1;
+          for m in 0 to 7 loop
+            if rd_t = CAS_LATENCY + 2 + CAPTURE_EXTRA + m then
+              if m = 0 then
+                rdata_i(15 downto 0) <= dram_dq_in;
+              elsif m = 1 then
+                rdata_i(31 downto 16) <= dram_dq_in;
+              else
+                rdx_i(16 * (m - 2) + 15 downto 16 * (m - 2)) <= dram_dq_in;
+              end if;
+              if (line_l = '0' and m = 1) or m = 7 then
+                ack_i  <= tog_l;
+                rd_run <= '0';
+                st     <= ST_IDLE;
+              end if;
+            end if;
+          end loop;
         end if;
 
         case st is
@@ -212,46 +264,77 @@ begin
               addr_l  <= addr;
               wdata_l <= wdata;
               be_l    <= be;
+              line_l  <= line;
+              wdx_l   <= wdata_x;
+              bex_l   <= be_x;
+              lcnt    <= 0;
               cmd     := CMD_ACTIVE;
               dram_ba   <= addr(10 downto 9);
               dram_addr <= addr(23 downto 11);
-              act_cnt   <= ACT_TO_ACT;
+              if line = '1' then
+                act_cnt <= ACT_TO_ACT_LINE;
+              else
+                act_cnt <= ACT_TO_ACT;
+              end if;
               goto_after(C_RCD, ST_RW);
             end if;
 
           when ST_RW =>
-            dram_ba   <= addr_l(10 downto 9);
-            dram_addr <= "00" & '1' & addr_l(8 downto 0) & '0';   -- A10 = auto-precharge
+            -- the column of word lcnt of a line (a single word keeps its own column); auto-precharge
+            -- on the last command
+            dram_ba <= addr_l(10 downto 9);
+            if line_l = '1' then
+              dram_addr <= "00" & to_unsigned_bit(lcnt = 3) & addr_l(8 downto 2) & std_logic_vector(to_unsigned(lcnt, 2)) & '0';
+            else
+              dram_addr <= "00" & '1' & addr_l(8 downto 0) & '0';   -- A10 = auto-precharge
+            end if;
             if we_l = '1' then
               cmd := CMD_WRITE;
-              dram_dq_out <= wdata_l(15 downto 0);
+              if lcnt = 0 then
+                dram_dq_out <= wdata_l(15 downto 0);
+                dram_dqm    <= not be_l(1 downto 0);
+              else
+                dram_dq_out <= wdx_l(32 * (lcnt - 1) + 15 downto 32 * (lcnt - 1));
+                dram_dqm    <= not bex_l(4 * (lcnt - 1) + 1 downto 4 * (lcnt - 1));
+              end if;
               dram_dq_oe  <= '1';
-              dram_dqm    <= not be_l(1 downto 0);
               st <= ST_WRITE2;
             else
               cmd := CMD_READ;
-              rd_t <= 1;
-              st <= ST_READ;
+              if lcnt = 0 then
+                rd_t   <= 1;
+                rd_run <= '1';
+              end if;
+              if line_l = '1' and lcnt /= 3 then
+                st <= ST_RDGAP;
+              else
+                st <= ST_READ;
+              end if;
             end if;
 
-          when ST_WRITE2 =>
-            dram_dq_out <= wdata_l(31 downto 16);
-            dram_dq_oe  <= '1';
-            dram_dqm    <= not be_l(3 downto 2);
-            ack_i <= tog_l;
-            st    <= ST_IDLE;
+          when ST_RDGAP =>
+            lcnt <= lcnt + 1;
+            st   <= ST_RW;
 
-          when ST_READ =>
-            -- the command went out at edge c; rd_t is k at edge c + k. The first
-            -- beat is on the pins during the cycle that ends at edge c + CL + 2.
-            rd_t <= rd_t + 1;
-            if rd_t = CAS_LATENCY + 2 + CAPTURE_EXTRA then
-              rdata_i(15 downto 0) <= dram_dq_in;
-            elsif rd_t = CAS_LATENCY + 3 + CAPTURE_EXTRA then
-              rdata_i(31 downto 16) <= dram_dq_in;
+          when ST_WRITE2 =>
+            if lcnt = 0 then
+              dram_dq_out <= wdata_l(31 downto 16);
+              dram_dqm    <= not be_l(3 downto 2);
+            else
+              dram_dq_out <= wdx_l(32 * (lcnt - 1) + 31 downto 32 * (lcnt - 1) + 16);
+              dram_dqm    <= not bex_l(4 * (lcnt - 1) + 3 downto 4 * (lcnt - 1) + 2);
+            end if;
+            dram_dq_oe  <= '1';
+            if line_l = '1' and lcnt /= 3 then
+              lcnt <= lcnt + 1;
+              st   <= ST_RW;
+            else
               ack_i <= tog_l;
               st    <= ST_IDLE;
             end if;
+
+          when ST_READ =>
+            null;    -- the sampling above ends it
 
         end case;
       end if;

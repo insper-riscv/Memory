@@ -20,6 +20,10 @@ async def start(dut, cpu_ns=CPU_NS, cpu_offset_ns=0):
     """Clocks, reset, and wait for the controller to finish its power-up sequence."""
     for sig in (dut.rden, dut.wren, dut.mem_advance, dut.dbg_flip):
         sig.value = 0
+    if hasattr(dut, "line"):
+        dut.line.value = 0
+        dut.wdata_x.value = 0
+        dut.byteena_x.value = 0
     dut.addr.value = 0
     dut.wdata.value = 0
     dut.byteena.value = 0
@@ -91,3 +95,42 @@ async def model_word(dut, word):
         await RisingEdge(dut.clk_mem)
     await Timer(1, unit="ns")
     return int(dut.dbg_word_data.value)
+
+
+async def line_access(dut, we, word, words=None, bes=None, hold=0):
+    """One access of a line (four words from the word address `word`, aligned down to 4).
+
+    words/bes: the four words and their byte enables for a write. Returns (the four words read,
+    cpu cycles until ready). The extra words travel on wdata_x/byteena_x/rdata_x.
+    """
+    word &= ~3
+    words = words or [0, 0, 0, 0]
+    bes = bes or [0xF] * 4
+    dut.addr.value = 0x40000000 | (word << 2)
+    dut.wdata.value = words[0]
+    dut.byteena.value = bes[0]
+    dut.wdata_x.value = words[1] | (words[2] << 32) | (words[3] << 64)
+    dut.byteena_x.value = bes[1] | (bes[2] << 4) | (bes[3] << 8)
+    dut.line.value = 1
+    dut.wren.value = 1 if we else 0
+    dut.rden.value = 0 if we else 1
+    before = (int(dut.rdata.value), int(dut.rdata_x.value))
+    cycles = 0
+    while True:
+        await _post_edge(dut)
+        cycles += 1
+        if int(dut.ready.value):
+            break
+        assert cycles < 400, "ready never came"
+    for _ in range(hold):
+        assert int(dut.ready.value) == 1, "ready dropped before the pipeline advanced"
+        assert (int(dut.rdata.value), int(dut.rdata_x.value)) == before, "read data changed before the pipeline advanced"
+        await _post_edge(dut)
+    dut.mem_advance.value = 1
+    await _post_edge(dut)
+    dut.mem_advance.value = 0
+    dut.rden.value = 0
+    dut.wren.value = 0
+    dut.line.value = 0
+    x = int(dut.rdata_x.value)
+    return [int(dut.rdata.value), x & 0xFFFFFFFF, (x >> 32) & 0xFFFFFFFF, x >> 64], cycles

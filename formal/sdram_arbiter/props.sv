@@ -12,6 +12,8 @@ module props (input clk);
   (* anyseq *) wire a_req_tog, a_we; (* anyseq *) wire [23:0] a_addr; (* anyseq *) wire [31:0] a_wdata; (* anyseq *) wire [3:0] a_be;
   (* anyseq *) wire b_req_tog, b_we; (* anyseq *) wire [23:0] b_addr; (* anyseq *) wire [31:0] b_wdata; (* anyseq *) wire [3:0] b_be;
   (* anyseq *) wire c_ack_tog;       (* anyseq *) wire [31:0] c_rdata;
+  (* anyseq *) wire a_line; (* anyseq *) wire [95:0] a_wdata_x, c_rdata_x; (* anyseq *) wire [11:0] a_be_x;   // the line words travel with the request, untouched
+  wire [95:0] a_rdata_x, c_wdata_x; wire [11:0] c_be_x; wire c_line;
   wire a_ack_tog, b_ack_tog, c_req_tog, c_we;
   wire d_st, d_gb, d_lb, d_atl; wire [1:0] d_as;   // internal registers, exposed in the verification copy of the netlist
   wire [31:0] a_rdata, b_rdata, c_wdata; wire [23:0] c_addr; wire [3:0] c_be;
@@ -20,6 +22,8 @@ module props (input clk);
     .a_req_tog(a_req_tog), .a_ack_tog(a_ack_tog), .a_we(a_we), .a_addr(a_addr), .a_wdata(a_wdata), .a_be(a_be), .a_rdata(a_rdata),
     .b_req_tog(b_req_tog), .b_ack_tog(b_ack_tog), .b_we(b_we), .b_addr(b_addr), .b_wdata(b_wdata), .b_be(b_be), .b_rdata(b_rdata),
     .c_req_tog(c_req_tog), .c_ack_tog(c_ack_tog), .c_we(c_we), .c_addr(c_addr), .c_wdata(c_wdata), .c_be(c_be), .c_rdata(c_rdata),
+    .a_line(a_line), .a_wdata_x(a_wdata_x), .a_be_x(a_be_x), .a_rdata_x(a_rdata_x),
+    .c_line(c_line), .c_wdata_x(c_wdata_x), .c_be_x(c_be_x), .c_rdata_x(c_rdata_x),
     .dbg_st(d_st), .dbg_grant_b(d_gb), .dbg_last_b(d_lb), .dbg_a_tog_l(d_atl), .dbg_a_s(d_as));
 
   reg f_past_valid = 0;
