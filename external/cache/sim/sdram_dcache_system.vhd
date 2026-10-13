@@ -8,6 +8,7 @@ use work.sdram_pkg.all;
 -- sdram_system's, plus the cache's flush); the debug ports reach the chip model.
 entity sdram_dcache_system is
   generic (
+    WRITE_THROUGH  : boolean := false;
     TCK_PS         : natural := T_CK_PS;
     INIT_CYCLES    : natural := cycles(T_INIT_PS, T_CK_PS);
     REFRESH_CYCLES : natural := cycles(T_REFI_PS, T_CK_PS) * 9 / 10
@@ -62,6 +63,7 @@ architecture sim of sdram_dcache_system is
 begin
 
   u_cache : entity work.dcache
+    generic map (WRITE_THROUGH => WRITE_THROUGH)
     port map (
       clk => clk_cpu, rst => rst_cpu,
       addr => addr, wdata => wdata, byteena => byteena, rden => rden, wren => wren,

@@ -25,7 +25,8 @@ use ieee.std_logic_1164.all;
 -- ext_interconnect, behind axil_slave_periph_bank.
 entity ext_axi_interconnect is
   generic (
-    BASE : std_logic_vector(5 downto 0) := "010000"
+    BASE          : std_logic_vector(5 downto 0) := "010000";
+    WRITE_THROUGH : boolean := false      -- the cache writes every store through (see dcache)
   );
   port (
     clk         : in  std_logic;
@@ -116,7 +117,7 @@ begin
   c_wren <= wren and not mmio;
 
   u_cache : entity work.dcache
-    generic map (BASE => BASE)
+    generic map (BASE => BASE, WRITE_THROUGH => WRITE_THROUGH)
     port map (
       clk => clk, rst => rst,
       addr => addr, wdata => wdata, byteena => byteena, rden => c_rden, wren => c_wren,

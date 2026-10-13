@@ -25,11 +25,19 @@ use ieee.numeric_std.all;
 -- behind the cache's back in normal operation, so a program that loads code or data with another
 -- master (the JTAG debug port) does it with the cache invalid, as it is after the reset.
 --
+-- WRITE_THROUGH: every store also goes to the memory before it completes, and a store that misses
+-- does not bring the line in (write-around), so no line is ever dirty and the memory always holds
+-- what the core wrote. Loads still hit in the cache. It is what a debug port that reads the SDRAM
+-- behind the cache needs: the host sees every store as soon as it completes, with no flush. Lines of
+-- the cache can still be older than the memory when the host writes it; an invalidate (see flush)
+-- before the host loads something new drops them.
+--
 -- Address split of the SDRAM space (64 MB): bits 25:12 tag, 11:4 line, 3:2 word. The bits above
 -- 25 are not stored; the memory side puts BASE there.
 entity dcache is
   generic (
-    BASE : std_logic_vector(5 downto 0) := "010000"  -- bits 31:26 of the SDRAM addresses (0x40000000)
+    BASE          : std_logic_vector(5 downto 0) := "010000";  -- bits 31:26 of the SDRAM addresses (0x40000000)
+    WRITE_THROUGH : boolean := false                           -- see the header
   );
   port (
     clk         : in  std_logic;
@@ -68,7 +76,8 @@ architecture rtl of dcache is
     S_IDLE, S_LOOK, S_DONE,
     S_WB_RD, S_WB_REQ, S_WB_WAIT,
     S_FILL_REQ, S_FILL_WAIT, S_FILL_GET,
-    S_FL_TAG, S_FL_CHK, S_FL_NEXT);
+    S_FL_TAG, S_FL_CHK, S_FL_NEXT,
+    S_WT_REQ, S_WT_WAIT);
   signal st : state_t := S_IDLE;
 
   type data_t is array (0 to 1023) of std_logic_vector(31 downto 0);
@@ -100,6 +109,7 @@ architecture rtl of dcache is
   signal pend     : std_logic_vector(31 downto 0) := (others => '0');
   signal rdata_q  : std_logic_vector(31 downto 0) := (others => '0');
   signal d_rden_i, d_wren_i : std_logic := '0';
+  signal d_be_i   : std_logic_vector(3 downto 0) := "1111";
   signal d_addr_i : std_logic_vector(31 downto 0) := (others => '0');
   signal d_wdata_i : std_logic_vector(31 downto 0) := (others => '0');
   signal fd_i     : std_logic := '0';
@@ -149,7 +159,7 @@ begin
 
   d_addr    <= d_addr_i;
   d_wdata   <= d_wdata_i;
-  d_byteena <= "1111";
+  d_byteena <= d_be_i;
   d_rden    <= d_rden_i;
   d_wren    <= d_wren_i;
   d_advance <= d_ready;
@@ -190,7 +200,10 @@ begin
             end if;
 
           when S_LOOK =>
-            if hit = '1' then
+            if WRITE_THROUGH and wren = '1' then
+              -- the cache RAM takes the word on a hit (ram_we); the memory takes it either way
+              st <= S_WT_REQ;
+            elsif hit = '1' then
               if wren = '1' then
                 dirty(ci) <= '1';
               else
@@ -212,6 +225,21 @@ begin
                 rdata_q <= pend;
               end if;
               st <= S_IDLE;
+            end if;
+
+          -- write-through: the word of the store goes to the memory
+          when S_WT_REQ =>
+            d_addr_i  <= BASE & addr(25 downto 2) & "00";
+            d_wdata_i <= wdata;
+            d_be_i    <= byteena;
+            d_wren_i  <= '1';
+            st        <= S_WT_WAIT;
+
+          when S_WT_WAIT =>
+            if d_ready = '1' then
+              d_wren_i <= '0';
+              d_be_i   <= "1111";
+              st       <= S_DONE;
             end if;
 
           -- write the dirty line back: read a word of it, send it, four times
