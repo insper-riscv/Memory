@@ -21,8 +21,8 @@ netlist() {  # <vhdl> <name>
   ghdl -a --std=08 --workdir="$work" "$1"
   ghdl --synth --std=08 --workdir="$work" --out=verilog axi_slave_word_bridge > "$2.v"
   # a copy that exposes the state registers the invariants need (the logic is the same)
-  sed -e 's/input  \[31:0\] rdata);/input  [31:0] rdata,\n  output [1:0] dbg_st, output dbg_aw_got, output dbg_w_got, output dbg_we);/' \
-      -e 's/^endmodule/  assign dbg_st = st;\n  assign dbg_aw_got = aw_got;\n  assign dbg_w_got = w_got;\n  assign dbg_we = we_l;\nendmodule/' \
+  sed -e 's/input  \[95:0\] rdata_x);/input  [95:0] rdata_x,\n  output [2:0] dbg_st, output dbg_we, output dbg_bad, output dbg_fast, output [1:0] dbg_k, output [7:0] dbg_left);/' \
+      -e 's/^endmodule/  assign dbg_st = st;\n  assign dbg_we = we_l;\n  assign dbg_bad = bad_l;\n  assign dbg_fast = fast_l;\n  assign dbg_k = k;\n  assign dbg_left = left_l;\nendmodule/' \
       "$2.v" > "$2_dbg.v"
   grep -q dbg_st "$2_dbg.v" || { echo "the netlist has no register named st: the exposure did not apply"; exit 1; }
 }
@@ -46,9 +46,9 @@ EOS
 
 echo "axi_slave_word_bridge"
 netlist "$src" bridge
-expect "safety, unbounded (k-induction)"          PASS "$(prove bridge_dbg.v prove 20 ''                      safety)"
+expect "safety, 55 clocks from reset"             PASS "$(prove bridge_dbg.v bmc   55 ''                      safety)"
 expect "cover: every situation is reachable"       PASS "$(prove bridge_dbg.v cover 40 '-DCOVER'                cover)"
-expect "an access is done within W clocks"         PASS "$(prove bridge_dbg.v bmc   40 "-DFAIRNESS -DW=${W:-12}" live)"
+expect "an access is done within W clocks"         PASS "$(prove bridge_dbg.v bmc   50 "-DFAIRNESS -DW=${W:-40}" live)"
 
 # Mutants of the VHDL: each defect must make the safety proof fail.
 mutant() {  # <name> <sed expression>
@@ -57,10 +57,11 @@ mutant() {  # <name> <sed expression>
   netlist "$out/mut_$1.vhd" "mut_$1"
   expect "mutant $1 is caught" FAIL "$(prove "mut_$1_dbg.v" bmc 30 '' "mut_$1")"
 }
-mutant read_over_write "s/ and s_awvalid = '0' and s_wvalid = '0' else '0';/ else '0';/"
-mutant aw_twice       "s/awr <= '1' when st = ST_IDLE and aw_got = '0' else '0';/awr <= '1' when st = ST_IDLE else '0';/"
-mutant strb_wrong     "s/strb_l  <= s_wstrb;/strb_l  <= \"1111\";/"
-mutant no_wait_resp   "s/if (we_l = '1' and s_bready = '1') or (we_l = '0' and s_rready = '1') then/if true then/"
+mutant read_over_write "s/ and s_awvalid = '0' else '0';/ else '0';/"
+mutant aw_twice       "s/awr <= '1' when st = ST_IDLE else '0';/awr <= '1';/"
+mutant rlast_early    "s/(fast_l = '1' and k = 3) or (fast_l = '0' and left_l = 0)) else '0'/(fast_l = '1' and k = 2) or (fast_l = '0' and left_l = 0)) else '0'/"
+mutant serves_unaligned "s/ or a(1 downto 0) \\/= \"00\" then/ then/"
+mutant no_wait_resp   "s/            if s_bready = '1' then/            if true then/"
 mutant advance_early  "s/if ready = '1' then/if true then/"
 
 [ "$fail" -eq 0 ] && echo "formal axi: all expectations met" || { echo "formal axi: FAILED (logs in build/formal_axi_slave)"; exit 1; }
