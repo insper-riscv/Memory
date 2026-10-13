@@ -11,7 +11,7 @@ WDIR  := build/ghdl
 # analyzed by the hardware-top simulation in the Tests repository.
 check:
 	@mkdir -p $(WDIR)
-	@$(GHDL) -a $(STD) --work=work --workdir=$(WDIR) $$(uv run riscv-tools vhdl-sort sim/*.vhd external/sdram/*.vhd external/sdram/sim/*.vhd external/axi/*.vhd external/cache/*.vhd external/cache/sim/*.vhd)
+	@$(GHDL) -a $(STD) --work=work --workdir=$(WDIR) $$(uv run riscv-tools vhdl-sort sim/*.vhd external/sdram/*.vhd external/sdram/sim/*.vhd external/axi/*.vhd external/cache/*.vhd external/cache/sim/*.vhd external/axi/sim/*.vhd external/bus/*.vhd external/bus/sim/*.vhd)
 	@echo "VHDL syntax check passed"
 
 # Per-entity cocotb tests; `make test TEST=RAM` for one entry of tests/python/tests.json.

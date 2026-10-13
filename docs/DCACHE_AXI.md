@@ -1,12 +1,16 @@
-# Data cache and AXI4-Lite path to the SDRAM
+# Data cache and AXI4-Lite external bus
 
 ## 1. The path
 
 ```
-core port ── dcache ── axil_master_bridge ══ AXI4-Lite ══ axil_slave_word_bridge ── sdram_cpu_bridge ── arbiter ── controller ── chip
+                     ┌─ dcache ─┐
+core port ── split ──┤          ├── axil_master_bridge ── axil_router ──┬── axil_slave_word_bridge ── sdram_cpu_bridge ── arbiter ── controller ── chip
+ (bit 31)            └─ direct ─┘                                       └── axil_slave_periph_bank ── p_* (eight peripheral slots)
 ```
 
-All blocks left of the SDRAM bridge run on the core clock; the bridge crosses to the memory clock as before. The peripherals of the external interconnect do not go through the cache.
+Addresses with bit 31 clear are the SDRAM space and go through the cache; addresses with bit 31 set are the peripheral window (bits 30:28 the peripheral, 9:2 the word) and go straight to the master, uncached. All blocks left of the SDRAM bridge run on the core clock; the bridge crosses to the memory clock as before.
+
+The core side of the whole is the contract of the private external bus: the access sits on the port while the stage is stopped, `ready` is a level until `mem_advance`, and `rdata` stays on the last completed load until the next one completes, because the load in the last stage still reads it while the next access is on the port. The peripheral side is the same `p_*` port with one pulse per access, so a peripheral (the JTAG UART) is the same VHDL on either bus.
 
 ## 2. Data cache
 
@@ -31,13 +35,20 @@ AXI4-Lite has no burst, so a line moves as four single-word accesses. Another ma
 | :--- | :--- |
 | Master bridge | Core word contract to the five channels, one access at a time. AW and W are offered together and accepted in any order; B and R are taken only after the request was accepted. `err` is the high bit of the response |
 | Slave bridge | The five channels to the word contract of the SDRAM bridge. Accepts AW and W in any order, reads yield to a write that is offered or half accepted, the response is always OKAY, and nothing new is accepted before the response is taken |
+| Peripheral bank | The five channels to the peripheral `p_*` port: one pulse of `p_we` or `p_re` per access, the read data taken in the clock of the pulse. A window nobody answers reads 0 and a write has no effect, both with OKAY |
+| Router | One master, two slaves, no clock of delay. 0x40000000 to 0x43FFFFFF is the SDRAM, 0x80000000 and above the peripherals, anything else is accepted and answered with DECERR (reads give 0). A W that arrives before its AW waits; B and R return from the slave that took the request |
+
+An access through the peripheral bank takes more clocks than on the private bus (the five channels and the router), and a miss costs the line's four word accesses; a hit is two clocks.
 
 ## 4. Verification
 
 | What | How |
 | :--- | :--- |
 | Cache, bridges and SDRAM together | `make test TEST=DataCache`: reads and writes against a Python copy of the memory, byte enables, hold after ready, evictions, 300 random accesses over conflicting lines, flush; after each flush the chip model must hold exactly the copy |
+| Same tests as the private bus | `make test TEST=ExtAxiBus` runs the tests of the private external bus (UART bytes in order, stopped pipeline pops once, full queues, unmapped window reads 0, load data stays while the next access runs) on this bus, with a word memory behind the SDRAM slave |
+| Router | `make test TEST=AxilRouter`: both slaves for writes and reads, W before AW, DECERR below, between and above the windows, back-to-back; mutants (DECERR answered OKAY, W taken before its AW, a wrong decode) fail |
 | Master bridge protocol | `bash formal/axil_master/run.sh`: valid held until ready with a stable payload, one request per access, responses only after the request, ready as a level, bounded wait; covers; mutants that must fail |
+| Slave bridge protocol | `bash formal/axil_slave/run.sh`: the same kind of properties, the payload passed on is what was accepted, one transaction at a time, bounded wait; covers; 5 mutants |
 | Cache mutants | A write hit that does not set dirty, a write-back that skips a word, and byte enables ignored on a hit each fail the cache tests |
 
-The slave bridge is checked only through the system tests so far.
+The peripheral bank and the router are checked by the tests above and have no formal properties yet.

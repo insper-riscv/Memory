@@ -134,5 +134,38 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "ExtAxiBus": {
+        "toplevel": "ext_axi_bus_system",
+        "sources": [
+            "external/bus/jtag_uart.vhd",
+            "external/axi/axil_master_bridge.vhd",
+            "external/axi/axil_slave_word_bridge.vhd",
+            "external/axi/axil_slave_periph_bank.vhd",
+            "external/axi/axil_router.vhd",
+            "external/cache/dcache.vhd",
+            "external/axi/ext_axi_interconnect.vhd",
+            "external/axi/sim/ext_axi_bus_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.ExtBus",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "AxilRouter": {
+        "toplevel": "axil_router",
+        "sources": [
+            "external/axi/axil_router.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.AxilRouter",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
