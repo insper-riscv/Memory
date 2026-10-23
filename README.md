@@ -11,14 +11,17 @@ programs live in other repositories of
 | :--- | :--- |
 | `sim/` | simulation models: plain VHDL arrays that cocotb can read (`RAM_simulation`, `ROM_simulation`) |
 | `ips/` | the Quartus IPs of the board (`altsyncram`): `BOOT_ROM1PORT` (2 KB, programmed once), `FLASH1PORT` and `FLASH_MEM1PORT` (30 KB, the two physical copies of the FLASH, rewritten over JTAG per test), `RAM1PORT` (160 KB). They also simulate in GHDL through Intel's `altera_mf` models |
-| `tests/python/` | per-entity cocotb tests of the simulation models and the catalog (`tests.json`) that drives them |
+| `external/sdram/` | the controller of the board's SDRAM (32M x 16, 64 MB), the bridge between the core clock and the controller clock, a self test that drives the controller alone (quick, patterns, whole-chip sweep and random modes), an arbiter and a debug master that let a host read and write the SDRAM through JTAG while a core uses it ([docs/SDRAM_DEBUG.md](docs/SDRAM_DEBUG.md); `external/sdram/hw/` holds the Virtual JTAG shell, board only), and a package with the chip's timings. `external/sdram/sim/` holds the chip model, which fails the simulation when the controller breaks a rule of the chip, and a top that wires the three together |
+| `tests/python/` | per-entity cocotb tests of the simulation models, of the SDRAM, and the catalog (`tests.json`) that drives them |
 
-The third family, **external memory** (flash and RAM outside the FPGA, with
-multi-cycle controllers), does not exist yet; it will live in `external/`. All
-three families share one slave interface (see the bus and memory interface in
+The third family, **external memory** (RAM outside the FPGA, with multi-cycle
+controllers), lives in `external/`; the SDRAM is the first. The families share one
+slave interface (see the bus and memory interface in
 [Core's `docs/contracts/02-barramento-e-memoria.md`](https://github.com/insper-riscv/Core/blob/main/docs/contracts/02-barramento-e-memoria.md)):
-today every memory answers in one cycle, and `ready` joins the interface only
-with external memory.
+the internal memories answer in one cycle, and `ready` joins the interface with
+external memory. The chip timings in `external/sdram/sdram_pkg.vhd` are
+provisional (typical values of a 143 MHz SDR part) until they are checked
+against the datasheet of the chip.
 
 The sizes of the IPs must agree with the platform's memory map
 (`Tests/platforms/internal-mem.yaml`, checked by `riscv-tools check-memory-map`).
