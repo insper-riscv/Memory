@@ -1,0 +1,67 @@
+#!/usr/bin/env bash
+# Formal verification of axi_slave_word_bridge with SymbiYosys. Needs ghdl, yosys, sby and the z3 solver
+# (insper-riscv/Infra's toolchain image). Run from the root of the repository:
+#   bash formal/axi_slave/run.sh
+set -euo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+src="$root/external/axi/axi_slave_word_bridge.vhd"
+props="$root/formal/axi_slave/props.sv"
+out="$root/build/formal_axi_slave"
+rm -rf "$out"; mkdir -p "$out"; cd "$out"
+
+fail=0
+expect() {
+  if [ "$2" = "$3" ]; then printf '  ok    %-52s %s\n' "$1" "$3"
+  else printf '  WRONG %-52s wanted %s, got %s\n' "$1" "$2" "$3"; fail=1; fi
+}
+
+netlist() {  # <vhdl> <name>
+  local work="$out/work_$2"; mkdir -p "$work"
+  ghdl -a --std=08 --workdir="$work" "$1"
+  ghdl --synth --std=08 --workdir="$work" --out=verilog axi_slave_word_bridge > "$2.v"
+  # a copy that exposes the state registers the invariants need (the logic is the same)
+  sed -e 's/input  \[95:0\] rdata_x);/input  [95:0] rdata_x,\n  output [2:0] dbg_st, output dbg_we, output dbg_bad, output dbg_fast, output [1:0] dbg_k, output [7:0] dbg_left);/' \
+      -e 's/^endmodule/  assign dbg_st = st;\n  assign dbg_we = we_l;\n  assign dbg_bad = bad_l;\n  assign dbg_fast = fast_l;\n  assign dbg_k = k;\n  assign dbg_left = left_l;\nendmodule/' \
+      "$2.v" > "$2_dbg.v"
+  grep -q dbg_st "$2_dbg.v" || { echo "the netlist has no register named st: the exposure did not apply"; exit 1; }
+}
+
+prove() {  # <netlist> <mode> <depth> <defines> <tag> -> PASS or FAIL
+  cat > "$5.sby" <<EOS
+[options]
+mode $2
+depth $3
+[engines]
+smtbmc z3
+[script]
+read_verilog -formal -sv $4 $1 $props
+prep -top props
+[files]
+$1
+$props
+EOS
+  if sby -f "$5.sby" > "$5.log" 2>&1; then echo PASS; else echo FAIL; fi
+}
+
+echo "axi_slave_word_bridge"
+netlist "$src" bridge
+expect "safety, 55 clocks from reset"             PASS "$(prove bridge_dbg.v bmc   55 ''                      safety)"
+expect "cover: every situation is reachable"       PASS "$(prove bridge_dbg.v cover 40 '-DCOVER'                cover)"
+expect "an access is done within W clocks"         PASS "$(prove bridge_dbg.v bmc   50 "-DFAIRNESS -DW=${W:-40}" live)"
+
+# Mutants of the VHDL: each defect must make the safety proof fail.
+mutant() {  # <name> <sed expression>
+  sed "$2" "$src" > "$out/mut_$1.vhd"
+  cmp -s "$src" "$out/mut_$1.vhd" && { echo "mutant $1: the edit did not change the file"; exit 1; }
+  netlist "$out/mut_$1.vhd" "mut_$1"
+  expect "mutant $1 is caught" FAIL "$(prove "mut_$1_dbg.v" bmc 30 '' "mut_$1")"
+}
+mutant read_over_write "s/ and s_awvalid = '0' else '0';/ else '0';/"
+mutant aw_twice       "s/awr <= '1' when st = ST_IDLE else '0';/awr <= '1';/"
+mutant rlast_early    "s/(fast_l = '1' and k = 3) or (fast_l = '0' and left_l = 0)) else '0'/(fast_l = '1' and k = 2) or (fast_l = '0' and left_l = 0)) else '0'/"
+mutant serves_unaligned "s/ or a(1 downto 0) \\/= \"00\" then/ then/"
+mutant no_wait_resp   "s/            if s_bready = '1' then/            if true then/"
+mutant advance_early  "s/if ready = '1' then/if true then/"
+
+[ "$fail" -eq 0 ] && echo "formal axi: all expectations met" || { echo "formal axi: FAILED (logs in build/formal_axi_slave)"; exit 1; }
