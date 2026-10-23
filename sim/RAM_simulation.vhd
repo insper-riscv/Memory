@@ -27,35 +27,7 @@ end entity;
 
 architecture rtl of RAM_simulation is
   type mem_t is array(0 to 2**memoryAddrWidth - 1) of std_logic_vector(31 downto 0);
-  -- Reads the initial image at elaboration, so the array keeps a single driver (the write process
-  -- below): a process that wrote the array once at time zero would stay a second driver.
-  impure function load_image(name : string) return mem_t is
-    file f      : text;
-    variable l  : line;
-    variable m  : mem_t := (others => (others => '0'));
-    variable w  : std_logic_vector(31 downto 0);
-    variable ok : boolean;
-    variable idx : natural := 0;
-  begin
-    if name'length = 0 then
-      return m;
-    end if;
-    file_open(f, name, read_mode);
-    while not endfile(f) loop
-      readline(f, l);
-      if l'length >= 8 then
-        hread(l, w, ok);
-        if ok and idx <= m'high then
-          m(idx) := w;
-        end if;
-        idx := idx + 1;
-      end if;
-    end loop;
-    file_close(f);
-    return m;
-  end function;
-
-  signal mem : mem_t := load_image(RAM_FILE);
+  signal mem : mem_t := (others => (others => '0'));
 
   -- word index (32-bit aligned)
   signal widx : std_logic_vector(memoryAddrWidth-1 downto 0):= (others => '0');
@@ -70,9 +42,34 @@ begin
   -- reachable, no matter how large memoryAddrWidth/mem itself was set.
   widx <= addr(memoryAddrWidth - 1 downto 0);
 
-  process(clk)
+  -- The same process loads the initial image and writes the array afterwards, so
+  -- the array keeps a single driver. The image goes through the signal, not
+  -- through a function result, because GHDL allocates a function's array on the
+  -- stack and a RAM of 2**16 words or more exceeds its limit.
+  process
+    file f      : text;
+    variable l  : line;
+    variable w  : std_logic_vector(31 downto 0);
+    variable ok : boolean;
+    variable idx : natural := 0;
   begin
-    if rising_edge(clk) then
+    if RAM_FILE'length > 0 then
+      file_open(f, RAM_FILE, read_mode);
+      while not endfile(f) loop
+        readline(f, l);
+        if l'length >= 8 then
+          hread(l, w, ok);
+          if ok and idx <= mem'high then
+            mem(idx) <= w;
+          end if;
+          idx := idx + 1;
+        end if;
+      end loop;
+      file_close(f);
+    end if;
+
+    loop
+      wait until rising_edge(clk);
       if (weRAM = '1' and eRAM = '1') then
         -- update selected bytes inside the 32-bit word
         if mask(0) = '1' then
@@ -88,7 +85,7 @@ begin
           mem(to_integer(unsigned(widx)))(31 downto 24) <= data_in(31 downto 24);
         end if;
       end if;
-    end if;
+    end loop;
   end process;
 
   -- leitura síncrona: captura mem(...) na subida do clock se eRAM='1' e reRAM='1'
