@@ -1,12 +1,17 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 use ieee.numeric_std.all;
+use ieee.std_logic_textio.all;
+use std.textio.all;
 
 entity RAM_simulation is
   generic (
     dataWidth: natural := 32;
     addrWidth: natural := 30;
-    memoryAddrWidth: natural := 9   -- 0 - 511 posicoes de 32 bits cada
+    memoryAddrWidth: natural := 9;  -- 0 - 511 posicoes de 32 bits cada
+    -- Initial contents, one 32-bit word per line in hexadecimal (the format of
+    -- ROM_simulation's ROM_FILE). Empty: the RAM starts at zero.
+    RAM_FILE: string := ""
   );
   port (
     clk      : in  std_logic;
@@ -22,7 +27,35 @@ end entity;
 
 architecture rtl of RAM_simulation is
   type mem_t is array(0 to 2**memoryAddrWidth - 1) of std_logic_vector(31 downto 0);
-  signal mem : mem_t := (others => (others => '0'));
+  -- Reads the initial image at elaboration, so the array keeps a single driver (the write process
+  -- below): a process that wrote the array once at time zero would stay a second driver.
+  impure function load_image(name : string) return mem_t is
+    file f      : text;
+    variable l  : line;
+    variable m  : mem_t := (others => (others => '0'));
+    variable w  : std_logic_vector(31 downto 0);
+    variable ok : boolean;
+    variable idx : natural := 0;
+  begin
+    if name'length = 0 then
+      return m;
+    end if;
+    file_open(f, name, read_mode);
+    while not endfile(f) loop
+      readline(f, l);
+      if l'length >= 8 then
+        hread(l, w, ok);
+        if ok and idx <= m'high then
+          m(idx) := w;
+        end if;
+        idx := idx + 1;
+      end if;
+    end loop;
+    file_close(f);
+    return m;
+  end function;
+
+  signal mem : mem_t := load_image(RAM_FILE);
 
   -- word index (32-bit aligned)
   signal widx : std_logic_vector(memoryAddrWidth-1 downto 0):= (others => '0');
