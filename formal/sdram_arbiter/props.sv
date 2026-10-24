@@ -4,29 +4,39 @@
 `define K 4      // the controller answers within K clocks of a request
 `endif
 `ifndef W
-`define W 14     // an accepted request is answered within W clocks (14 is the smallest bound that holds)
+`define W 20     // an accepted request is answered within W clocks (20 is the smallest bound that holds)
 `endif
 
 module props (input clk);
   (* anyseq *) wire rst;
   (* anyseq *) wire a_req_tog, a_we; (* anyseq *) wire [23:0] a_addr; (* anyseq *) wire [31:0] a_wdata; (* anyseq *) wire [3:0] a_be;
+  (* anyseq *) wire i_req_tog, i_we; (* anyseq *) wire [23:0] i_addr; (* anyseq *) wire [31:0] i_wdata; (* anyseq *) wire [3:0] i_be;
+  (* anyseq *) wire i_line; (* anyseq *) wire [95:0] i_wdata_x; (* anyseq *) wire [11:0] i_be_x;
   (* anyseq *) wire b_req_tog, b_we; (* anyseq *) wire [23:0] b_addr; (* anyseq *) wire [31:0] b_wdata; (* anyseq *) wire [3:0] b_be;
   (* anyseq *) wire c_ack_tog;       (* anyseq *) wire [31:0] c_rdata;
   (* anyseq *) wire a_line; (* anyseq *) wire [95:0] a_wdata_x, c_rdata_x; (* anyseq *) wire [11:0] a_be_x;   // the line words travel with the request, untouched
   wire [95:0] a_rdata_x, c_wdata_x; wire [11:0] c_be_x; wire c_line;
-  wire a_ack_tog, b_ack_tog, c_req_tog, c_we;
-  wire d_st, d_gb, d_lb, d_atl; wire [1:0] d_as;   // internal registers, exposed in the verification copy of the netlist
+  wire a_ack_tog, b_ack_tog, i_ack_tog, c_req_tog, c_we;
+  wire [95:0] i_rdata_x; wire [31:0] i_rdata;
+  wire d_st, d_gb, d_lb, d_gi, d_li, d_atl, d_itl; wire [1:0] d_as, d_is;   // internal registers, exposed in the verification copy of the netlist
   wire [31:0] a_rdata, b_rdata, c_wdata; wire [23:0] c_addr; wire [3:0] c_be;
 
   sdram_arbiter dut (.clk(clk), .rst(rst),
     .a_req_tog(a_req_tog), .a_ack_tog(a_ack_tog), .a_we(a_we), .a_addr(a_addr), .a_wdata(a_wdata), .a_be(a_be), .a_rdata(a_rdata),
+    .i_req_tog(i_req_tog), .i_ack_tog(i_ack_tog), .i_we(i_we), .i_addr(i_addr), .i_wdata(i_wdata), .i_be(i_be), .i_rdata(i_rdata),
+    .i_line(i_line), .i_wdata_x(i_wdata_x), .i_be_x(i_be_x), .i_rdata_x(i_rdata_x),
     .b_req_tog(b_req_tog), .b_ack_tog(b_ack_tog), .b_we(b_we), .b_addr(b_addr), .b_wdata(b_wdata), .b_be(b_be), .b_rdata(b_rdata),
     .c_req_tog(c_req_tog), .c_ack_tog(c_ack_tog), .c_we(c_we), .c_addr(c_addr), .c_wdata(c_wdata), .c_be(c_be), .c_rdata(c_rdata),
     .a_line(a_line), .a_wdata_x(a_wdata_x), .a_be_x(a_be_x), .a_rdata_x(a_rdata_x),
     .c_line(c_line), .c_wdata_x(c_wdata_x), .c_be_x(c_be_x), .c_rdata_x(c_rdata_x),
-    .dbg_st(d_st), .dbg_grant_b(d_gb), .dbg_last_b(d_lb), .dbg_a_tog_l(d_atl), .dbg_a_s(d_as));
+    .dbg_st(d_st), .dbg_grant_b(d_gb), .dbg_last_b(d_lb), .dbg_a_tog_l(d_atl), .dbg_a_s(d_as),
+    .dbg_grant_i(d_gi), .dbg_last_i(d_li), .dbg_i_tog_l(d_itl), .dbg_i_s(d_is));
 
   reg f_past_valid = 0;
+  reg p_i_req_tog = 0, p_i_ack_tog = 0, p_i_we = 0;
+  reg [23:0] p_i_addr = 0; reg [31:0] p_i_wdata = 0, p_i_rdata = 0; reg [3:0] p_i_be = 0;
+  reg [1:0] sh_i = 0;
+  reg [5:0] i_wait = 0;
   reg p_a_req_tog = 0, p_a_ack_tog = 0, p_a_we = 0, p_b_req_tog = 0, p_b_ack_tog = 0, p_b_we = 0;
   reg p_c_req_tog = 0, p_c_ack_tog = 0, p_c_we = 0;
   reg [23:0] p_a_addr = 0, p_b_addr = 0, p_c_addr = 0;
@@ -37,10 +47,13 @@ module props (input clk);
 
   wire a_pend = sh_a[1] != a_ack_tog;  // A request the arbiter has seen and not answered
   wire b_pend = b_req_tog != b_ack_tog;
-  reg p_a_pend = 0, p_b_pend = 0;
+  wire i_pend = sh_i[1] != i_ack_tog;  // an I request the arbiter has seen and not answered
+  reg p_a_pend = 0, p_b_pend = 0, p_i_pend = 0;
   wire c_pend = c_req_tog != c_ack_tog;
+  wire i_flip = i_ack_tog != p_i_ack_tog;
   wire a_flip = a_ack_tog != p_a_ack_tog, b_flip = b_ack_tog != p_b_ack_tog, grant = c_req_tog != p_c_req_tog;
   wire grant_word_a = c_we == p_a_we && c_addr == p_a_addr && c_wdata == p_a_wdata && c_be == p_a_be;
+  wire grant_word_i = c_we == p_i_we && c_addr == p_i_addr && c_wdata == p_i_wdata && c_be == p_i_be;
   wire grant_word_b = c_we == p_b_we && c_addr == p_b_addr && c_wdata == p_b_wdata && c_be == p_b_be;
 
   always @(posedge clk) begin
@@ -48,8 +61,11 @@ module props (input clk);
     p_a_req_tog <= a_req_tog; p_a_ack_tog <= a_ack_tog; p_a_we <= a_we; p_a_addr <= a_addr; p_a_wdata <= a_wdata; p_a_be <= a_be; p_a_rdata <= a_rdata;
     p_b_req_tog <= b_req_tog; p_b_ack_tog <= b_ack_tog; p_b_we <= b_we; p_b_addr <= b_addr; p_b_wdata <= b_wdata; p_b_be <= b_be; p_b_rdata <= b_rdata;
     p_c_req_tog <= c_req_tog; p_c_ack_tog <= c_ack_tog; p_c_we <= c_we; p_c_addr <= c_addr; p_c_wdata <= c_wdata; p_c_be <= c_be; p_c_rdata <= c_rdata;
+    p_i_req_tog <= i_req_tog; p_i_ack_tog <= i_ack_tog; p_i_we <= i_we; p_i_addr <= i_addr; p_i_wdata <= i_wdata; p_i_be <= i_be; p_i_rdata <= i_rdata;
     sh_a <= rst ? 2'b00 : {sh_a[0], a_req_tog};
-    p_a_pend <= a_pend; p_b_pend <= b_pend;
+    sh_i <= rst ? 2'b00 : {sh_i[0], i_req_tog};
+    p_a_pend <= a_pend; p_b_pend <= b_pend; p_i_pend <= i_pend;
+    i_wait <= (i_req_tog != i_ack_tog) ? i_wait + 1 : 0;
     c_wait <= c_pend ? c_wait + 1 : 0;
     a_wait <= (a_req_tog != a_ack_tog) ? a_wait + 1 : 0;
     b_wait <= (b_req_tog != b_ack_tog) ? b_wait + 1 : 0;
@@ -57,12 +73,14 @@ module props (input clk);
 
   // ---- the environment ----
   // one reset clock at the start, with every toggle at its reset value
-  always @* if (!f_past_valid) assume(rst && !a_req_tog && !b_req_tog && !c_ack_tog);
+  always @* if (!f_past_valid) assume(rst && !a_req_tog && !b_req_tog && !i_req_tog && !c_ack_tog);
   always @* if (f_past_valid) assume(!rst);
   // a master flips its toggle only when the previous request was answered, and holds the buses until then
   always @(posedge clk) if (f_past_valid) begin
     if (a_req_tog != p_a_req_tog) assume(p_a_req_tog == p_a_ack_tog);
     if (b_req_tog != p_b_req_tog) assume(p_b_req_tog == p_b_ack_tog);
+    if (i_req_tog != p_i_req_tog) assume(p_i_req_tog == p_i_ack_tog);
+    if (p_i_req_tog != p_i_ack_tog) assume(i_req_tog == p_i_req_tog && i_we == p_i_we && i_addr == p_i_addr && i_wdata == p_i_wdata && i_be == p_i_be);
     if (p_a_req_tog != p_a_ack_tog) assume(a_req_tog == p_a_req_tog && a_we == p_a_we && a_addr == p_a_addr && a_wdata == p_a_wdata && a_be == p_a_be);
     if (p_b_req_tog != p_b_ack_tog) assume(b_req_tog == p_b_req_tog && b_we == p_b_we && b_addr == p_b_addr && b_wdata == p_b_wdata && b_be == p_b_be);
     // the controller answers only a pending request, with the toggle of that request, within K clocks
@@ -78,8 +96,14 @@ module props (input clk);
     // the synchronizer of A has settled on the request whenever it differs from the answer
     if (d_as[1] != a_ack_tog) assert(a_req_tog == d_as[1]);
     if (a_req_tog == a_ack_tog) assert(d_as == {2{a_ack_tog}});
-    // serving A: the latched toggle is the pending request; serving B: B is pending
-    if (d_st && !d_gb) assert(d_atl != a_ack_tog && d_atl == a_req_tog);
+    // the same for the synchronizer of I
+    if (d_is[1] != i_ack_tog) assert(i_req_tog == d_is[1]);
+    if (i_req_tog == i_ack_tog) assert(d_is == {2{i_ack_tog}});
+    // at most one master is served; serving A or I: the latched toggle is the pending request; serving B: B is pending
+    assert(!(d_gb && d_gi));
+    assert(!(d_lb && d_li));
+    if (d_st && !d_gb && !d_gi) assert(d_atl != a_ack_tog && d_atl == a_req_tog);
+    if (d_st && d_gi) assert(d_itl != i_ack_tog && d_itl == i_req_tog);
     if (d_st && d_gb) assert(b_req_tog != b_ack_tog);
   end
 
@@ -89,15 +113,18 @@ module props (input clk);
     if (grant) assert(p_c_req_tog == p_c_ack_tog);
     if (p_c_req_tog != p_c_ack_tog) assert(c_req_tog == p_c_req_tog && c_we == p_c_we && c_addr == p_c_addr && c_wdata == p_c_wdata && c_be == p_c_be);
     // a grant carries the word of a master that was waiting
-    if (grant) assert((p_a_pend && grant_word_a) || (p_b_pend && grant_word_b));
+    if (grant) assert((p_a_pend && grant_word_a) || (p_b_pend && grant_word_b) || (p_i_pend && grant_word_i));
     // an answer goes to a master that was waiting, once, with the toggle of its request
     if (a_flip) assert(p_a_pend && a_ack_tog == a_req_tog);
     if (b_flip) assert(p_b_pend && b_ack_tog == b_req_tog);
-    if (a_flip || b_flip) assert(p_c_req_tog == p_c_ack_tog);
-    assert(!(a_flip && b_flip));
+    if (i_flip) assert(p_i_pend && i_ack_tog == i_req_tog);
+    if (a_flip || b_flip || i_flip) assert(p_c_req_tog == p_c_ack_tog);
+    assert(!(a_flip && b_flip) && !(a_flip && i_flip) && !(b_flip && i_flip));
     // the read data of a master is the one the controller returned, and changes only with its answer
     if (a_flip) assert(a_rdata == p_c_rdata);
     if (b_flip) assert(b_rdata == p_c_rdata);
+    if (i_flip) assert(i_rdata == p_c_rdata);
+    if (i_rdata != p_i_rdata) assert(i_flip);
     if (a_rdata != p_a_rdata) assert(a_flip);
     if (b_rdata != p_b_rdata) assert(b_flip);
   end
@@ -107,6 +134,7 @@ module props (input clk);
   always @* begin
     assert(a_wait <= `W);
     assert(b_wait <= `W);
+    assert(i_wait <= `W);
   end
 `endif
 
@@ -115,7 +143,11 @@ module props (input clk);
     cover(grant && p_a_pend && !p_b_pend);
     cover(grant && p_b_pend && !p_a_pend);
     cover(grant && p_a_pend && p_b_pend && grant_word_b && !grant_word_a);
-    cover(a_flip); cover(b_flip);
+    cover(a_flip); cover(b_flip); cover(i_flip);
+    cover(grant && p_i_pend && !p_a_pend && !p_b_pend);
+    cover(grant && p_a_pend && p_b_pend && p_i_pend && grant_word_i);   // all three waiting, I served
+    cover(i_flip && p_a_pend && p_b_pend);                              // I answered while both others wait
+    cover(a_flip && p_i_pend);          // A answered while I waits
     cover(a_flip && p_b_pend);          // A answered while B waits
     cover(b_flip && p_a_pend);          // B answered while A waits
   end

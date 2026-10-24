@@ -236,5 +236,18 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "InstructionCache": {
+        "toplevel": "icache",
+        "sources": [
+            "external/cache/icache.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.InstructionCache",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
