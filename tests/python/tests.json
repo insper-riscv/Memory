@@ -249,5 +249,19 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "SegDisplay": {
+        "toplevel": "seg_display",
+        "sources": [
+            "external/bus/hex_to_seg7.vhd",
+            "external/bus/seg_display.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.SegDisplay",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
