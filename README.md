@@ -20,8 +20,7 @@ slave interface (see the bus and memory interface in
 [Core's `docs/contracts/02-barramento-e-memoria.md`](https://github.com/insper-riscv/Core/blob/main/docs/contracts/02-barramento-e-memoria.md)):
 the internal memories answer in one cycle, and `ready` joins the interface with
 external memory. The chip timings in `external/sdram/sdram_pkg.vhd` are
-provisional (typical values of a 143 MHz SDR part) until they are checked
-against the datasheet of the chip.
+those of the datasheet of the chip, as `docs/SDRAM_TIMINGS.md` lists.
 
 The sizes of the IPs must agree with the platform's memory map
 (`Tests/platforms/internal-mem.yaml`, checked by `riscv-tools check-memory-map`).

@@ -2,6 +2,8 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.sdram_pkg.all;
+use ieee.std_logic_textio.all;
+use std.textio.all;
 
 -- Behavioral model of the 32M x 16 SDR SDRAM (simulation only). It stores the
 -- written data in a sparse table and it FAILS THE SIMULATION when the controller
@@ -9,12 +11,18 @@ use work.sdram_pkg.all;
 -- power-up sequence, the mode register, the refresh interval, a read or write to
 -- a bank that is not open, two commands that overlap a burst.
 --
+-- INIT_FILE (optional): a program image written into the chip at time zero, one 32-bit word per
+-- line in hexadecimal, from word address 0 (the SDRAM base). It stands for the host loading the
+-- chip through the debug port before the core is released, so a simulation can start from
+-- code that lives in the SDRAM.
+--
 -- The word debug port reads the stored content straight from the model (the
 -- 32-bit word of a word address), and a pulse on dbg_flip inverts one bit of a
 -- stored word, to prove that a check notices a corrupted memory.
 entity sdram_model is
   generic (
-    TCK_PS : natural := T_CK_PS
+    TCK_PS    : natural := T_CK_PS;
+    INIT_FILE : string  := ""
   );
   port (
     clk    : in    std_logic;
@@ -115,6 +123,31 @@ architecture sim of sdram_model is
 begin
 
   dq <= dq_drv when dq_oe = '1' else (others => 'Z');
+
+  load_image : process
+    file f      : text;
+    variable l  : line;
+    variable w  : std_logic_vector(31 downto 0);
+    variable ok : boolean;
+    variable idx : natural := 0;
+  begin
+    if INIT_FILE'length > 0 then
+      file_open(f, INIT_FILE, read_mode);
+      while not endfile(f) loop
+        readline(f, l);
+        if l'length >= 8 then
+          hread(l, w, ok);
+          if ok then
+            mem.write(2 * idx, w(15 downto 0));
+            mem.write(2 * idx + 1, w(31 downto 16));
+          end if;
+          idx := idx + 1;
+        end if;
+      end loop;
+      file_close(f);
+    end if;
+    wait;
+  end process;
 
   dbg_refreshes <= std_logic_vector(to_unsigned(refresh_count, 32));
   dbg_init_ok   <= init_ok;

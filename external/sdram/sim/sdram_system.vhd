@@ -11,7 +11,8 @@ entity sdram_system is
   generic (
     TCK_PS         : natural := T_CK_PS;
     INIT_CYCLES    : natural := cycles(T_INIT_PS, T_CK_PS);
-    REFRESH_CYCLES : natural := cycles(T_REFI_PS, T_CK_PS) * 9 / 10
+    REFRESH_CYCLES : natural := cycles(T_REFI_PS, T_CK_PS) * 9 / 10;
+    INIT_FILE      : string  := ""
   );
   port (
     clk_mem     : in  std_logic;
@@ -31,6 +32,15 @@ entity sdram_system is
     wdata_x     : in  std_logic_vector(95 downto 0) := (others => '0');
     byteena_x   : in  std_logic_vector(11 downto 0) := (others => '0');
     rdata_x     : out std_logic_vector(95 downto 0);
+
+    -- the core's instruction bridge (master I of the arbiter); idle when rden stays low
+    i_addr      : in  std_logic_vector(31 downto 0) := (others => '0');
+    i_rden      : in  std_logic := '0';
+    i_advance   : in  std_logic := '0';
+    i_ready     : out std_logic;
+    i_rdata     : out std_logic_vector(31 downto 0);
+    i_line      : in  std_logic := '0';
+    i_rdata_x   : out std_logic_vector(95 downto 0);
 
     init_done       : out std_logic;
     dbg_word_addr   : in  std_logic_vector(23 downto 0);
@@ -69,6 +79,13 @@ architecture sim of sdram_system is
   signal a_addr  : std_logic_vector(23 downto 0);
   signal a_wdata, a_rdata : std_logic_vector(31 downto 0);
   signal a_be    : std_logic_vector(3 downto 0);
+  signal i_req, i_ack, i_we : std_logic;
+  signal i_caddr  : std_logic_vector(23 downto 0);
+  signal i_cwdata, i_crdata : std_logic_vector(31 downto 0);
+  signal i_cbe    : std_logic_vector(3 downto 0);
+  signal i_cline  : std_logic;
+  signal i_cwdx, i_crdx : std_logic_vector(95 downto 0);
+  signal i_cbex   : std_logic_vector(11 downto 0);
   signal b_req, b_ack, b_we : std_logic;
   signal b_addr  : std_logic_vector(23 downto 0);
   signal b_wdata, b_rdata : std_logic_vector(31 downto 0);
@@ -103,6 +120,17 @@ begin
       c_line => a_line, c_wdata_x => a_wdx, c_be_x => a_bex, c_rdata_x => a_rdx
     );
 
+  u_ibridge : entity work.sdram_cpu_bridge
+    port map (
+      clk_cpu => clk_cpu, rst_cpu => rst_cpu,
+      addr => i_addr, wdata => (others => '0'), byteena => (others => '0'), rden => i_rden, wren => '0',
+      mem_advance => i_advance, ready => i_ready, rdata => i_rdata,
+      line => i_line, wdata_x => (others => '0'), byteena_x => (others => '0'), rdata_x => i_rdata_x,
+      req_tog => i_req, ack_tog => i_ack, init_done => init_i,
+      c_we => i_we, c_addr => i_caddr, c_wdata => i_cwdata, c_be => i_cbe, c_rdata => i_crdata,
+      c_line => i_cline, c_wdata_x => i_cwdx, c_be_x => i_cbex, c_rdata_x => i_crdx
+    );
+
   u_jtag : entity work.sdram_jtag_core
     port map (
       tck => jtag_tck, tdi => jtag_tdi, tdo => jtag_tdo, ir_in => jtag_ir_in,
@@ -128,6 +156,9 @@ begin
       a_req_tog => a_req, a_ack_tog => a_ack, a_we => a_we, a_addr => a_addr,
       a_wdata => a_wdata, a_be => a_be, a_rdata => a_rdata,
       a_line => a_line, a_wdata_x => a_wdx, a_be_x => a_bex, a_rdata_x => a_rdx,
+      i_req_tog => i_req, i_ack_tog => i_ack, i_we => i_we, i_addr => i_caddr,
+      i_wdata => i_cwdata, i_be => i_cbe, i_rdata => i_crdata,
+      i_line => i_cline, i_wdata_x => i_cwdx, i_be_x => i_cbex, i_rdata_x => i_crdx,
       b_req_tog => b_req, b_ack_tog => b_ack, b_we => b_we, b_addr => b_addr,
       b_wdata => b_wdata, b_be => b_be, b_rdata => b_rdata,
       c_req_tog => req_tog, c_ack_tog => ack_tog, c_we => c_we, c_addr => c_addr,
@@ -152,7 +183,7 @@ begin
   dq <= dq_out when dq_oe = '1' else (others => 'Z');
 
   u_chip : entity work.sdram_model
-    generic map (TCK_PS => TCK_PS)
+    generic map (TCK_PS => TCK_PS, INIT_FILE => INIT_FILE)
     port map (
       clk => clk_mem, cke => cke, cs_n => cs_n, ras_n => ras_n, cas_n => cas_n,
       we_n => we_n, ba => ba, a => a, dqm => dqm, dq => dq, reinit => rst_mem,
