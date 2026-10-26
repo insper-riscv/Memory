@@ -1,54 +1,44 @@
 # Memory
 
-The memories of the RV32 SoC. One job: the memory blocks the core reads and
-writes. The core, the peripherals, the top levels that wire them and the test
-programs live in other repositories of
-[insper-riscv](https://github.com/insper-riscv).
+🌐 [Português](README.md) · [English](README.en.md)
 
-## Layout
+Memórias do SoC RISC-V RV32: os blocos de memória que o núcleo lê e escreve. O núcleo, os periféricos, os topos que os conectam e os programas de teste ficam em outros repositórios da organização [insper-riscv](https://github.com/insper-riscv).
 
-| Path | What |
+## 1. Documentação
+
+- [AUTHORS.md](AUTHORS.md): autores com commits no repositório, com nome e conta do GitHub.
+- [CONTRIBUTING.md](CONTRIBUTING.md): regras obrigatórias de contribuição, norma VHDL-2008, nomenclatura, cabeçalhos, normas Python e verificação antes de abrir Pull Request.
+- [CITATION.cff](CITATION.cff): metadados para citação do software.
+- [contracts/02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md): protocolo de barramento e de memória compartilhado por todas as famílias.
+
+## 2. Estrutura do Repositório
+
+| Caminho | Conteúdo |
 | :--- | :--- |
-| `sim/` | simulation models: plain VHDL arrays that cocotb can read (`RAM_simulation`, `ROM_simulation`) |
-| `ips/` | the Quartus IPs of the board (`altsyncram`): `BOOT_ROM1PORT` (2 KB, programmed once), `FLASH1PORT` and `FLASH_MEM1PORT` (30 KB, the two physical copies of the FLASH, rewritten over JTAG per test), `RAM1PORT` (160 KB). They also simulate in GHDL through Intel's `altera_mf` models |
-| `tests/python/` | per-entity cocotb tests of the simulation models and the catalog (`tests.json`) that drives them |
+| `sim/` | Modelos de simulação em VHDL puro com arrays que o cocotb consegue ler (`RAM_simulation`, `ROM_simulation`) |
+| `ips/` | IPs Quartus (`altsyncram`) da placa: `BOOT_ROM1PORT` (2 KB, gravada uma vez), `FLASH1PORT` e `FLASH_MEM1PORT` (30 KB, as duas cópias físicas da FLASH, reescritas por JTAG a cada teste) e `RAM1PORT` (160 KB). Também simulam no GHDL pelos modelos `altera_mf` da Intel |
+| `tests/python/` | Testes por entidade dos modelos de simulação em cocotb e o catálogo (`tests.json`) que os conduz |
 
-The third family, **external memory** (flash and RAM outside the FPGA, with
-multi-cycle controllers), does not exist yet; it will live in `external/`. All
-three families share one slave interface (see the bus and memory interface in
-[Core's `docs/contracts/02-barramento-e-memoria.md`](https://github.com/insper-riscv/Core/blob/main/docs/contracts/02-barramento-e-memoria.md)):
-today every memory answers in one cycle, and `ready` joins the interface only
-with external memory.
+## 3. Famílias de Memória
 
-The sizes of the IPs must agree with the platform's memory map
-(`Tests/platforms/internal-mem.yaml`, checked by `riscv-tools check-memory-map`).
+Há três famílias que compartilham uma única interface de escravo: modelos de simulação, IPs internos da FPGA e memória externa (flash e RAM fora da FPGA, com controladores de vários ciclos), esta última prevista para o diretório `external/`. Toda memória interna responde em um ciclo; o sinal `ready` só integra a interface com a memória externa.
 
-## Use
+Os tamanhos dos IPs devem coincidir com o mapa de memória da plataforma (`Tests/platforms/internal-mem.yaml`), verificado por `riscv-tools check-memory-map`.
+
+## 4. Verificação e Execução
 
 ```bash
 git clone --recurse-submodules https://github.com/insper-riscv/Memory.git
 cd Memory
 uv sync
-make check   # GHDL syntax check of the simulation models
-make test    # per-entity cocotb tests (TEST=RAM for one)
-make paths   # every path the configuration lists exists
+
+make check   # Verificação de sintaxe VHDL dos modelos de simulação (GHDL)
+make test    # Testes por entidade em cocotb (make test TEST=RAM para um alvo)
+make paths   # Existência de todos os caminhos listados na configuração
 ```
 
-The tools (GHDL, uv) come from the `infra-toolchain` image of
-[Infra](https://github.com/insper-riscv/Infra); CI runs there. The IPs are not
-analyzed here (they need Intel's `altera_mf` library, which the image does not
-carry): the hardware-top simulation in [Tests](https://github.com/insper-riscv/Tests)
-does.
+As ferramentas (GHDL e uv) vêm da imagem `infra-toolchain` do repositório [Infra](https://github.com/insper-riscv/Infra), onde a integração contínua executa. Os IPs não são analisados aqui, pois exigem a biblioteca `altera_mf` da Intel, ausente da imagem; a simulação do topo de hardware em [Tests](https://github.com/insper-riscv/Tests) os cobre.
 
-## Where this came from
+---
 
-`sim/` and `ips/` moved from `insper-riscv/RV32` (`src/RAM_simulation.vhd`,
-`src/ROM_simulation.vhd`, `tests/FPGA/core/quartus/ips`) and `tests/python` from
-`insper-riscv/Tests`, with their history and authorship (`git filter-repo`). The
-outdated copies in `src/` (`RAM1PORT`, `ROM1PORT`, `ROM_IP`: 4096 and 8192 words,
-not the board's sizes) were archived as the tag `archive/stale-memory-ips` of
-RV32. The pre-move state is the tag `pre-refactor` in each repository.
-
-## License
-
-Apache License 2.0, see [LICENSE](LICENSE).
+Copyright 2026 Insper. Licenciado sob a [Apache License, Version 2.0](LICENSE).
