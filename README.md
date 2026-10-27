@@ -40,7 +40,7 @@ make test    # Testes por entidade em cocotb (make test TEST=RAM para um alvo)
 make paths   # Existência de todos os caminhos listados na configuração
 ```
 
-As ferramentas (GHDL e uv) vêm da imagem `infra-toolchain` do repositório [Infra](https://github.com/insper-riscv/Infra), onde a integração contínua executa. Os IPs não são analisados aqui, pois exigem a biblioteca `altera_mf` da Intel, ausente da imagem; a simulação do topo de hardware em [Tests](https://github.com/insper-riscv/Tests) os cobre.
+As ferramentas (GHDL e uv) vêm da imagem `ci-vhdl` do repositório [Infra](https://github.com/insper-riscv/Infra), onde a integração contínua executa. Os IPs não são analisados aqui, pois exigem a biblioteca `altera_mf` da Intel, ausente da imagem; a simulação do topo de hardware em [Tests](https://github.com/insper-riscv/Tests) os cobre.
 
 ---
 
