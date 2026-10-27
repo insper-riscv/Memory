@@ -4,7 +4,15 @@
         "sources": [
             "sim/RAM_simulation.vhd"
         ],
-        "test_module": "tests.python.unittests.sim.RAM"
+        "test_module": "tests.python.unittests.sim.RAM",
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ]
     },
     "ROM": {
         "toplevel": "rom_simulation",
@@ -14,7 +22,15 @@
         "test_module": "tests.python.unittests.sim.ROM",
         "parameters": {
             "ROM_FILE": "tests/python/unittests/sim/data/testROM.hex"
-        }
+        },
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ]
     },
     "SdramSystem": {
         "toplevel": "sdram_system",
