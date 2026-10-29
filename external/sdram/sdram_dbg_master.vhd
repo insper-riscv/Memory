@@ -84,8 +84,8 @@ architecture rtl of sdram_dbg_master is
   -- Estado atual do mestre.
   signal st : state_t := ST_IDLE;
 
-  -- Sincronizador de dois estágios de cmd_tog.
-  signal cmd_s    : std_logic_vector(1 downto 0) := "00";
+  -- Toggle de comando do hospedeiro, sincronizado com i_clk.
+  signal cmd_sync : std_logic_vector(0 downto 0);
   -- Toggle de conclusão (registrado).
   signal done_i   : std_logic := '0';
   -- Toggle de pedido ao árbitro (registrado).
@@ -111,19 +111,36 @@ architecture rtl of sdram_dbg_master is
   signal wcnt     : natural range 0 to timeout_cycles := 0;
   -- O controlador não respondeu no prazo (registrado).
   signal err      : std_logic := '0';
-  -- Sincronizador de dois estágios de init_done.
-  signal init_s   : std_logic_vector(1 downto 0) := "00";
+  -- init_done do controlador, sincronizado com i_clk.
+  signal init_sync : std_logic_vector(0 downto 0);
   -- Dado lido devolvido ao hospedeiro (registrado).
   signal rdata_i  : std_logic_vector(31 downto 0) := (others => '0');
 
 begin
 
+  -- Levam o toggle de comando e o init_done de outros clocks ao de i_clk.
+  u_sync_cmd : entity work.synchronizer
+    port map (
+      i_clk  => i_clk,
+      i_rst  => i_rst,
+      i_d(0) => i_cmd_tog,
+      o_d    => cmd_sync
+    );
+
+  u_sync_init : entity work.synchronizer
+    port map (
+      i_clk  => i_clk,
+      i_rst  => i_rst,
+      i_d(0) => i_init_done,
+      o_d    => init_sync
+    );
+
   o_done_tog   <= done_i;
   o_b_req_tog  <= req_i;
   o_rsp_addr   <= std_logic_vector(last);
   o_rsp_data   <= rdata_i;
-  o_rsp_status <= "00000" & init_s(1) & err & '0';
-  pending    <= '1' when cmd_s(1) /= done_i else '0';
+  o_rsp_status <= "00000" & init_sync(0) & err & '0';
+  pending    <= '1' when cmd_sync(0) /= done_i else '0';
 
   process (i_clk)
     procedure issue (a : unsigned(23 downto 0); we : std_logic; d : std_logic_vector(31 downto 0);
@@ -140,18 +157,13 @@ begin
     end procedure;
   begin
     if rising_edge(i_clk) then
-      cmd_s  <= cmd_s(0) & i_cmd_tog;
-      init_s <= init_s(0) & i_init_done;
-
       if i_rst = '1' then
         st     <= ST_IDLE;
-        cmd_s  <= "00";
         done_i <= '0';
         req_i  <= '0';
         err    <= '0';
         last   <= (others => '0');
         count  <= to_unsigned(1, 25);
-        init_s <= "00";
       else
         case st is
 
@@ -169,20 +181,20 @@ begin
                   issue(unsigned(i_addr), '1', i_data, i_be);
                 when "0011" =>
                   if count = 0 then
-                    done_i <= cmd_s(1);
+                    done_i <= cmd_sync(0);
                   else
                     left <= count - 1;
                     issue(unsigned(i_addr), '1', i_data, "1111");
                   end if;
                 when "0100" =>
                   count  <= unsigned(i_data(24 downto 0));
-                  done_i <= cmd_s(1);
+                  done_i <= cmd_sync(0);
                 when "0101" =>
                   issue(last + 1, '0', (others => '0'), "1111");
                 when "0110" =>
                   issue(last + 1, '1', i_data, i_be);
                 when others =>
-                  done_i <= cmd_s(1);
+                  done_i <= cmd_sync(0);
               end case;
             end if;
 
@@ -193,7 +205,7 @@ begin
               st      <= ST_NEXT;
             elsif wcnt = timeout_cycles then
               err    <= '1';
-              done_i <= cmd_s(1);
+              done_i <= cmd_sync(0);
               st     <= ST_IDLE;
             else
               wcnt <= wcnt + 1;
@@ -204,7 +216,7 @@ begin
               left <= left - 1;
               issue(cur_addr + 1, '1', data_l, "1111");
             else
-              done_i <= cmd_s(1);
+              done_i <= cmd_sync(0);
               st     <= ST_IDLE;
             end if;
 

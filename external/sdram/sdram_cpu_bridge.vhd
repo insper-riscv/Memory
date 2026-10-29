@@ -94,10 +94,10 @@ architecture rtl of sdram_cpu_bridge is
 
   -- Toggle de pedido ao controlador (registrado).
   signal req_i       : std_logic := '0';
-  -- Sincronizador de dois estágios do toggle de confirmação.
-  signal ack_s       : std_logic_vector(1 downto 0) := "00";
-  -- Sincronizador de dois estágios de init_done.
-  signal init_s      : std_logic_vector(1 downto 0) := "00";
+  -- Toggle de confirmação do controlador, sincronizado com i_clk_cpu.
+  signal ack_sync    : std_logic_vector(0 downto 0);
+  -- init_done do controlador, sincronizado com i_clk_cpu.
+  signal init_sync   : std_logic_vector(0 downto 0);
   -- O acesso em andamento é uma escrita.
   signal we_l        : std_logic := '0';
   -- Palavra 0 do dado lido, à espera do avanço do pipeline.
@@ -113,6 +113,23 @@ architecture rtl of sdram_cpu_bridge is
 
 begin
 
+  -- Leva o toggle de confirmação e o init_done do clock do controlador ao do core.
+  u_sync_ack : entity work.synchronizer
+    port map (
+      i_clk => i_clk_cpu,
+      i_rst => i_rst_cpu,
+      i_d(0) => i_ack_tog,
+      o_d    => ack_sync
+    );
+
+  u_sync_init : entity work.synchronizer
+    port map (
+      i_clk => i_clk_cpu,
+      i_rst => i_rst_cpu,
+      i_d(0) => i_init_done,
+      o_d    => init_sync
+    );
+
   o_req_tog <= req_i;
   o_c_we    <= we_l;
   o_ready   <= '1' when st = ST_DONE else '0';
@@ -123,20 +140,15 @@ begin
   process (i_clk_cpu)
   begin
     if rising_edge(i_clk_cpu) then
-      ack_s  <= ack_s(0) & i_ack_tog;
-      init_s <= init_s(0) & i_init_done;
-
       if i_rst_cpu = '1' then
         st      <= ST_IDLE;
         req_i   <= '0';
-        ack_s   <= "00";
-        init_s  <= "00";
         we_l    <= '0';
       else
         case st is
 
           when ST_IDLE =>
-            if (i_rden = '1' or i_wren = '1') and init_s(1) = '1' then
+            if (i_rden = '1' or i_wren = '1') and init_sync(0) = '1' then
               o_c_addr  <= i_addr(25 downto 2);
               o_c_wdata <= i_wdata;
               o_c_be    <= i_byteena;
@@ -149,7 +161,7 @@ begin
             end if;
 
           when ST_WAIT =>
-            if ack_s(1) = req_i then
+            if ack_sync(0) = req_i then
               pending   <= i_c_rdata;
               pending_x <= i_c_rdata_x;
               st        <= ST_DONE;

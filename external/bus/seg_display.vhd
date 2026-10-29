@@ -13,6 +13,12 @@
 -- instrução 1 seleciona um registrador de 25 bits:
 --   entrada   [23:0] valor novo; [24] 1 = grava o valor, 0 = só lê
 --   saída     [23:0] valor do registrador no início da varredura
+-- A instrução 2 seleciona o registrador de 2 bits da bandeira de falha:
+--   entrada   [0] valor novo; [1] 1 = grava a bandeira, 0 = só lê
+--   saída     [0] valor da bandeira no início da varredura
+-- A bandeira não passa pelo core: o hospedeiro a liga quando um programa falha,
+-- e o topo da placa a mostra em um LED. Só o hospedeiro e a reconfiguração da
+-- FPGA a alteram.
 -- A gravação do hospedeiro atravessa para i_clk com um toggle e dois
 -- flip-flops; o valor fica parado até a varredura seguinte. Se o core grava no
 -- mesmo ciclo em que a gravação do hospedeiro chega, vale o core.
@@ -56,6 +62,8 @@ entity seg_display is
 		i_state_uir : in  std_logic;
 		-- Valor guardado no registrador.
 		o_value     : out std_logic_vector(23 downto 0);
+		-- Bandeira de falha gravada pelo hospedeiro ('1' = houve falha).
+		o_fail      : out std_logic;
 		-- Segmentos dos seis displays, HEX0 nos bits 6:0 e HEX5 nos bits 41:36 (nível baixo).
 		o_hex       : out std_logic_vector(41 downto 0)
 	);
@@ -65,8 +73,8 @@ architecture rtl of seg_display is
 
 	-- Valor guardado, no domínio de i_clk.
 	signal value    : std_logic_vector(23 downto 0) := (others => '0');
-	-- Toggle do hospedeiro sincronizado em dois flip-flops no domínio de i_clk.
-	signal tog_sync : std_logic_vector(1 downto 0) := "00";
+	-- Toggle do hospedeiro sincronizado com i_clk.
+	signal tog_sync : std_logic_vector(0 downto 0);
 	-- Último valor do toggle já aplicado em i_clk.
 	signal tog_seen : std_logic := '0';
 
@@ -74,6 +82,10 @@ architecture rtl of seg_display is
 	signal ir       : std_logic_vector(1 downto 0) := (others => '0');
 	-- Registrador de deslocamento de 25 bits, no domínio de tck.
 	signal sr       : std_logic_vector(24 downto 0) := (others => '0');
+	-- Registrador de deslocamento de 2 bits da bandeira de falha, no domínio de tck.
+	signal fsr      : std_logic_vector(1 downto 0) := (others => '0');
+	-- Bandeira de falha, no domínio de tck.
+	signal fail_flag : std_logic := '0';
 	-- Bit de passagem para instruções não usadas.
 	signal bypass   : std_logic := '0';
 	-- Valor da gravação do hospedeiro, parado até a próxima varredura.
@@ -82,6 +94,14 @@ architecture rtl of seg_display is
 	signal host_tog : std_logic := '0';
 
 begin
+
+	-- Leva o toggle de gravação do domínio de tck ao de i_clk.
+	u_sync_tog : entity work.synchronizer
+		port map (
+			i_clk  => i_clk,
+			i_d(0) => host_tog,
+			o_d    => tog_sync
+		);
 
 	o_value <= value;
 
@@ -98,20 +118,23 @@ begin
 	process (i_clk)
 	begin
 		if rising_edge(i_clk) then
-			tog_sync <= tog_sync(0) & host_tog;
 			if i_rst = '1' then
 				value    <= (others => '0');
-				tog_seen <= tog_sync(1);
+				tog_seen <= tog_sync(0);
 			elsif i_we = '1' and to_integer(unsigned(i_addr)) = 0 then
 				value <= i_wdata(23 downto 0);
-			elsif tog_sync(1) /= tog_seen then
-				tog_seen <= tog_sync(1);
+			elsif tog_sync(0) /= tog_seen then
+				tog_seen <= tog_sync(0);
 				value    <= host_val;
 			end if;
 		end if;
 	end process;
 
-	o_tdo <= sr(0) when ir = "01" else bypass;
+	o_fail <= fail_flag;
+
+	o_tdo <= sr(0) when ir = "01" else
+	         fsr(0) when ir = "10" else
+	         bypass;
 
 	-- Lado do hospedeiro, no domínio de tck.
 	process (i_tck)
@@ -122,12 +145,16 @@ begin
 				ir <= i_ir_in;
 			end if;
 			if i_state_cdr = '1' then
-				sr <= '0' & value;
+				sr  <= '0' & value;
+				fsr <= '0' & fail_flag;
 			elsif i_state_sdr = '1' then
-				sr <= i_tdi & sr(24 downto 1);
+				sr  <= i_tdi & sr(24 downto 1);
+				fsr <= i_tdi & fsr(1);
 			elsif i_state_udr = '1' and ir = "01" and sr(24) = '1' then
 				host_val <= sr(23 downto 0);
 				host_tog <= not host_tog;
+			elsif i_state_udr = '1' and ir = "10" and fsr(1) = '1' then
+				fail_flag <= fsr(0);
 			end if;
 		end if;
 	end process;

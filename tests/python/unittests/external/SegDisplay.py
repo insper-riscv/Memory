@@ -1,5 +1,6 @@
 """The display register: the seven-segment pattern of each digit, the core's access to it, and the
-host's access through the Virtual JTAG instance (a 25-bit register selected by instruction 1).
+host's access through the Virtual JTAG instance (a 25-bit register selected by instruction 1, and the
+2-bit failure flag selected by instruction 2).
 
 The testbench plays the core (one pulse of we or re) and the instance (it drives the JTAG states).
 """
@@ -95,6 +96,22 @@ async def scan(dut, value=None):
     return out & 0xFFFFFF
 
 
+async def scan_fail(dut, value=None):
+    """One scan of the 2-bit failure register (instruction 2): writes `value` if given, returns the flag read."""
+    await tck(dut, ir=2)
+    word = 0 if value is None else 2 | int(value)
+    await tck(dut, cdr=1)
+    out = 0
+    for i in range(2):
+        dut.i_tdi.value = (word >> i) & 1
+        await Timer(1, unit="ns")
+        out |= int(dut.o_tdo.value) << i
+        await tck(dut, sdr=1)
+    await tck(dut, udr=1)
+    await tck(dut, ir=1)
+    return out & 1
+
+
 @cocotb.test()
 async def test_every_digit_pattern(dut):
     await start(dut)
@@ -172,3 +189,34 @@ async def test_a_thousand_writes_read_back_without_a_difference(dut):
         assert int(dut.o_value.value) == value
         assert await scan(dut) == value, f"scan {i}"
         assert await core_read(dut) == value
+
+
+@cocotb.test()
+async def test_failure_flag_starts_clear_and_the_host_sets_and_clears_it(dut):
+    await start(dut)
+    assert int(dut.o_fail.value) == 0
+    assert await scan_fail(dut) == 0
+    assert await scan_fail(dut, True) == 0, "the scan returns the flag as it was"
+    assert int(dut.o_fail.value) == 1
+    assert await scan_fail(dut) == 1, "a scan without the write bit only reads"
+    assert int(dut.o_fail.value) == 1
+    assert await scan_fail(dut, False) == 1
+    assert int(dut.o_fail.value) == 0
+
+
+@cocotb.test()
+async def test_failure_flag_is_independent_of_the_value_and_the_reset(dut):
+    await start(dut)
+    await scan_fail(dut, True)
+    await core_write(dut, 0x123456)
+    assert int(dut.o_fail.value) == 1, "a display write leaves the flag"
+    assert await scan(dut, 0xABCDEF) == 0x123456
+    for _ in range(6):
+        await post_edge(dut)
+    assert int(dut.o_fail.value) == 1, "a value scan leaves the flag"
+    dut.i_rst.value = 1
+    await post_edge(dut)
+    dut.i_rst.value = 0
+    await post_edge(dut)
+    assert int(dut.o_value.value) == 0
+    assert int(dut.o_fail.value) == 1, "the core reset does not clear the flag"

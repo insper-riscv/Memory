@@ -144,8 +144,8 @@ architecture rtl of sdram_ctrl is
   -- Refreshes já emitidos na sequência de energização.
   signal init_ref : natural range 0 to INIT_REFRESHES := 0;
 
-  -- Sincronizador de dois estágios de req_tog.
-  signal req_s    : std_logic_vector(1 downto 0) := "00";
+  -- Toggle de pedido do core, sincronizado com i_clk.
+  signal req_sync : std_logic_vector(0 downto 0);
   -- Toggle de pedido sobre o qual o controlador age.
   signal req_eff  : std_logic;
   -- Toggle de confirmação (registrado).
@@ -182,8 +182,17 @@ architecture rtl of sdram_ctrl is
 
 begin
 
+  -- Leva o toggle de pedido do clock do core ao do controlador (sem uso quando sync_req = false).
+  u_sync_req : entity work.synchronizer
+    port map (
+      i_clk  => i_clk,
+      i_rst  => i_rst,
+      i_d(0) => i_req_tog,
+      o_d    => req_sync
+    );
+
   o_ack_tog   <= ack_i;
-  req_eff   <= req_s(1) when sync_req else i_req_tog;
+  req_eff   <= req_sync(0) when sync_req else i_req_tog;
   o_init_done <= init_i;
   o_rdata     <= rdata_i;
   o_rdata_x   <= rdx_i;
@@ -221,8 +230,6 @@ begin
       o_dram_dq_oe  <= '0';
       o_dram_dq_out <= (others => '0');
 
-      req_s <= req_s(0) & i_req_tog;
-
       if act_cnt /= 0 then
         act_cnt <= act_cnt - 1;
       end if;
@@ -237,7 +244,6 @@ begin
         ack_i    <= '0';
         tog_l    <= '0';
         init_i   <= '0';
-        req_s    <= "00";
         rd_run   <= '0';
         lcnt     <= 0;
       else

@@ -5,7 +5,8 @@
 -- na simulação, onde o testbench faz o papel da instância e dirige seg_display
 -- direto. O hospedeiro vê a instância de índice 2, ao lado da porta de debug da
 -- SDRAM (0) e da UART (1), com registrador de instrução de 2 bits; a instrução 1
--- seleciona o registrador de 25 bits de seg_display.
+-- seleciona o registrador de 25 bits de seg_display e a instrução 2, o de 2 bits da
+-- bandeira de falha.
 -- =============================================================================
 
 library ieee;
@@ -32,7 +33,9 @@ entity seg_display_shell is
 		-- Segmentos dos seis displays, HEX0 nos bits 6:0 e HEX5 nos bits 41:36 (nível baixo).
 		o_hex   : out std_logic_vector(41 downto 0);
 		-- Valor de 24 bits guardado no registrador do display.
-		o_value : out std_logic_vector(23 downto 0)
+		o_value : out std_logic_vector(23 downto 0);
+		-- Bandeira de falha gravada pelo hospedeiro ('1' = houve falha).
+		o_fail  : out std_logic
 	);
 end entity seg_display_shell;
 
@@ -91,7 +94,7 @@ begin
 			i_we => i_we, i_re => i_re, o_rdata => o_rdata,
 			i_tck => tck, i_tdi => tdi, o_tdo => tdo, i_ir_in => ir_in,
 			i_state_cdr => st_cdr, i_state_sdr => st_sdr, i_state_udr => st_udr, i_state_uir => st_uir,
-			o_value => o_value, o_hex => o_hex
+			o_value => o_value, o_fail => o_fail, o_hex => o_hex
 		);
 
 end architecture rtl;
