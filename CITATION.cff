@@ -1,0 +1,33 @@
+cff-version: 1.2.0
+message: "Se você usar este software, cite-o com os metadados abaixo. / If you use this software, please cite it using the metadata below."
+type: software
+title: "Memory: memórias do SoC RISC-V RV32"
+abstract: >-
+  Modelos de simulação e IPs Quartus das memórias do SoC RISC-V RV32 em
+  VHDL-2008, com testes por entidade em cocotb/GHDL. Desenvolvido no Capstone
+  do Insper, financiado pelo CTI Renato Archer.
+authors:
+  - family-names: Hix
+    given-names: Lucas
+    alias: Peng1104
+  - family-names: Neto
+    given-names: Pedro Carvalho Ribeiro
+    alias: Ribs2004
+  - family-names: Durand
+    given-names: Luiz Felipe Borelli
+    alias: LuizDurand
+  - family-names: Figueiredo
+    given-names: Luka Siqueira Ferreira de
+    alias: lukafig
+  - family-names: Lima
+    given-names: Lucas Fernando De Souza
+    alias: lucasouzamil
+repository-code: "https://github.com/insper-riscv/Memory"
+url: "https://github.com/insper-riscv/Memory"
+license: Apache-2.0
+keywords:
+  - RISC-V
+  - VHDL
+  - memory
+  - Quartus
+  - cocotb

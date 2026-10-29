@@ -1,0 +1,252 @@
+-- =============================================================================
+-- Roteador de um mestre AXI4 para dois escravos, por endereço
+--
+-- Sem um clock de atraso: os canais do mestre vão ao escravo selecionado e as
+-- respostas voltam pela mesma escolha.
+--
+--   0x40000000 a 0x43FFFFFF   escravo 0 (a SDRAM)
+--   0x80000000 a 0xFFFFFFFF   escravo 1 (a janela de periféricos)
+--   qualquer outro            nenhum escravo: o pedido é aceito, todos os seus beats
+--                             são consumidos (escrita) ou dados (leitura, zeros), e a
+--                             resposta é DECERR
+--
+-- AW decide para onde vai uma escrita. Um W que chega antes do seu AW espera (um
+-- interconector pode fazer isso), um que chega junto segue a mesma decisão, e os
+-- beats depois dele vão pelo mesmo caminho até o que tem wlast. B e R voltam do
+-- escravo que tomou o pedido. Cada direção tem uma transação em andamento; um
+-- mestre que manda um segundo pedido antes da resposta ao primeiro espera. Os
+-- campos de rajada (len, size, burst) e os flags de último são repassados como
+-- estão; os IDs não são carregados (largura 0).
+-- =============================================================================
+
+library ieee;
+use ieee.std_logic_1164.all;
+use ieee.numeric_std.all;
+
+entity axi_router is
+  port (
+    -- Clock do módulo.
+    i_clk         : in  std_logic;
+    -- Reset, ativo em '1'.
+    i_rst         : in  std_logic;
+
+    -- Porta escravo AXI4, canal de endereço de escrita: validade da transferência ('1' = válida).
+    i_s_awvalid : in  std_logic; o_s_awready : out std_logic; i_s_awaddr : in std_logic_vector(31 downto 0);
+    -- Porta escravo AXI4, canal de endereço de escrita: número de beats da rajada menos um.
+    i_s_awlen   : in  std_logic_vector(7 downto 0); i_s_awsize : in std_logic_vector(2 downto 0); i_s_awburst : in std_logic_vector(1 downto 0);
+    -- Porta escravo AXI4, canal de dados de escrita: validade da transferência ('1' = válida).
+    i_s_wvalid  : in  std_logic; o_s_wready  : out std_logic; i_s_wdata  : in std_logic_vector(31 downto 0);
+    -- Porta escravo AXI4, canal de dados de escrita: habilita de bytes.
+    i_s_wstrb   : in  std_logic_vector(3 downto 0); i_s_wlast : in std_logic;
+    -- Porta escravo AXI4, canal de resposta de escrita: validade da transferência ('1' = válida).
+    o_s_bvalid  : out std_logic; i_s_bready  : in  std_logic; o_s_bresp  : out std_logic_vector(1 downto 0);
+    -- Porta escravo AXI4, canal de endereço de leitura: validade da transferência ('1' = válida).
+    i_s_arvalid : in  std_logic; o_s_arready : out std_logic; i_s_araddr : in std_logic_vector(31 downto 0);
+    -- Porta escravo AXI4, canal de endereço de leitura: número de beats da rajada menos um.
+    i_s_arlen   : in  std_logic_vector(7 downto 0); i_s_arsize : in std_logic_vector(2 downto 0); i_s_arburst : in std_logic_vector(1 downto 0);
+    -- Porta escravo AXI4, canal de dados de leitura: validade da transferência ('1' = válida).
+    o_s_rvalid  : out std_logic; i_s_rready  : in  std_logic;
+    -- Porta escravo AXI4, canal de dados de leitura: dados.
+    o_s_rdata   : out std_logic_vector(31 downto 0); o_s_rresp : out std_logic_vector(1 downto 0); o_s_rlast : out std_logic;
+
+    -- Porta mestre AXI4 0 (SDRAM), canal de endereço de escrita: validade da transferência ('1' = válida).
+    o_m0_awvalid : out std_logic; i_m0_awready : in std_logic; o_m0_awaddr : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de endereço de escrita: número de beats da rajada menos um.
+    o_m0_awlen   : out std_logic_vector(7 downto 0); o_m0_awsize : out std_logic_vector(2 downto 0); o_m0_awburst : out std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de dados de escrita: validade da transferência ('1' = válida).
+    o_m0_wvalid  : out std_logic; i_m0_wready  : in std_logic; o_m0_wdata  : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de dados de escrita: habilita de bytes.
+    o_m0_wstrb   : out std_logic_vector(3 downto 0); o_m0_wlast : out std_logic;
+    -- Porta mestre AXI4 0 (SDRAM), canal de resposta de escrita: validade da transferência ('1' = válida).
+    i_m0_bvalid  : in  std_logic; o_m0_bready  : out std_logic; i_m0_bresp : in std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de endereço de leitura: validade da transferência ('1' = válida).
+    o_m0_arvalid : out std_logic; i_m0_arready : in std_logic; o_m0_araddr : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de endereço de leitura: número de beats da rajada menos um.
+    o_m0_arlen   : out std_logic_vector(7 downto 0); o_m0_arsize : out std_logic_vector(2 downto 0); o_m0_arburst : out std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de dados de leitura: validade da transferência ('1' = válida).
+    i_m0_rvalid  : in  std_logic; o_m0_rready  : out std_logic;
+    -- Porta mestre AXI4 0 (SDRAM), canal de dados de leitura: dados.
+    i_m0_rdata   : in  std_logic_vector(31 downto 0); i_m0_rresp : in std_logic_vector(1 downto 0); i_m0_rlast : in std_logic;
+
+    -- Porta mestre AXI4 1 (periféricos), canal de endereço de escrita: validade da transferência ('1' = válida).
+    o_m1_awvalid : out std_logic; i_m1_awready : in std_logic; o_m1_awaddr : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 1 (periféricos), canal de endereço de escrita: número de beats da rajada menos um.
+    o_m1_awlen   : out std_logic_vector(7 downto 0); o_m1_awsize : out std_logic_vector(2 downto 0); o_m1_awburst : out std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 1 (periféricos), canal de dados de escrita: validade da transferência ('1' = válida).
+    o_m1_wvalid  : out std_logic; i_m1_wready  : in std_logic; o_m1_wdata  : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 1 (periféricos), canal de dados de escrita: habilita de bytes.
+    o_m1_wstrb   : out std_logic_vector(3 downto 0); o_m1_wlast : out std_logic;
+    -- Porta mestre AXI4 1 (periféricos), canal de resposta de escrita: validade da transferência ('1' = válida).
+    i_m1_bvalid  : in  std_logic; o_m1_bready  : out std_logic; i_m1_bresp : in std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 1 (periféricos), canal de endereço de leitura: validade da transferência ('1' = válida).
+    o_m1_arvalid : out std_logic; i_m1_arready : in std_logic; o_m1_araddr : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 1 (periféricos), canal de endereço de leitura: número de beats da rajada menos um.
+    o_m1_arlen   : out std_logic_vector(7 downto 0); o_m1_arsize : out std_logic_vector(2 downto 0); o_m1_arburst : out std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 1 (periféricos), canal de dados de leitura: validade da transferência ('1' = válida).
+    i_m1_rvalid  : in  std_logic; o_m1_rready  : out std_logic;
+    -- Porta mestre AXI4 1 (periféricos), canal de dados de leitura: dados.
+    i_m1_rdata   : in  std_logic_vector(31 downto 0); i_m1_rresp : in std_logic_vector(1 downto 0); i_m1_rlast : in std_logic
+  );
+end entity axi_router;
+
+architecture rtl of axi_router is
+
+  -- Seleção de escravo: 00 escravo 0, 01 escravo 1, 10 nenhum escravo.
+  subtype sel_t is std_logic_vector(1 downto 0);
+  -- Seleciona o escravo 0 (a SDRAM).
+  constant SEL_0 : sel_t := "00";
+  -- Seleciona o escravo 1 (a janela de periféricos).
+  constant SEL_1 : sel_t := "01";
+  -- Nenhum escravo: a resposta é DECERR.
+  constant SEL_E : sel_t := "10";
+
+  function decode (a : std_logic_vector(31 downto 0)) return sel_t is
+  begin
+    if a(31 downto 26) = "010000" then
+      return SEL_0;
+    elsif a(31) = '1' then
+      return SEL_1;
+    else
+      return SEL_E;
+    end if;
+  end function;
+
+  -- Há uma escrita em andamento.
+  signal wr_act : std_logic := '0';
+  -- O último beat da escrita foi consumido.
+  signal w_done : std_logic := '0';
+  -- Há uma leitura em andamento.
+  signal rd_act : std_logic := '0';
+  -- Escravo da escrita em andamento.
+  signal wr_sel : sel_t := SEL_0;
+  -- Escravo da leitura em andamento.
+  signal rd_sel : sel_t := SEL_0;
+  -- Beats de uma leitura com erro ainda por dar, menos um.
+  signal rd_left : unsigned(7 downto 0) := (others => '0');
+  -- Escravo decidido pelo endereço de escrita atual.
+  signal aw_dec : sel_t;
+  -- Escravo dos beats de W atuais.
+  signal w_sel : sel_t;
+  -- Escravo decidido pelo endereço de leitura atual.
+  signal ar_dec : sel_t;
+  -- Os beats de W podem seguir.
+  signal w_en : std_logic;
+  -- Pronto para aceitar o endereço de escrita.
+  signal aw_rdy : std_logic;
+  -- Pronto para aceitar um beat de W.
+  signal w_rdy : std_logic;
+  -- Pronto para aceitar o endereço de leitura.
+  signal ar_rdy : std_logic;
+  -- O handshake de AW ocorre neste clock.
+  signal aw_ok : std_logic;
+  -- O handshake de W ocorre neste clock.
+  signal w_ok : std_logic;
+  -- O handshake de AR ocorre neste clock.
+  signal ar_ok : std_logic;
+
+begin
+
+  aw_dec <= decode(i_s_awaddr);
+  ar_dec <= decode(i_s_araddr);
+
+  -- endereço de escrita: só enquanto não há escrita em andamento
+  o_m0_awvalid <= i_s_awvalid when wr_act = '0' and aw_dec = SEL_0 else '0';
+  o_m1_awvalid <= i_s_awvalid when wr_act = '0' and aw_dec = SEL_1 else '0';
+  o_m0_awaddr  <= i_s_awaddr;  o_m1_awaddr  <= i_s_awaddr;
+  o_m0_awlen   <= i_s_awlen;   o_m1_awlen   <= i_s_awlen;
+  o_m0_awsize  <= i_s_awsize;  o_m1_awsize  <= i_s_awsize;
+  o_m0_awburst <= i_s_awburst; o_m1_awburst <= i_s_awburst;
+  aw_rdy <= '0' when wr_act = '1' else
+            i_m0_awready when aw_dec = SEL_0 else
+            i_m1_awready when aw_dec = SEL_1 else '1';
+  o_s_awready <= aw_rdy;
+  aw_ok <= i_s_awvalid and aw_rdy;
+
+  -- dados de escrita: seguem a decisão de AW, no clock do handshake de AW ou depois dele, até o
+  -- beat com wlast
+  w_en  <= '1' when (wr_act = '1' and w_done = '0') or (wr_act = '0' and aw_ok = '1') else '0';
+  w_sel <= wr_sel when wr_act = '1' else aw_dec;
+  o_m0_wvalid <= i_s_wvalid when w_en = '1' and w_sel = SEL_0 else '0';
+  o_m1_wvalid <= i_s_wvalid when w_en = '1' and w_sel = SEL_1 else '0';
+  o_m0_wdata <= i_s_wdata; o_m1_wdata <= i_s_wdata;
+  o_m0_wstrb <= i_s_wstrb; o_m1_wstrb <= i_s_wstrb;
+  o_m0_wlast <= i_s_wlast; o_m1_wlast <= i_s_wlast;
+  w_rdy <= '0' when w_en = '0' else
+           i_m0_wready when w_sel = SEL_0 else
+           i_m1_wready when w_sel = SEL_1 else '1';
+  o_s_wready <= w_rdy;
+  w_ok <= i_s_wvalid and w_rdy;
+
+  -- resposta de escrita
+  o_m0_bready <= i_s_bready when wr_act = '1' and wr_sel = SEL_0 else '0';
+  o_m1_bready <= i_s_bready when wr_act = '1' and wr_sel = SEL_1 else '0';
+  o_s_bvalid  <= '0' when wr_act = '0' else
+               i_m0_bvalid when wr_sel = SEL_0 else
+               i_m1_bvalid when wr_sel = SEL_1 else w_done;
+  o_s_bresp   <= i_m0_bresp when wr_sel = SEL_0 else i_m1_bresp when wr_sel = SEL_1 else "11";
+
+  -- endereço e resposta de leitura
+  o_m0_arvalid <= i_s_arvalid when rd_act = '0' and ar_dec = SEL_0 else '0';
+  o_m1_arvalid <= i_s_arvalid when rd_act = '0' and ar_dec = SEL_1 else '0';
+  o_m0_araddr  <= i_s_araddr;  o_m1_araddr  <= i_s_araddr;
+  o_m0_arlen   <= i_s_arlen;   o_m1_arlen   <= i_s_arlen;
+  o_m0_arsize  <= i_s_arsize;  o_m1_arsize  <= i_s_arsize;
+  o_m0_arburst <= i_s_arburst; o_m1_arburst <= i_s_arburst;
+  ar_rdy <= '0' when rd_act = '1' else
+            i_m0_arready when ar_dec = SEL_0 else
+            i_m1_arready when ar_dec = SEL_1 else '1';
+  o_s_arready <= ar_rdy;
+  ar_ok <= i_s_arvalid and ar_rdy;
+
+  o_m0_rready <= i_s_rready when rd_act = '1' and rd_sel = SEL_0 else '0';
+  o_m1_rready <= i_s_rready when rd_act = '1' and rd_sel = SEL_1 else '0';
+  o_s_rvalid  <= '0' when rd_act = '0' else
+               i_m0_rvalid when rd_sel = SEL_0 else
+               i_m1_rvalid when rd_sel = SEL_1 else '1';
+  o_s_rdata   <= i_m0_rdata when rd_sel = SEL_0 else i_m1_rdata when rd_sel = SEL_1 else (others => '0');
+  o_s_rresp   <= i_m0_rresp when rd_sel = SEL_0 else i_m1_rresp when rd_sel = SEL_1 else "11";
+  o_s_rlast   <= i_m0_rlast when rd_sel = SEL_0 else i_m1_rlast when rd_sel = SEL_1 else
+               '1' when rd_left = 0 else '0';
+
+  process (i_clk)
+  begin
+    if rising_edge(i_clk) then
+      if i_rst = '1' then
+        wr_act <= '0';
+        w_done <= '0';
+        rd_act <= '0';
+      else
+        if wr_act = '0' then
+          if aw_ok = '1' then
+            wr_act <= '1';
+            wr_sel <= aw_dec;
+            w_done <= w_ok and i_s_wlast;
+          end if;
+        else
+          if w_ok = '1' and i_s_wlast = '1' then
+            w_done <= '1';
+          end if;
+          if o_s_bvalid = '1' and i_s_bready = '1' then
+            wr_act <= '0';
+            w_done <= '0';
+          end if;
+        end if;
+
+        if rd_act = '0' then
+          if ar_ok = '1' then
+            rd_act  <= '1';
+            rd_sel  <= ar_dec;
+            rd_left <= unsigned(i_s_arlen);
+          end if;
+        elsif o_s_rvalid = '1' and i_s_rready = '1' then
+          if o_s_rlast = '1' then
+            rd_act <= '0';
+          else
+            rd_left <= rd_left - 1;
+          end if;
+        end if;
+      end if;
+    end if;
+  end process;
+
+end architecture rtl;
