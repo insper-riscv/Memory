@@ -1,66 +1,103 @@
+-- =============================================================================
+-- Roteador de um mestre AXI4 para dois escravos, por endereço
+--
+-- Sem um clock de atraso: os canais do mestre vão ao escravo selecionado e as
+-- respostas voltam pela mesma escolha.
+--
+--   0x40000000 a 0x43FFFFFF   escravo 0 (a SDRAM)
+--   0x80000000 a 0xFFFFFFFF   escravo 1 (a janela de periféricos)
+--   qualquer outro            nenhum escravo: o pedido é aceito, todos os seus beats
+--                             são consumidos (escrita) ou dados (leitura, zeros), e a
+--                             resposta é DECERR
+--
+-- AW decide para onde vai uma escrita. Um W que chega antes do seu AW espera (um
+-- interconector pode fazer isso), um que chega junto segue a mesma decisão, e os
+-- beats depois dele vão pelo mesmo caminho até o que tem wlast. B e R voltam do
+-- escravo que tomou o pedido. Cada direção tem uma transação em andamento; um
+-- mestre que manda um segundo pedido antes da resposta ao primeiro espera. Os
+-- campos de rajada (len, size, burst) e os flags de último são repassados como
+-- estão; os IDs não são carregados (largura 0).
+-- =============================================================================
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- One AXI4 master to two slaves, by address, with no clock of delay: the channels of the master go
--- to the selected slave and the answers come back by the same choice.
---
---   0x40000000 to 0x43FFFFFF   slave 0 (the SDRAM)
---   0x80000000 to 0xFFFFFFFF   slave 1 (the peripheral window)
---   anything else              no slave: the request is accepted, all its beats are consumed (a
---                              write) or given (a read, zeros), and the answer is DECERR
---
--- AW decides where a write goes. A W that comes before its AW waits (an interconnect may do that),
--- one that comes with it follows the same decision, and the beats after it go the same way until
--- the one with wlast. B and R come back from the slave that took the request. Each direction has
--- one transaction in flight; a master that sends a second request before the answer to the first
--- waits. The burst fields (len, size, burst) and the last flags are passed as they are; IDs are not
--- carried (width 0).
 entity axi_router is
   port (
+    -- Clock do módulo.
     i_clk         : in  std_logic;
+    -- Reset, ativo em '1'.
     i_rst         : in  std_logic;
 
-    -- the master (this is a slave port)
+    -- Porta escravo AXI4, canal de endereço de escrita: validade da transferência ('1' = válida).
     i_s_awvalid : in  std_logic; o_s_awready : out std_logic; i_s_awaddr : in std_logic_vector(31 downto 0);
+    -- Porta escravo AXI4, canal de endereço de escrita: número de beats da rajada menos um.
     i_s_awlen   : in  std_logic_vector(7 downto 0); i_s_awsize : in std_logic_vector(2 downto 0); i_s_awburst : in std_logic_vector(1 downto 0);
+    -- Porta escravo AXI4, canal de dados de escrita: validade da transferência ('1' = válida).
     i_s_wvalid  : in  std_logic; o_s_wready  : out std_logic; i_s_wdata  : in std_logic_vector(31 downto 0);
+    -- Porta escravo AXI4, canal de dados de escrita: habilita de bytes.
     i_s_wstrb   : in  std_logic_vector(3 downto 0); i_s_wlast : in std_logic;
+    -- Porta escravo AXI4, canal de resposta de escrita: validade da transferência ('1' = válida).
     o_s_bvalid  : out std_logic; i_s_bready  : in  std_logic; o_s_bresp  : out std_logic_vector(1 downto 0);
+    -- Porta escravo AXI4, canal de endereço de leitura: validade da transferência ('1' = válida).
     i_s_arvalid : in  std_logic; o_s_arready : out std_logic; i_s_araddr : in std_logic_vector(31 downto 0);
+    -- Porta escravo AXI4, canal de endereço de leitura: número de beats da rajada menos um.
     i_s_arlen   : in  std_logic_vector(7 downto 0); i_s_arsize : in std_logic_vector(2 downto 0); i_s_arburst : in std_logic_vector(1 downto 0);
+    -- Porta escravo AXI4, canal de dados de leitura: validade da transferência ('1' = válida).
     o_s_rvalid  : out std_logic; i_s_rready  : in  std_logic;
+    -- Porta escravo AXI4, canal de dados de leitura: dados.
     o_s_rdata   : out std_logic_vector(31 downto 0); o_s_rresp : out std_logic_vector(1 downto 0); o_s_rlast : out std_logic;
 
-    -- slave 0
+    -- Porta mestre AXI4 0 (SDRAM), canal de endereço de escrita: validade da transferência ('1' = válida).
     o_m0_awvalid : out std_logic; i_m0_awready : in std_logic; o_m0_awaddr : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de endereço de escrita: número de beats da rajada menos um.
     o_m0_awlen   : out std_logic_vector(7 downto 0); o_m0_awsize : out std_logic_vector(2 downto 0); o_m0_awburst : out std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de dados de escrita: validade da transferência ('1' = válida).
     o_m0_wvalid  : out std_logic; i_m0_wready  : in std_logic; o_m0_wdata  : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de dados de escrita: habilita de bytes.
     o_m0_wstrb   : out std_logic_vector(3 downto 0); o_m0_wlast : out std_logic;
+    -- Porta mestre AXI4 0 (SDRAM), canal de resposta de escrita: validade da transferência ('1' = válida).
     i_m0_bvalid  : in  std_logic; o_m0_bready  : out std_logic; i_m0_bresp : in std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de endereço de leitura: validade da transferência ('1' = válida).
     o_m0_arvalid : out std_logic; i_m0_arready : in std_logic; o_m0_araddr : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de endereço de leitura: número de beats da rajada menos um.
     o_m0_arlen   : out std_logic_vector(7 downto 0); o_m0_arsize : out std_logic_vector(2 downto 0); o_m0_arburst : out std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de dados de leitura: validade da transferência ('1' = válida).
     i_m0_rvalid  : in  std_logic; o_m0_rready  : out std_logic;
+    -- Porta mestre AXI4 0 (SDRAM), canal de dados de leitura: dados.
     i_m0_rdata   : in  std_logic_vector(31 downto 0); i_m0_rresp : in std_logic_vector(1 downto 0); i_m0_rlast : in std_logic;
 
-    -- slave 1
+    -- Porta mestre AXI4 1 (periféricos), canal de endereço de escrita: validade da transferência ('1' = válida).
     o_m1_awvalid : out std_logic; i_m1_awready : in std_logic; o_m1_awaddr : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 1 (periféricos), canal de endereço de escrita: número de beats da rajada menos um.
     o_m1_awlen   : out std_logic_vector(7 downto 0); o_m1_awsize : out std_logic_vector(2 downto 0); o_m1_awburst : out std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 1 (periféricos), canal de dados de escrita: validade da transferência ('1' = válida).
     o_m1_wvalid  : out std_logic; i_m1_wready  : in std_logic; o_m1_wdata  : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 1 (periféricos), canal de dados de escrita: habilita de bytes.
     o_m1_wstrb   : out std_logic_vector(3 downto 0); o_m1_wlast : out std_logic;
+    -- Porta mestre AXI4 1 (periféricos), canal de resposta de escrita: validade da transferência ('1' = válida).
     i_m1_bvalid  : in  std_logic; o_m1_bready  : out std_logic; i_m1_bresp : in std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 1 (periféricos), canal de endereço de leitura: validade da transferência ('1' = válida).
     o_m1_arvalid : out std_logic; i_m1_arready : in std_logic; o_m1_araddr : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 1 (periféricos), canal de endereço de leitura: número de beats da rajada menos um.
     o_m1_arlen   : out std_logic_vector(7 downto 0); o_m1_arsize : out std_logic_vector(2 downto 0); o_m1_arburst : out std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 1 (periféricos), canal de dados de leitura: validade da transferência ('1' = válida).
     i_m1_rvalid  : in  std_logic; o_m1_rready  : out std_logic;
+    -- Porta mestre AXI4 1 (periféricos), canal de dados de leitura: dados.
     i_m1_rdata   : in  std_logic_vector(31 downto 0); i_m1_rresp : in std_logic_vector(1 downto 0); i_m1_rlast : in std_logic
   );
 end entity axi_router;
 
 architecture rtl of axi_router is
 
-  subtype sel_t is std_logic_vector(1 downto 0);   -- 00 slave 0, 01 slave 1, 10 no slave
+  -- Seleção de escravo: 00 escravo 0, 01 escravo 1, 10 nenhum escravo.
+  subtype sel_t is std_logic_vector(1 downto 0);
+  -- Seleciona o escravo 0 (a SDRAM).
   constant SEL_0 : sel_t := "00";
+  -- Seleciona o escravo 1 (a janela de periféricos).
   constant SEL_1 : sel_t := "01";
+  -- Nenhum escravo: a resposta é DECERR.
   constant SEL_E : sel_t := "10";
 
   function decode (a : std_logic_vector(31 downto 0)) return sel_t is
@@ -74,20 +111,45 @@ architecture rtl of axi_router is
     end if;
   end function;
 
-  signal wr_act, w_done, rd_act : std_logic := '0';
-  signal wr_sel, rd_sel : sel_t := SEL_0;
-  signal rd_left : unsigned(7 downto 0) := (others => '0');   -- beats of an error read still to give, minus one
-  signal aw_dec, w_sel, ar_dec : sel_t;
+  -- Há uma escrita em andamento.
+  signal wr_act : std_logic := '0';
+  -- O último beat da escrita foi consumido.
+  signal w_done : std_logic := '0';
+  -- Há uma leitura em andamento.
+  signal rd_act : std_logic := '0';
+  -- Escravo da escrita em andamento.
+  signal wr_sel : sel_t := SEL_0;
+  -- Escravo da leitura em andamento.
+  signal rd_sel : sel_t := SEL_0;
+  -- Beats de uma leitura com erro ainda por dar, menos um.
+  signal rd_left : unsigned(7 downto 0) := (others => '0');
+  -- Escravo decidido pelo endereço de escrita atual.
+  signal aw_dec : sel_t;
+  -- Escravo dos beats de W atuais.
+  signal w_sel : sel_t;
+  -- Escravo decidido pelo endereço de leitura atual.
+  signal ar_dec : sel_t;
+  -- Os beats de W podem seguir.
   signal w_en : std_logic;
-  signal aw_rdy, w_rdy, ar_rdy : std_logic;
-  signal aw_ok, w_ok, ar_ok : std_logic;     -- the handshakes of this clock
+  -- Pronto para aceitar o endereço de escrita.
+  signal aw_rdy : std_logic;
+  -- Pronto para aceitar um beat de W.
+  signal w_rdy : std_logic;
+  -- Pronto para aceitar o endereço de leitura.
+  signal ar_rdy : std_logic;
+  -- O handshake de AW ocorre neste clock.
+  signal aw_ok : std_logic;
+  -- O handshake de W ocorre neste clock.
+  signal w_ok : std_logic;
+  -- O handshake de AR ocorre neste clock.
+  signal ar_ok : std_logic;
 
 begin
 
   aw_dec <= decode(i_s_awaddr);
   ar_dec <= decode(i_s_araddr);
 
-  -- write address: only while no write is in flight
+  -- endereço de escrita: só enquanto não há escrita em andamento
   o_m0_awvalid <= i_s_awvalid when wr_act = '0' and aw_dec = SEL_0 else '0';
   o_m1_awvalid <= i_s_awvalid when wr_act = '0' and aw_dec = SEL_1 else '0';
   o_m0_awaddr  <= i_s_awaddr;  o_m1_awaddr  <= i_s_awaddr;
@@ -100,8 +162,8 @@ begin
   o_s_awready <= aw_rdy;
   aw_ok <= i_s_awvalid and aw_rdy;
 
-  -- write data: follows the decision of AW, in the clock of the AW handshake or after it, up to the
-  -- beat with wlast
+  -- dados de escrita: seguem a decisão de AW, no clock do handshake de AW ou depois dele, até o
+  -- beat com wlast
   w_en  <= '1' when (wr_act = '1' and w_done = '0') or (wr_act = '0' and aw_ok = '1') else '0';
   w_sel <= wr_sel when wr_act = '1' else aw_dec;
   o_m0_wvalid <= i_s_wvalid when w_en = '1' and w_sel = SEL_0 else '0';
@@ -115,7 +177,7 @@ begin
   o_s_wready <= w_rdy;
   w_ok <= i_s_wvalid and w_rdy;
 
-  -- write response
+  -- resposta de escrita
   o_m0_bready <= i_s_bready when wr_act = '1' and wr_sel = SEL_0 else '0';
   o_m1_bready <= i_s_bready when wr_act = '1' and wr_sel = SEL_1 else '0';
   o_s_bvalid  <= '0' when wr_act = '0' else
@@ -123,7 +185,7 @@ begin
                i_m1_bvalid when wr_sel = SEL_1 else w_done;
   o_s_bresp   <= i_m0_bresp when wr_sel = SEL_0 else i_m1_bresp when wr_sel = SEL_1 else "11";
 
-  -- read address and response
+  -- endereço e resposta de leitura
   o_m0_arvalid <= i_s_arvalid when rd_act = '0' and ar_dec = SEL_0 else '0';
   o_m1_arvalid <= i_s_arvalid when rd_act = '0' and ar_dec = SEL_1 else '0';
   o_m0_araddr  <= i_s_araddr;  o_m1_araddr  <= i_s_araddr;

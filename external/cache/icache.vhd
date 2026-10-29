@@ -1,88 +1,136 @@
+-- =============================================================================
+-- Cache de instruções do core
+--
+-- 4 KB, mapeamento direto, linhas de 16 bytes (quatro palavras), somente leitura.
+-- Fica no caminho de busca dos endereços da SDRAM; a BOOT_ROM e a FLASH não
+-- passam por ela.
+--
+-- Lado do core: addr é o endereço de busca (o PC) e sel diz que é um endereço da
+-- SDRAM. As RAMs têm leitura registrada, como as RAMs de bloco da FPGA, então a
+-- instrução do endereço que estava em addr numa borda do clock está em data
+-- depois dessa borda, e ready diz que é a certa: a linha é válida, a tag bate e
+-- addr não mudou desde a borda. O core amostra ready e data na sua própria
+-- borda, uma fração de clock depois desta; enquanto ready está baixo, ele
+-- segura o endereço e a cache traz a linha. Nada aqui depende da fase do clock
+-- do core além dessa ordem.
+--
+-- Lado da memória: o mesmo contrato da dcache. Um pedido de linha (quatro
+-- palavras, d_line alto, as três últimas em d_rdata_x) fica em d_addr e d_rden
+-- até d_ready; d_advance o responde.
+--
+-- invalidate: um pulso derruba todas as linhas em um clock. Um preenchimento de
+-- linha em andamento quando o pulso chega também é descartado (pode conter
+-- código anterior aos stores que o programa terminou), então nada que a cache
+-- guarda é mais velho que o invalidate.
+--
+-- Nada escreve na SDRAM por trás da cache exceto a porta de debug, que o faz com
+-- o core parado e a cache invalidada (como depois do reset), e os próprios
+-- stores do core, que a cache não observa: só um fence.i os torna visíveis à
+-- busca.
+--
+-- Divisão do endereço do espaço da SDRAM (64 MB): bits 25:12 tag, 11:4 linha,
+-- 3:2 palavra. Os bits acima de 25 não são guardados; o lado da memória
+-- acrescenta base neles.
+-- =============================================================================
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- The core's instruction cache: 4 KB, direct-mapped, lines of 16 bytes (four words), read only.
--- It sits on the fetch path for the SDRAM addresses; the BOOT_ROM and the FLASH do not go
--- through it.
---
--- Core side: addr is the fetch address (the PC) and sel says it is an SDRAM address. The RAMs
--- have a registered read, as the FPGA's block RAMs do, so the instruction of the address that was
--- on addr at a clock edge is on data after that edge, and ready says it is the right one: the line
--- is valid, its tag matches, and addr has not changed since that edge. The core samples ready and
--- data at its own edge, a fraction of a clock after this one; while ready is low it holds the
--- address, and the cache brings the line in. Nothing here depends on the core's clock phase beyond
--- that order.
---
--- Memory side: the same contract as dcache's. One line request (four words, d_line high, the last
--- three words on d_rdata_x) is held on d_addr and d_rden until d_ready; d_advance answers it.
---
--- invalidate: one pulse drops every line in one clock. A line fill that is still going on when the
--- pulse arrives is dropped as well (it may hold code from before the stores that the program
--- finished), so nothing the cache holds is older than the invalidate.
---
--- Nothing writes the SDRAM behind the cache except the debug port, which does it with the core
--- stopped and the cache invalidated (as after the reset), and the core's own stores, which the
--- cache does not observe: only a fence.i makes them visible to the fetch.
---
--- Address split of the SDRAM space (64 MB): bits 25:12 tag, 11:4 line, 3:2 word. The bits above
--- 25 are not stored; the memory side puts BASE there.
 entity icache is
   generic (
-    BASE : std_logic_vector(5 downto 0) := "010000"   -- bits 31:26 of the SDRAM addresses (0x40000000)
+    -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória.
+    base : std_logic_vector(5 downto 0) := "010000"
   );
   port (
+    -- Clock do módulo.
     i_clk        : in  std_logic;
-    i_rst        : in  std_logic;  -- synchronous, active high
+    -- Reset, ativo em '1'.
+    i_rst        : in  std_logic;
 
-    -- fetch side
+    -- Endereço de busca (o PC).
     i_addr       : in  std_logic_vector(31 downto 0);
+    -- O endereço de busca pertence à SDRAM ('1').
     i_sel        : in  std_logic;
+    -- A instrução em o_data é a do endereço atual ('1').
     o_ready      : out std_logic;
+    -- Instrução buscada.
     o_data       : out std_logic_vector(31 downto 0);
+    -- Pulso que derruba todas as linhas da cache.
     i_invalidate : in  std_logic := '0';
 
-    -- memory side
+    -- Lado da memória: endereço do acesso.
     o_d_addr     : out std_logic_vector(31 downto 0);
+    -- Lado da memória: pedido de leitura ('1').
     o_d_rden     : out std_logic;
+    -- Lado da memória: o pipeline avançou, o acesso pode ser concluído.
     o_d_advance  : out std_logic;
+    -- Lado da memória: acesso concluído, dado lido válido ('1').
     i_d_ready    : in  std_logic;
+    -- Lado da memória: dado lido.
     i_d_rdata    : in  std_logic_vector(31 downto 0);
+    -- Lado da memória: acesso de linha de quatro palavras ('1').
     o_d_line     : out std_logic;
+    -- Lado da memória: palavras 1 a 3 do dado lido da linha.
     i_d_rdata_x  : in  std_logic_vector(95 downto 0) := (others => '0')
   );
 end entity icache;
 
 architecture rtl of icache is
 
+  -- Estados da cache: livre e as etapas do preenchimento de linha.
   type state_t is (S_IDLE, S_FILL_REQ, S_FILL_WAIT, S_FILL_GET, S_SETTLE);
+  -- Estado atual da cache.
   signal st : state_t := S_IDLE;
 
+  -- Memória de dados: 1024 palavras, quatro por linha.
   type data_t is array (0 to 1023) of std_logic_vector(31 downto 0);
+  -- Memória de tags: uma tag de 14 bits por linha.
   type tag_t  is array (0 to 255) of std_logic_vector(13 downto 0);
+  -- Palavras das 256 linhas.
   signal data_ram : data_t := (others => (others => '0'));
+  -- Tag de cada linha.
   signal tag_ram  : tag_t  := (others => (others => '0'));
+  -- Bit de validade de cada linha.
   signal valid    : std_logic_vector(255 downto 0) := (others => '0');
 
-  -- the registered read: what the RAMs held for the address of the last clock edge
+  -- Palavra lida da memória de dados (leitura registrada).
   signal ram_rd   : std_logic_vector(31 downto 0) := (others => '0');
+  -- Tag lida da memória de tags (leitura registrada).
   signal tag_rd   : std_logic_vector(13 downto 0) := (others => '0');
+  -- Validade da linha lida (registrada).
   signal valid_rd : std_logic := '0';
+  -- Endereço que estava em addr na última borda.
   signal addr_q   : std_logic_vector(31 downto 0) := (others => '0');
+  -- Valor de sel na última borda.
   signal sel_q    : std_logic := '0';
 
+  -- A tag lida bate com a do endereço registrado.
   signal tag_match : std_logic;
+  -- A instrução pedida está na cache.
   signal hit       : std_logic;
 
+  -- Tag da linha em preenchimento.
   signal fill_tag : std_logic_vector(13 downto 0);
+  -- Índice da linha em preenchimento.
   signal fill_idx : std_logic_vector(7 downto 0);
+  -- Palavra da linha em preenchimento.
   signal cnt      : unsigned(1 downto 0) := (others => '0');
+  -- Um invalidate chegou durante o preenchimento, a linha será descartada.
   signal drop     : std_logic := '0';
+  -- Palavra da linha que acabou de chegar da memória.
   signal fill_w   : std_logic_vector(31 downto 0);
-  signal ram_we, tag_we : std_logic;
+  -- Habilita de escrita da memória de dados.
+  signal ram_we : std_logic;
+  -- Habilita de escrita da memória de tags.
+  signal tag_we : std_logic;
+  -- Endereço de escrita da memória de dados.
   signal ram_wa : std_logic_vector(9 downto 0);
+  -- Pedido de leitura ao lado da memória (registrado).
   signal d_rden_i : std_logic := '0';
+  -- Pedido de linha ao lado da memória (registrado).
   signal d_line_i : std_logic := '0';
+  -- Endereço do pedido ao lado da memória (registrado).
   signal d_addr_i : std_logic_vector(31 downto 0) := (others => '0');
 
 begin
@@ -143,7 +191,7 @@ begin
 
           when S_IDLE =>
             drop <= '0';
-            -- a miss of the address that is still on addr: bring its line in
+            -- uma falha do endereço que ainda está em addr: traz a sua linha
             if sel_q = '1' and hit = '0' and addr_q = i_addr and i_invalidate = '0' then
               fill_tag <= addr_q(25 downto 12);
               fill_idx <= addr_q(11 downto 4);
@@ -151,7 +199,7 @@ begin
             end if;
 
           when S_FILL_REQ =>
-            d_addr_i <= BASE & fill_tag & fill_idx & "0000";
+            d_addr_i <= base & fill_tag & fill_idx & "0000";
             d_line_i <= '1';
             d_rden_i <= '1';
             st       <= S_FILL_WAIT;
@@ -175,7 +223,7 @@ begin
               cnt <= cnt + 1;
             end if;
 
-          -- the registered read has to see the new tag and valid bit before the next lookup
+          -- a leitura registrada precisa ver a tag e o bit de validade novos antes da próxima consulta
           when S_SETTLE =>
             st <= S_IDLE;
 

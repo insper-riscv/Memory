@@ -15,34 +15,53 @@ use altera_mf.altera_mf_components.all;
 
 entity seg_display_shell is
 	port (
-		-- Clock do core.
+		-- Clock do módulo.
 		i_clk   : in  std_logic;
-		-- Reset síncrono, ativo em nível alto.
+		-- Reset, ativo em '1'.
 		i_rst   : in  std_logic;
-		-- Deslocamento de palavra dentro da janela do periférico.
+		-- Endereço do acesso.
 		i_addr  : in  std_logic_vector(7 downto 0);
-		-- Dado escrito pelo core.
+		-- Dado de escrita.
 		i_wdata : in  std_logic_vector(31 downto 0);
-		-- Pulso de escrita do core.
+		-- Escrita ('1') ou leitura ('0').
 		i_we    : in  std_logic;
-		-- Pulso de leitura do core.
+		-- Leitura ('1').
 		i_re    : in  std_logic;
-		-- Dado lido pelo core.
+		-- Dado lido.
 		o_rdata : out std_logic_vector(31 downto 0);
-		-- Segmentos dos seis displays (nível baixo), HEX0 nos bits 6:0.
+		-- Segmentos dos seis displays, HEX0 nos bits 6:0 e HEX5 nos bits 41:36 (nível baixo).
 		o_hex   : out std_logic_vector(41 downto 0);
-		-- Valor guardado, para os LEDs.
+		-- Valor de 24 bits guardado no registrador do display.
 		o_value : out std_logic_vector(23 downto 0)
 	);
 end entity seg_display_shell;
 
 architecture rtl of seg_display_shell is
 
-	-- Sinais da instância do Virtual JTAG.
-	signal tck, tdi, tdo : std_logic;
+	-- Clock da cadeia JTAG.
+	signal tck : std_logic;
+	-- Dado serial vindo do hospedeiro.
+	signal tdi : std_logic;
+	-- Dado serial para o hospedeiro.
+	signal tdo : std_logic;
+	-- Registrador de instrução do Virtual JTAG.
 	signal ir_in         : std_logic_vector(1 downto 0);
-	signal st_cdr, st_sdr, st_udr, st_uir : std_logic;
-	signal unused_e1dr, unused_pdr, unused_e2dr, unused_cir : std_logic;
+	-- Estado Capture-DR da cadeia virtual.
+	signal st_cdr : std_logic;
+	-- Estado Shift-DR da cadeia virtual.
+	signal st_sdr : std_logic;
+	-- Estado Update-DR da cadeia virtual.
+	signal st_udr : std_logic;
+	-- Estado Update-IR da cadeia virtual.
+	signal st_uir : std_logic;
+	-- Estado Exit1-DR, não usado.
+	signal unused_e1dr : std_logic;
+	-- Estado Pause-DR, não usado.
+	signal unused_pdr : std_logic;
+	-- Estado Exit2-DR, não usado.
+	signal unused_e2dr : std_logic;
+	-- Estado Capture-IR, não usado.
+	signal unused_cir : std_logic;
 
 begin
 

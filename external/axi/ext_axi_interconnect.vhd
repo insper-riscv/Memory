@@ -1,136 +1,310 @@
+-- =============================================================================
+-- Porta de dados externa do core sobre AXI4
+--
+-- O que o ext_interconnect e a sdram_cpu_bridge fazem num barramento privado,
+-- aqui como um mestre AXI4 com dois escravos atrás. A cache move uma linha como
+-- uma rajada de quatro beats; todo o resto é um único beat.
+--
+--   bit 31 = 0   o espaço da SDRAM: pela cache de dados, em linhas de quatro
+--                palavras, exceto os últimos 4 KB (0x43FFF000 a 0x43FFFFFF), que
+--                não passam pela cache: as palavras que o hospedeiro compartilha
+--                com o programa (mailbox, tohost, fromhost, bandeira de partida,
+--                stdout) moram ali, e o hospedeiro as lê e escreve pela porta de
+--                debug da SDRAM
+--   bit 31 = 1   uma janela de periféricos (bits 30:28 o periférico, 9:2 a
+--                palavra), sem cache
+--
+-- O periférico 7 é o controle da própria cache, não um externo: uma escrita na
+-- sua primeira palavra pede à cache que escreva de volta toda linha suja (um
+-- programa faz isso antes de terminar, para o hospedeiro ler o que o programa
+-- escreveu), e uma leitura dele dá 1 enquanto isso está em andamento e 0 no
+-- resto. Um acesso que não passa pela cache espera enquanto um flush está em
+-- andamento, como os acessos da própria cache.
+--
+-- Lado do core, o contrato do ext_interconnect: o acesso fica na porta enquanto
+-- o estágio de memória está parado; ready é um nível até mem_advance; rdata só
+-- muda quando um load completa e permanece até o próximo, porque o load no
+-- último estágio ainda o lê enquanto o acesso seguinte já está na porta.
+--
+-- O escravo 0 do roteador (a SDRAM) é a porta mestre AXI4-Lite m0_* desta
+-- entidade, para o axi_slave_word_bridge ou qualquer outro escravo AXI4; a
+-- janela de periféricos é a porta p_* do ext_interconnect, atrás do
+-- axi_slave_periph_bank.
+-- =============================================================================
+
 library ieee;
 use ieee.std_logic_1164.all;
 
--- The core's external data port over AXI4: what ext_interconnect and sdram_cpu_bridge do on a
--- private bus, here as one AXI4 master with two slaves behind it. The cache moves a line as one burst
--- of four beats; everything else is a single beat.
---
---   bit 31 = 0   the SDRAM space: through the data cache, as lines of four words, except its
---                last 4 KB (0x43FFF000 to 0x43FFFFFF), which is not cached: the words the host
---                shares with the program (mailbox, tohost, fromhost, go flag, stdout) live there,
---                and the host reads and writes them through the debug port of the SDRAM
---   bit 31 = 1   a peripheral window (bits 30:28 the peripheral, 9:2 the word), not cached
---
--- Peripheral 7 is the cache's own control, not an external one: a write to its first word asks the
--- cache to write every dirty line back (a program does it before it ends, so the host reads what
--- the program wrote), and a read of it gives 1 while that is under way, 0 otherwise. An access that
--- does not go through the cache waits while a flush is under way, as the cache's own accesses do.
---
--- Core side, the contract of ext_interconnect: the access sits on the port while the memory stage is
--- stopped; ready is a level until mem_advance; rdata only changes when a load completes and stays
--- until the next one does, because the load in the last stage still reads it while the next access
--- is already on the port.
---
--- Slave 0 of the router (the SDRAM) is the AXI4-Lite master port m0_* of this entity, for
--- axi_slave_word_bridge or any other AXI4 slave; the peripheral window is the p_* port of
--- ext_interconnect, behind axi_slave_periph_bank.
 entity ext_axi_interconnect is
   generic (
-    BASE          : std_logic_vector(5 downto 0) := "010000";
-    WRITE_THROUGH : boolean := false      -- the cache writes every store through (see dcache)
+    -- Bits 31:26 dos endereços da SDRAM (0x40000000).
+    base          : std_logic_vector(5 downto 0) := "010000";
+    -- Verdadeiro: a cache escreve também na memória a cada store (veja a dcache).
+    write_through : boolean := false
   );
   port (
+    -- Clock do módulo.
     i_clk         : in  std_logic;
-    i_rst         : in  std_logic;  -- synchronous, active high
+    -- Reset, ativo em '1'.
+    i_rst         : in  std_logic;
 
-    -- the core's external port
+    -- Endereço do acesso.
     i_addr        : in  std_logic_vector(31 downto 0);
+    -- Dado de escrita.
     i_wdata       : in  std_logic_vector(31 downto 0);
+    -- Habilita de bytes da escrita, um bit por byte.
     i_byteena     : in  std_logic_vector(3 downto 0);
+    -- Pedido de leitura ('1' = lê).
     i_rden        : in  std_logic;
+    -- Pedido de escrita ('1' = escreve).
     i_wren        : in  std_logic;
+    -- O pipeline avançou neste ciclo, o acesso em andamento pode ser concluído.
     i_mem_advance : in  std_logic;
+    -- Acesso concluído, o dado lido é válido ('1').
     o_ready       : out std_logic;
+    -- Dado lido.
     o_rdata       : out std_logic_vector(31 downto 0);
 
-    -- the data cache (flush: one pulse asks for a flush, as a write to peripheral 7 does)
+    -- Pede a escrita de todas as linhas sujas na memória ('1').
     i_flush       : in  std_logic := '0';
+    -- A escrita das linhas sujas terminou ('1').
     o_flush_done  : out std_logic;
+    -- O módulo está ocupado ('1').
     o_busy        : out std_logic;
 
-    -- AXI4 master port to the SDRAM
+    -- Porta mestre AXI4 0 (SDRAM), canal de endereço de escrita: validade da transferência ('1' = válida).
     o_m0_awvalid : out std_logic; i_m0_awready : in std_logic; o_m0_awaddr : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de endereço de escrita: número de beats da rajada menos um.
     o_m0_awlen   : out std_logic_vector(7 downto 0); o_m0_awsize : out std_logic_vector(2 downto 0); o_m0_awburst : out std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de dados de escrita: validade da transferência ('1' = válida).
     o_m0_wvalid  : out std_logic; i_m0_wready  : in std_logic; o_m0_wdata  : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de dados de escrita: habilita de bytes.
     o_m0_wstrb   : out std_logic_vector(3 downto 0); o_m0_wlast : out std_logic;
+    -- Porta mestre AXI4 0 (SDRAM), canal de resposta de escrita: validade da transferência ('1' = válida).
     i_m0_bvalid  : in  std_logic; o_m0_bready  : out std_logic; i_m0_bresp : in std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de endereço de leitura: validade da transferência ('1' = válida).
     o_m0_arvalid : out std_logic; i_m0_arready : in std_logic; o_m0_araddr : out std_logic_vector(31 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de endereço de leitura: número de beats da rajada menos um.
     o_m0_arlen   : out std_logic_vector(7 downto 0); o_m0_arsize : out std_logic_vector(2 downto 0); o_m0_arburst : out std_logic_vector(1 downto 0);
+    -- Porta mestre AXI4 0 (SDRAM), canal de dados de leitura: validade da transferência ('1' = válida).
     i_m0_rvalid  : in  std_logic; o_m0_rready  : out std_logic;
+    -- Porta mestre AXI4 0 (SDRAM), canal de dados de leitura: dados.
     i_m0_rdata   : in  std_logic_vector(31 downto 0); i_m0_rresp : in std_logic_vector(1 downto 0); i_m0_rlast : in std_logic;
 
-    -- the peripherals (as ext_interconnect)
+    -- Janela de periféricos: deslocamento de palavra dentro do periférico.
     o_p_addr      : out std_logic_vector(7 downto 0);
+    -- Janela de periféricos: dado de escrita.
     o_p_wdata     : out std_logic_vector(31 downto 0);
+    -- Janela de periféricos: habilita de bytes da escrita.
     o_p_byteena   : out std_logic_vector(3 downto 0);
+    -- Janela de periféricos: pulso de escrita, um bit por periférico (one-hot com o id).
     o_p_we        : out std_logic_vector(7 downto 0);
+    -- Janela de periféricos: pulso de leitura, um bit por periférico (one-hot com o id).
     o_p_re        : out std_logic_vector(7 downto 0);
+    -- Janela de periféricos: dados lidos, 32 bits por periférico.
     i_p_rdata     : in  std_logic_vector(8 * 32 - 1 downto 0)
   );
 end entity ext_axi_interconnect;
 
 architecture rtl of ext_axi_interconnect is
 
-  signal mmio : std_logic;                   -- the address is not cached
-  signal direct : std_logic;                 -- an access that does not go through the cache owns the master
-  signal own    : std_logic := '0';          -- one that started and has not been advanced yet
+  -- O endereço não passa pela cache.
+  signal mmio : std_logic;
+  -- Um acesso que não passa pela cache é o dono do mestre.
+  signal direct : std_logic;
+  -- Um acesso direto começou e ainda não foi avançado.
+  signal own    : std_logic := '0';
+  -- A cache está ocupada com um flush.
   signal c_busy : std_logic;
+  -- Pedido de flush à cache, gerado pela escrita no periférico 7.
   signal flush_i : std_logic;
-  signal p_we_i, p_re_i : std_logic_vector(7 downto 0);
+  -- Pulsos de escrita da janela de periféricos, antes do periférico 7.
+  signal p_we_i : std_logic_vector(7 downto 0);
+  -- Pulsos de leitura da janela de periféricos, antes do periférico 7.
+  signal p_re_i : std_logic_vector(7 downto 0);
+  -- Dado de escrita da janela de periféricos.
   signal p_wdata_i : std_logic_vector(31 downto 0);
+  -- Dados lidos dos periféricos, com o do periférico 7 acrescentado.
   signal p_rdata_i : std_logic_vector(8 * 32 - 1 downto 0);
 
-  -- the data cache
-  signal c_rden, c_wren, c_ready : std_logic;
+  -- Pedido de leitura à cache.
+  signal c_rden : std_logic;
+  -- Pedido de escrita à cache.
+  signal c_wren : std_logic;
+  -- Acesso à cache concluído.
+  signal c_ready : std_logic;
+  -- Dado lido da cache.
   signal c_rdata : std_logic_vector(31 downto 0);
-  signal d_addr, d_wdata, d_rdata : std_logic_vector(31 downto 0);
+  -- Lado da memória da cache: endereço.
+  signal d_addr : std_logic_vector(31 downto 0);
+  -- Lado da memória da cache: dado de escrita.
+  signal d_wdata : std_logic_vector(31 downto 0);
+  -- Lado da memória da cache: dado lido.
+  signal d_rdata : std_logic_vector(31 downto 0);
+  -- Lado da memória da cache: habilita de bytes.
   signal d_be : std_logic_vector(3 downto 0);
-  signal d_rden, d_wren, d_advance, d_ready : std_logic;
+  -- Lado da memória da cache: pedido de leitura.
+  signal d_rden : std_logic;
+  -- Lado da memória da cache: pedido de escrita.
+  signal d_wren : std_logic;
+  -- Lado da memória da cache: avanço do acesso.
+  signal d_advance : std_logic;
+  -- Lado da memória da cache: acesso concluído.
+  signal d_ready : std_logic;
+  -- Lado da memória da cache: acesso de linha.
   signal d_line : std_logic;
-  signal d_wdata_x, d_rdata_x : std_logic_vector(95 downto 0);
+  -- Lado da memória da cache: palavras 1 a 3 da escrita de linha.
+  signal d_wdata_x : std_logic_vector(95 downto 0);
+  -- Lado da memória da cache: palavras 1 a 3 da leitura de linha.
+  signal d_rdata_x : std_logic_vector(95 downto 0);
 
-  -- the AXI4 master
-  signal b_addr, b_wdata, b_rdata : std_logic_vector(31 downto 0);
+  -- Entrada da ponte mestre AXI4: endereço.
+  signal b_addr : std_logic_vector(31 downto 0);
+  -- Entrada da ponte mestre AXI4: dado de escrita.
+  signal b_wdata : std_logic_vector(31 downto 0);
+  -- Saída da ponte mestre AXI4: dado lido.
+  signal b_rdata : std_logic_vector(31 downto 0);
+  -- Entrada da ponte mestre AXI4: habilita de bytes.
   signal b_be : std_logic_vector(3 downto 0);
-  signal b_rden, b_wren, b_advance, b_ready, b_err : std_logic;
+  -- Entrada da ponte mestre AXI4: pedido de leitura.
+  signal b_rden : std_logic;
+  -- Entrada da ponte mestre AXI4: pedido de escrita.
+  signal b_wren : std_logic;
+  -- Entrada da ponte mestre AXI4: avanço do acesso.
+  signal b_advance : std_logic;
+  -- Saída da ponte mestre AXI4: acesso concluído.
+  signal b_ready : std_logic;
+  -- Saída da ponte mestre AXI4: resposta de erro.
+  signal b_err : std_logic;
+  -- Entrada da ponte mestre AXI4: acesso de linha.
   signal b_line : std_logic;
-  signal b_wdata_x, b_rdata_x : std_logic_vector(95 downto 0);
+  -- Entrada da ponte mestre AXI4: palavras 1 a 3 da escrita de linha.
+  signal b_wdata_x : std_logic_vector(95 downto 0);
+  -- Saída da ponte mestre AXI4: palavras 1 a 3 da leitura de linha.
+  signal b_rdata_x : std_logic_vector(95 downto 0);
 
-  signal awvalid, awready, wvalid, wready, bvalid, bready, arvalid, arready, rvalid, rready : std_logic;
-  signal awaddr, wdata_a, araddr, rdata_a : std_logic_vector(31 downto 0);
-  signal awlen, arlen : std_logic_vector(7 downto 0);
-  signal awsize, arsize, awprot, arprot : std_logic_vector(2 downto 0);
-  signal awburst, arburst : std_logic_vector(1 downto 0);
+  -- Barramento AXI4 do mestre, canal de endereço de escrita: validade da transferência ('1' = válida).
+  signal awvalid : std_logic;
+  -- Barramento AXI4 do mestre, canal de endereço de escrita: destino pronto para aceitar a transferência ('1').
+  signal awready : std_logic;
+  -- Barramento AXI4 do mestre, canal de dados de escrita: validade da transferência ('1' = válida).
+  signal wvalid : std_logic;
+  -- Barramento AXI4 do mestre, canal de dados de escrita: destino pronto para aceitar a transferência ('1').
+  signal wready : std_logic;
+  -- Barramento AXI4 do mestre, canal de resposta de escrita: validade da transferência ('1' = válida).
+  signal bvalid : std_logic;
+  -- Barramento AXI4 do mestre, canal de resposta de escrita: destino pronto para aceitar a transferência ('1').
+  signal bready : std_logic;
+  -- Barramento AXI4 do mestre, canal de endereço de leitura: validade da transferência ('1' = válida).
+  signal arvalid : std_logic;
+  -- Barramento AXI4 do mestre, canal de endereço de leitura: destino pronto para aceitar a transferência ('1').
+  signal arready : std_logic;
+  -- Barramento AXI4 do mestre, canal de dados de leitura: validade da transferência ('1' = válida).
+  signal rvalid : std_logic;
+  -- Barramento AXI4 do mestre, canal de dados de leitura: destino pronto para aceitar a transferência ('1').
+  signal rready : std_logic;
+  -- Barramento AXI4 do mestre, canal de endereço de escrita: endereço do primeiro beat.
+  signal awaddr : std_logic_vector(31 downto 0);
+  -- Barramento AXI4 do mestre, canal de dados de escrita: dados.
+  signal wdata_a : std_logic_vector(31 downto 0);
+  -- Barramento AXI4 do mestre, canal de endereço de leitura: endereço do primeiro beat.
+  signal araddr : std_logic_vector(31 downto 0);
+  -- Barramento AXI4 do mestre, canal de dados de leitura: dados.
+  signal rdata_a : std_logic_vector(31 downto 0);
+  -- Barramento AXI4 do mestre, canal de endereço de escrita: número de beats da rajada menos um.
+  signal awlen : std_logic_vector(7 downto 0);
+  -- Barramento AXI4 do mestre, canal de endereço de leitura: número de beats da rajada menos um.
+  signal arlen : std_logic_vector(7 downto 0);
+  -- Barramento AXI4 do mestre, canal de endereço de escrita: log2 do número de bytes por beat.
+  signal awsize : std_logic_vector(2 downto 0);
+  -- Barramento AXI4 do mestre, canal de endereço de leitura: log2 do número de bytes por beat.
+  signal arsize : std_logic_vector(2 downto 0);
+  -- Barramento AXI4 do mestre, canal de endereço de escrita: atributos de proteção.
+  signal awprot : std_logic_vector(2 downto 0);
+  -- Barramento AXI4 do mestre, canal de endereço de leitura: atributos de proteção.
+  signal arprot : std_logic_vector(2 downto 0);
+  -- Barramento AXI4 do mestre, canal de endereço de escrita: tipo de rajada (1 = INCR).
+  signal awburst : std_logic_vector(1 downto 0);
+  -- Barramento AXI4 do mestre, canal de endereço de leitura: tipo de rajada (1 = INCR).
+  signal arburst : std_logic_vector(1 downto 0);
+  -- Barramento AXI4 do mestre, canal de dados de escrita: habilita de bytes.
   signal wstrb : std_logic_vector(3 downto 0);
-  signal wlast, rlast : std_logic;
-  signal bresp, rresp : std_logic_vector(1 downto 0);
+  -- Barramento AXI4 do mestre, canal de dados de escrita: último beat da rajada ('1').
+  signal wlast : std_logic;
+  -- Barramento AXI4 do mestre, canal de dados de leitura: último beat da rajada ('1').
+  signal rlast : std_logic;
+  -- Barramento AXI4 do mestre, canal de resposta de escrita: resposta (0 = OKAY, 2 = SLVERR).
+  signal bresp : std_logic_vector(1 downto 0);
+  -- Barramento AXI4 do mestre, canal de dados de leitura: resposta (0 = OKAY, 2 = SLVERR).
+  signal rresp : std_logic_vector(1 downto 0);
 
-  -- slave 1: the peripherals
-  signal m1_awvalid, m1_awready, m1_wvalid, m1_wready, m1_bvalid, m1_bready : std_logic;
-  signal m1_arvalid, m1_arready, m1_rvalid, m1_rready, m1_wlast, m1_rlast : std_logic;
-  signal m1_awaddr, m1_wdata, m1_araddr, m1_rdata : std_logic_vector(31 downto 0);
-  signal m1_awlen, m1_arlen : std_logic_vector(7 downto 0);
-  signal m1_awsize, m1_arsize : std_logic_vector(2 downto 0);
-  signal m1_awburst, m1_arburst : std_logic_vector(1 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de endereço de escrita: validade da transferência ('1' = válida).
+  signal m1_awvalid : std_logic;
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de endereço de escrita: destino pronto para aceitar a transferência ('1').
+  signal m1_awready : std_logic;
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de dados de escrita: validade da transferência ('1' = válida).
+  signal m1_wvalid : std_logic;
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de dados de escrita: destino pronto para aceitar a transferência ('1').
+  signal m1_wready : std_logic;
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de resposta de escrita: validade da transferência ('1' = válida).
+  signal m1_bvalid : std_logic;
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de resposta de escrita: destino pronto para aceitar a transferência ('1').
+  signal m1_bready : std_logic;
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de endereço de leitura: validade da transferência ('1' = válida).
+  signal m1_arvalid : std_logic;
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de endereço de leitura: destino pronto para aceitar a transferência ('1').
+  signal m1_arready : std_logic;
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de dados de leitura: validade da transferência ('1' = válida).
+  signal m1_rvalid : std_logic;
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de dados de leitura: destino pronto para aceitar a transferência ('1').
+  signal m1_rready : std_logic;
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de dados de escrita: último beat da rajada ('1').
+  signal m1_wlast : std_logic;
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de dados de leitura: último beat da rajada ('1').
+  signal m1_rlast : std_logic;
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de endereço de escrita: endereço do primeiro beat.
+  signal m1_awaddr : std_logic_vector(31 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de dados de escrita: dados.
+  signal m1_wdata : std_logic_vector(31 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de endereço de leitura: endereço do primeiro beat.
+  signal m1_araddr : std_logic_vector(31 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de dados de leitura: dados.
+  signal m1_rdata : std_logic_vector(31 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de endereço de escrita: número de beats da rajada menos um.
+  signal m1_awlen : std_logic_vector(7 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de endereço de leitura: número de beats da rajada menos um.
+  signal m1_arlen : std_logic_vector(7 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de endereço de escrita: log2 do número de bytes por beat.
+  signal m1_awsize : std_logic_vector(2 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de endereço de leitura: log2 do número de bytes por beat.
+  signal m1_arsize : std_logic_vector(2 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de endereço de escrita: tipo de rajada (1 = INCR).
+  signal m1_awburst : std_logic_vector(1 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de endereço de leitura: tipo de rajada (1 = INCR).
+  signal m1_arburst : std_logic_vector(1 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de dados de escrita: habilita de bytes.
   signal m1_wstrb : std_logic_vector(3 downto 0);
-  signal m1_bresp, m1_rresp : std_logic_vector(1 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de resposta de escrita: resposta (0 = OKAY, 2 = SLVERR).
+  signal m1_bresp : std_logic_vector(1 downto 0);
+  -- Barramento AXI4 do escravo 1 (periféricos), canal de dados de leitura: resposta (0 = OKAY, 2 = SLVERR).
+  signal m1_rresp : std_logic_vector(1 downto 0);
 
-  -- where the data of the last completed load came from: 0 the cache, 1 the master (the clock after
-  -- it completed), 2 the register that keeps it
+  -- Origem do dado lido: 00 cache, 01 ponte AXI (acesso direto), outro valor: o dado guardado em hold_q.
   signal sel      : std_logic_vector(1 downto 0) := "00";
+  -- Último dado de load completado, entregue enquanto nenhum load novo completa.
   signal hold_q   : std_logic_vector(31 downto 0) := (others => '0');
 
 begin
 
   mmio   <= '1' when i_addr(31) = '1' or i_addr(25 downto 12) = "11111111111111" else '0';
-  -- the core's own access takes the master when the cache is not flushing, or when it already has it
+  -- o acesso do próprio core toma o mestre quando a cache não está em flush, ou quando já o tem
   direct <= mmio and (i_rden or i_wren) and (own or not c_busy);
   o_busy   <= c_busy;
   c_rden <= i_rden and not mmio;
   c_wren <= i_wren and not mmio;
 
   u_cache : entity work.dcache
-    generic map (BASE => BASE, WRITE_THROUGH => WRITE_THROUGH)
+    generic map (base => base, write_through => write_through)
     port map (
       i_clk => i_clk, i_rst => i_rst,
       i_addr => i_addr, i_wdata => i_wdata, i_byteena => i_byteena, i_rden => c_rden, i_wren => c_wren,
@@ -141,9 +315,9 @@ begin
       o_d_line => d_line, o_d_wdata_x => d_wdata_x, i_d_rdata_x => d_rdata_x
     );
 
-  -- one access at a time on the AXI4-Lite master: the core's own (not cached) or the cache's; the
-  -- core's wins only while it has an access on the port, so a port that rests on a peripheral address
-  -- does not keep the cache from its own accesses
+  -- um acesso por vez no mestre AXI4-Lite: o do próprio core (sem cache) ou o da cache; o
+  -- do core ganha só enquanto tem um acesso na porta, então uma porta parada em um endereço de periférico
+  -- não impede a cache de fazer os seus acessos
   b_addr    <= i_addr    when direct = '1' else d_addr;
   b_wdata   <= i_wdata   when direct = '1' else d_wdata;
   b_be      <= i_byteena when direct = '1' else d_be;
@@ -234,7 +408,7 @@ begin
       i_p_rdata => p_rdata_i
     );
 
-  -- peripheral 7 is the cache's control
+  -- o periférico 7 é o controle da cache
   flush_i <= i_flush or p_we_i(7);
   o_p_wdata <= p_wdata_i;
   o_p_we    <= p_we_i and "01111111";

@@ -2,7 +2,7 @@
     "RAM": {
         "toplevel": "ram_simulation",
         "sources": [
-            "sim/RAM_simulation.vhd"
+            "sim/ram_simulation.vhd"
         ],
         "test_module": "tests.python.unittests.sim.RAM",
         "build_args": [
@@ -17,7 +17,7 @@
     "ROM": {
         "toplevel": "rom_simulation",
         "sources": [
-            "sim/ROM_simulation.vhd"
+            "sim/rom_simulation.vhd"
         ],
         "test_module": "tests.python.unittests.sim.ROM",
         "parameters": {

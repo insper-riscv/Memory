@@ -1,69 +1,169 @@
+-- =============================================================================
+-- Topo de simulação do barramento externo AXI4
+--
+-- A contrapartida do ext_bus_system: a porta do core sobre o
+-- ext_axi_interconnect, a UART sobre JTAG no slot de periférico 4 e, atrás da
+-- porta escravo da SDRAM, uma memória de palavras pequena (4096 palavras, dois
+-- clocks para responder) com o valor 0x12345678 em 0x40000100. jtag_*
+-- representam uma instância do Virtual JTAG (veja jtag_uart).
+-- =============================================================================
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
--- Simulation top of the AXI4 external bus, the counterpart of ext_bus_system: the core's port
--- over ext_axi_interconnect, the JTAG UART in peripheral slot 4, and behind the SDRAM slave port a
--- small word memory (4096 words, two clocks to answer) with the value 0x12345678 at 0x40000100.
--- jtag_* stand for a Virtual JTAG instance (see jtag_uart).
 entity ext_axi_bus_system is
   port (
+    -- Clock do módulo.
     i_clk         : in  std_logic;
+    -- Reset, ativo em '1'.
     i_rst         : in  std_logic;
 
+    -- Endereço do acesso.
     i_addr        : in  std_logic_vector(31 downto 0);
+    -- Dado de escrita.
     i_wdata       : in  std_logic_vector(31 downto 0);
+    -- Habilita de bytes da escrita, um bit por byte.
     i_byteena     : in  std_logic_vector(3 downto 0);
+    -- Pedido de leitura ('1' = lê).
     i_rden        : in  std_logic;
+    -- Pedido de escrita ('1' = escreve).
     i_wren        : in  std_logic;
+    -- O pipeline avançou neste ciclo, o acesso em andamento pode ser concluído.
     i_mem_advance : in  std_logic;
+    -- Acesso concluído, o dado lido é válido ('1').
     o_ready       : out std_logic;
+    -- Dado lido.
     o_rdata       : out std_logic_vector(31 downto 0);
 
+    -- Pede a escrita de todas as linhas sujas na memória ('1').
     i_flush       : in  std_logic := '0';
+    -- A escrita das linhas sujas terminou ('1').
     o_flush_done  : out std_logic;
+    -- O módulo está ocupado ('1').
     o_busy        : out std_logic;
 
-    -- the word memory behind the SDRAM slave, read without going through the bus
+    -- Endereço de palavra lido diretamente do modelo do chip, para depuração.
     i_dbg_word_addr : in  std_logic_vector(11 downto 0) := (others => '0');
+    -- Palavra do modelo do chip no endereço de dbg_word_addr.
     o_dbg_word_data : out std_logic_vector(31 downto 0);
 
+    -- Clock da cadeia JTAG.
     i_jtag_tck        : in  std_logic := '0';
+    -- Dado serial vindo do hospedeiro.
     i_jtag_tdi        : in  std_logic := '0';
+    -- Dado serial para o hospedeiro.
     o_jtag_tdo        : out std_logic;
+    -- Registrador de instrução do Virtual JTAG.
     i_jtag_ir_in      : in  std_logic_vector(1 downto 0) := "00";
+    -- Estado Capture-DR da cadeia virtual.
     i_jtag_state_cdr  : in  std_logic := '0';
+    -- Estado Shift-DR da cadeia virtual.
     i_jtag_state_sdr  : in  std_logic := '0';
+    -- Estado Update-DR da cadeia virtual.
     i_jtag_state_udr  : in  std_logic := '0';
+    -- Estado Update-IR da cadeia virtual.
     i_jtag_state_uir  : in  std_logic := '0'
   );
 end entity ext_axi_bus_system;
 
-architecture sim of ext_axi_bus_system is
-  signal awvalid, awready, wvalid, wready, bvalid, bready, arvalid, arready, rvalid, rready, wlast, rlast : std_logic;
-  signal awaddr, wdata_a, araddr, rdata_a : std_logic_vector(31 downto 0);
-  signal awlen, arlen : std_logic_vector(7 downto 0);
-  signal awsize, arsize : std_logic_vector(2 downto 0);
-  signal awburst, arburst : std_logic_vector(1 downto 0);
+architecture rtl of ext_axi_bus_system is
+  -- Barramento AXI4, canal de endereço de escrita: validade da transferência ('1' = válida).
+  signal awvalid : std_logic;
+  -- Barramento AXI4, canal de endereço de escrita: destino pronto para aceitar a transferência ('1').
+  signal awready : std_logic;
+  -- Barramento AXI4, canal de dados de escrita: validade da transferência ('1' = válida).
+  signal wvalid : std_logic;
+  -- Barramento AXI4, canal de dados de escrita: destino pronto para aceitar a transferência ('1').
+  signal wready : std_logic;
+  -- Barramento AXI4, canal de resposta de escrita: validade da transferência ('1' = válida).
+  signal bvalid : std_logic;
+  -- Barramento AXI4, canal de resposta de escrita: destino pronto para aceitar a transferência ('1').
+  signal bready : std_logic;
+  -- Barramento AXI4, canal de endereço de leitura: validade da transferência ('1' = válida).
+  signal arvalid : std_logic;
+  -- Barramento AXI4, canal de endereço de leitura: destino pronto para aceitar a transferência ('1').
+  signal arready : std_logic;
+  -- Barramento AXI4, canal de dados de leitura: validade da transferência ('1' = válida).
+  signal rvalid : std_logic;
+  -- Barramento AXI4, canal de dados de leitura: destino pronto para aceitar a transferência ('1').
+  signal rready : std_logic;
+  -- Barramento AXI4, canal de dados de escrita: último beat da rajada ('1').
+  signal wlast : std_logic;
+  -- Barramento AXI4, canal de dados de leitura: último beat da rajada ('1').
+  signal rlast : std_logic;
+  -- Barramento AXI4, canal de endereço de escrita: endereço do primeiro beat.
+  signal awaddr : std_logic_vector(31 downto 0);
+  -- Barramento AXI4, canal de dados de escrita: dados.
+  signal wdata_a : std_logic_vector(31 downto 0);
+  -- Barramento AXI4, canal de endereço de leitura: endereço do primeiro beat.
+  signal araddr : std_logic_vector(31 downto 0);
+  -- Barramento AXI4, canal de dados de leitura: dados.
+  signal rdata_a : std_logic_vector(31 downto 0);
+  -- Barramento AXI4, canal de endereço de escrita: número de beats da rajada menos um.
+  signal awlen : std_logic_vector(7 downto 0);
+  -- Barramento AXI4, canal de endereço de leitura: número de beats da rajada menos um.
+  signal arlen : std_logic_vector(7 downto 0);
+  -- Barramento AXI4, canal de endereço de escrita: log2 do número de bytes por beat.
+  signal awsize : std_logic_vector(2 downto 0);
+  -- Barramento AXI4, canal de endereço de leitura: log2 do número de bytes por beat.
+  signal arsize : std_logic_vector(2 downto 0);
+  -- Barramento AXI4, canal de endereço de escrita: tipo de rajada (1 = INCR).
+  signal awburst : std_logic_vector(1 downto 0);
+  -- Barramento AXI4, canal de endereço de leitura: tipo de rajada (1 = INCR).
+  signal arburst : std_logic_vector(1 downto 0);
+  -- Barramento AXI4, canal de dados de escrita: habilita de bytes.
   signal wstrb : std_logic_vector(3 downto 0);
-  signal bresp, rresp : std_logic_vector(1 downto 0);
+  -- Barramento AXI4, canal de resposta de escrita: resposta (0 = OKAY, 2 = SLVERR).
+  signal bresp : std_logic_vector(1 downto 0);
+  -- Barramento AXI4, canal de dados de leitura: resposta (0 = OKAY, 2 = SLVERR).
+  signal rresp : std_logic_vector(1 downto 0);
 
+  -- Deslocamento de palavra dentro do periférico.
   signal p_addr   : std_logic_vector(7 downto 0);
+  -- Dado de escrita aos periféricos.
   signal p_wdata  : std_logic_vector(31 downto 0);
+  -- Habilita de bytes da escrita aos periféricos.
   signal p_byteena : std_logic_vector(3 downto 0);
-  signal p_we, p_re : std_logic_vector(7 downto 0);
+  -- Pulso de escrita, um bit por periférico.
+  signal p_we : std_logic_vector(7 downto 0);
+  -- Pulso de leitura, um bit por periférico.
+  signal p_re : std_logic_vector(7 downto 0);
+  -- Dados lidos dos periféricos, 32 bits por slot.
   signal p_rdata  : std_logic_vector(8 * 32 - 1 downto 0) := (others => '0');
 
-  -- the word memory behind the slave bridge
-  signal m_addr, m_wdata, m_rdata : std_logic_vector(31 downto 0) := (others => '0');
+  -- Lado da palavra da ponte escrava AXI4: endereço.
+  signal m_addr : std_logic_vector(31 downto 0) := (others => '0');
+  -- Lado da palavra da ponte escrava AXI4: dado de escrita.
+  signal m_wdata : std_logic_vector(31 downto 0) := (others => '0');
+  -- Lado da palavra da ponte escrava AXI4: dado lido.
+  signal m_rdata : std_logic_vector(31 downto 0) := (others => '0');
+  -- Lado da palavra da ponte escrava AXI4: habilita de bytes.
   signal m_be : std_logic_vector(3 downto 0);
-  signal m_rden, m_wren, m_adv, m_ready, m_line : std_logic;
-  signal m_wdx, m_rdx : std_logic_vector(95 downto 0) := (others => '0');
+  -- Lado da palavra da ponte escrava AXI4: pedido de leitura.
+  signal m_rden : std_logic;
+  -- Lado da palavra da ponte escrava AXI4: pedido de escrita.
+  signal m_wren : std_logic;
+  -- Lado da palavra da ponte escrava AXI4: avanço do acesso.
+  signal m_adv : std_logic;
+  -- Lado da palavra da ponte escrava AXI4: acesso concluído.
+  signal m_ready : std_logic;
+  -- Lado da palavra da ponte escrava AXI4: acesso de linha.
+  signal m_line : std_logic;
+  -- Lado da palavra da ponte escrava AXI4: palavras 1 a 3 da escrita de linha.
+  signal m_wdx : std_logic_vector(95 downto 0) := (others => '0');
+  -- Lado da palavra da ponte escrava AXI4: palavras 1 a 3 da leitura de linha.
+  signal m_rdx : std_logic_vector(95 downto 0) := (others => '0');
+  -- Lado da palavra da ponte escrava AXI4: habilita de bytes das palavras 1 a 3.
   signal m_bex : std_logic_vector(11 downto 0);
 
+  -- Memória de 4096 palavras.
   type mem_t is array (0 to 4095) of std_logic_vector(31 downto 0);
+  -- Conteúdo da memória atrás do escravo AXI4.
   signal mem : mem_t := (16#40# => x"12345678", others => (others => '0'));
+  -- Clocks restantes para a memória responder.
   signal lat : natural range 0 to 3 := 0;
+  -- Acesso concluído (registrado).
   signal ready_i : std_logic := '0';
 begin
 
@@ -99,11 +199,12 @@ begin
       o_line => m_line, o_wdata_x => m_wdx, o_byteena_x => m_bex, i_rdata_x => m_rdx
     );
 
-  -- the memory: ready two clocks after the access starts, a level until mem_advance; the read
-  -- data changes on the edge of mem_advance. A line access moves the four words of the line.
+  -- a memória: ready dois clocks depois de o acesso começar, em nível até mem_advance; o dado
+  -- lido muda na borda de mem_advance. Um acesso de linha move as quatro palavras da linha.
   m_ready <= ready_i;
   o_dbg_word_data <= mem(to_integer(unsigned(i_dbg_word_addr)));
   process (i_clk)
+    -- Índice do laço de carga.
     variable i : integer;
   begin
     if rising_edge(i_clk) then
@@ -155,4 +256,4 @@ begin
       i_state_udr => i_jtag_state_udr, i_state_uir => i_jtag_state_uir
     );
 
-end architecture sim;
+end architecture rtl;

@@ -1,109 +1,240 @@
+-- =============================================================================
+-- Topo de simulação do subsistema SDRAM
+--
+-- A ponte, a porta de debug, o controlador e o modelo do chip em dois clocks,
+-- mais o clock JTAG. O lado do core é a lista de portas que um core conduziria;
+-- as portas de debug chegam ao modelo (veja sdram_model); as portas jtag_*
+-- representam uma instância do Virtual JTAG (veja sdram_jtag_core) e podem ficar
+-- sem conexão.
+-- =============================================================================
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.sdram_pkg.all;
 
--- Simulation top: the bridge, the debug port, the controller and the chip model on two clocks
--- plus the JTAG clock. The core side is the port list a core would drive; the debug ports reach
--- the model (see sdram_model); the jtag_* ports stand for a Virtual JTAG instance (see
--- sdram_jtag_core) and may be left unconnected.
 entity sdram_system is
   generic (
-    TCK_PS         : natural := T_CK_PS;
-    INIT_CYCLES    : natural := cycles(T_INIT_PS, T_CK_PS);
-    REFRESH_CYCLES : natural := cycles(T_REFI_PS, T_CK_PS) * 9 / 10;
-    INIT_FILE      : string  := ""
+    -- Período do clock em picossegundos.
+    tck_ps         : natural := T_CK_PS;
+    -- Ciclos de espera após a energização antes do primeiro comando.
+    init_cycles    : natural := cycles(T_INIT_PS, T_CK_PS);
+    -- Ciclos entre dois refreshes.
+    refresh_cycles : natural := cycles(T_REFI_PS, T_CK_PS) * 9 / 10;
+    -- Arquivo com a imagem inicial do chip.
+    init_file      : string  := ""
   );
   port (
+    -- Clock do lado do controlador SDRAM.
     i_clk_mem     : in  std_logic;
+    -- Clock do lado do core.
     i_clk_cpu     : in  std_logic;
+    -- Reset do lado do controlador SDRAM, ativo em '1'.
     i_rst_mem     : in  std_logic;
+    -- Reset do lado do core, ativo em '1'.
     i_rst_cpu     : in  std_logic;
 
+    -- Endereço do acesso.
     i_addr        : in  std_logic_vector(31 downto 0);
+    -- Dado de escrita.
     i_wdata       : in  std_logic_vector(31 downto 0);
+    -- Habilita de bytes da escrita, um bit por byte.
     i_byteena     : in  std_logic_vector(3 downto 0);
+    -- Pedido de leitura ('1' = lê).
     i_rden        : in  std_logic;
+    -- Pedido de escrita ('1' = escreve).
     i_wren        : in  std_logic;
+    -- O pipeline avançou neste ciclo, o acesso em andamento pode ser concluído.
     i_mem_advance : in  std_logic;
+    -- Acesso concluído, o dado lido é válido ('1').
     o_ready       : out std_logic;
+    -- Dado lido.
     o_rdata       : out std_logic_vector(31 downto 0);
+    -- Acesso de linha, quatro palavras seguidas ('1').
     i_line        : in  std_logic := '0';
+    -- Palavras 1 a 3 do dado de escrita da linha.
     i_wdata_x     : in  std_logic_vector(95 downto 0) := (others => '0');
+    -- Habilita de bytes das palavras 1 a 3 da linha.
     i_byteena_x   : in  std_logic_vector(11 downto 0) := (others => '0');
+    -- Palavras 1 a 3 do dado lido da linha.
     o_rdata_x     : out std_logic_vector(95 downto 0);
 
-    -- the core's instruction bridge (master I of the arbiter); idle when rden stays low
+    -- Porta do mestre I (ponte de instruções do core): endereço de palavra.
     i_ins_addr      : in  std_logic_vector(31 downto 0) := (others => '0');
+    -- Pedido de leitura da ponte de instruções ('1' = lê).
     i_ins_rden      : in  std_logic := '0';
+    -- O pipeline avançou neste ciclo (ponte de instruções).
     i_ins_advance   : in  std_logic := '0';
+    -- Acesso da ponte de instruções concluído ('1').
     o_ins_ready     : out std_logic;
+    -- Porta do mestre I (ponte de instruções do core): dado lido.
     o_ins_rdata     : out std_logic_vector(31 downto 0);
+    -- Porta do mestre I (ponte de instruções do core): acesso de linha de quatro palavras ('1').
     i_ins_line      : in  std_logic := '0';
+    -- Porta do mestre I (ponte de instruções do core): palavras 1 a 3 do dado lido da linha.
     o_ins_rdata_x   : out std_logic_vector(95 downto 0);
 
+    -- A inicialização da SDRAM terminou ('1').
     o_init_done       : out std_logic;
+    -- Endereço de palavra lido diretamente do modelo do chip, para depuração.
     i_dbg_word_addr   : in  std_logic_vector(23 downto 0);
+    -- Palavra do modelo do chip no endereço de dbg_word_addr.
     o_dbg_word_data   : out std_logic_vector(31 downto 0);
+    -- Pulso que inverte um bit de uma palavra armazenada, para provar que uma verificação nota a corrupção.
     i_dbg_flip        : in  std_logic;
+    -- Endereço de palavra cujo bit é invertido.
     i_dbg_flip_addr   : in  std_logic_vector(23 downto 0);
+    -- Posição do bit invertido na palavra.
     i_dbg_flip_bit    : in  std_logic_vector(4 downto 0);
+    -- Contagem de comandos AUTO REFRESH recebidos pelo chip.
     o_dbg_refreshes   : out std_logic_vector(31 downto 0);
+    -- A sequência de inicialização do chip foi aceita ('1').
     o_dbg_init_ok     : out std_logic;
 
+    -- Clock da cadeia JTAG.
     i_jtag_tck        : in  std_logic := '0';
+    -- Dado serial vindo do hospedeiro.
     i_jtag_tdi        : in  std_logic := '0';
+    -- Dado serial para o hospedeiro.
     o_jtag_tdo        : out std_logic;
+    -- Registrador de instrução do Virtual JTAG.
     i_jtag_ir_in      : in  std_logic_vector(1 downto 0) := "00";
+    -- Estado Capture-DR da cadeia virtual.
     i_jtag_state_cdr  : in  std_logic := '0';
+    -- Estado Shift-DR da cadeia virtual.
     i_jtag_state_sdr  : in  std_logic := '0';
+    -- Estado Update-DR da cadeia virtual.
     i_jtag_state_udr  : in  std_logic := '0';
+    -- Estado Update-IR da cadeia virtual.
     i_jtag_state_uir  : in  std_logic := '0'
   );
 end entity sdram_system;
 
-architecture sim of sdram_system is
-  signal req_tog, ack_tog, init_i, c_we : std_logic;
+architecture rtl of sdram_system is
+  -- Alternância de pedido da ponte de dados ao árbitro.
+  signal req_tog : std_logic;
+  -- Alternância de confirmação do árbitro à ponte de dados.
+  signal ack_tog : std_logic;
+  -- A inicialização da SDRAM terminou.
+  signal init_i : std_logic;
+  -- Escrita ('1') do controlador.
+  signal c_we : std_logic;
+  -- Endereço de palavra do controlador.
   signal c_addr  : std_logic_vector(23 downto 0);
-  signal c_wdata, c_rdata : std_logic_vector(31 downto 0);
+  -- Dado de escrita do controlador.
+  signal c_wdata : std_logic_vector(31 downto 0);
+  -- Dado lido do controlador.
+  signal c_rdata : std_logic_vector(31 downto 0);
+  -- Acesso de linha do controlador.
   signal c_line  : std_logic;
-  signal c_wdx, c_rdx : std_logic_vector(95 downto 0);
+  -- Palavras 1 a 3 de escrita de linha do controlador.
+  signal c_wdx : std_logic_vector(95 downto 0);
+  -- Palavras 1 a 3 lidas da linha do controlador.
+  signal c_rdx : std_logic_vector(95 downto 0);
+  -- Habilita de bytes das palavras 1 a 3 do controlador.
   signal c_bex   : std_logic_vector(11 downto 0);
+  -- Acesso de linha do mestre A (ponte de dados).
   signal a_line  : std_logic;
-  signal a_wdx, a_rdx : std_logic_vector(95 downto 0);
+  -- Palavras 1 a 3 de escrita de linha do mestre A (ponte de dados).
+  signal a_wdx : std_logic_vector(95 downto 0);
+  -- Palavras 1 a 3 lidas da linha do mestre A (ponte de dados).
+  signal a_rdx : std_logic_vector(95 downto 0);
+  -- Habilita de bytes das palavras 1 a 3 do mestre A (ponte de dados).
   signal a_bex   : std_logic_vector(11 downto 0);
+  -- Habilita de bytes do controlador.
   signal c_be    : std_logic_vector(3 downto 0);
 
-  -- master A (the core's bridge) and master B (the debug master) of the arbiter
-  signal a_req, a_ack, a_we : std_logic;
+  -- Alternância de pedido do mestre A (ponte de dados).
+  signal a_req : std_logic;
+  -- Alternância de confirmação do mestre A (ponte de dados).
+  signal a_ack : std_logic;
+  -- Escrita ('1') do mestre A (ponte de dados).
+  signal a_we : std_logic;
+  -- Endereço de palavra do mestre A (ponte de dados).
   signal a_addr  : std_logic_vector(23 downto 0);
-  signal a_wdata, a_rdata : std_logic_vector(31 downto 0);
+  -- Dado de escrita do mestre A (ponte de dados).
+  signal a_wdata : std_logic_vector(31 downto 0);
+  -- Dado lido do mestre A (ponte de dados).
+  signal a_rdata : std_logic_vector(31 downto 0);
+  -- Habilita de bytes do mestre A (ponte de dados).
   signal a_be    : std_logic_vector(3 downto 0);
-  signal i_req, i_ack, i_we : std_logic;
+  -- Alternância de pedido do mestre I (ponte de instruções).
+  signal i_req : std_logic;
+  -- Alternância de confirmação do mestre I.
+  signal i_ack : std_logic;
+  -- Escrita ('1') do mestre I.
+  signal i_we : std_logic;
+  -- Endereço de palavra do mestre I (ponte de instruções).
   signal i_caddr  : std_logic_vector(23 downto 0);
-  signal i_cwdata, i_crdata : std_logic_vector(31 downto 0);
+  -- Dado de escrita do mestre I (ponte de instruções).
+  signal i_cwdata : std_logic_vector(31 downto 0);
+  -- Dado lido do mestre I (ponte de instruções).
+  signal i_crdata : std_logic_vector(31 downto 0);
+  -- Habilita de bytes do mestre I (ponte de instruções).
   signal i_cbe    : std_logic_vector(3 downto 0);
+  -- Acesso de linha do mestre I (ponte de instruções).
   signal i_cline  : std_logic;
-  signal i_cwdx, i_crdx : std_logic_vector(95 downto 0);
+  -- Palavras 1 a 3 de escrita de linha do mestre I (ponte de instruções).
+  signal i_cwdx : std_logic_vector(95 downto 0);
+  -- Palavras 1 a 3 lidas da linha do mestre I (ponte de instruções).
+  signal i_crdx : std_logic_vector(95 downto 0);
+  -- Habilita de bytes das palavras 1 a 3 do mestre I (ponte de instruções).
   signal i_cbex   : std_logic_vector(11 downto 0);
-  signal b_req, b_ack, b_we : std_logic;
+  -- Alternância de pedido do mestre B (debug).
+  signal b_req : std_logic;
+  -- Alternância de confirmação do mestre B (debug).
+  signal b_ack : std_logic;
+  -- Escrita ('1') do mestre B (debug).
+  signal b_we : std_logic;
+  -- Endereço de palavra do mestre B (debug).
   signal b_addr  : std_logic_vector(23 downto 0);
-  signal b_wdata, b_rdata : std_logic_vector(31 downto 0);
+  -- Dado de escrita do mestre B (debug).
+  signal b_wdata : std_logic_vector(31 downto 0);
+  -- Dado lido do mestre B (debug).
+  signal b_rdata : std_logic_vector(31 downto 0);
+  -- Habilita de bytes do mestre B (debug).
   signal b_be    : std_logic_vector(3 downto 0);
 
-  -- the debug port
-  signal cmd_tog, done_tog : std_logic;
-  signal d_op, d_be : std_logic_vector(3 downto 0);
-  signal d_addr, r_addr : std_logic_vector(23 downto 0);
-  signal d_data, r_data : std_logic_vector(31 downto 0);
+  -- Alternância de comando do hospedeiro ao mestre de debug.
+  signal cmd_tog : std_logic;
+  -- Alternância de conclusão do mestre de debug.
+  signal done_tog : std_logic;
+  -- Operação do comando de debug.
+  signal d_op : std_logic_vector(3 downto 0);
+  -- Habilita de bytes do comando de debug.
+  signal d_be : std_logic_vector(3 downto 0);
+  -- Endereço do comando de debug.
+  signal d_addr : std_logic_vector(23 downto 0);
+  -- Endereço da resposta do comando de debug.
+  signal r_addr : std_logic_vector(23 downto 0);
+  -- Dado do comando de debug.
+  signal d_data : std_logic_vector(31 downto 0);
+  -- Dado da resposta do comando de debug.
+  signal r_data : std_logic_vector(31 downto 0);
+  -- Status da resposta do comando de debug.
   signal r_status : std_logic_vector(7 downto 0);
 
-  signal cke, cs_n, ras_n, cas_n, we_n : std_logic;
+  -- Habilita de clock (CKE) do chip.
+  signal cke : std_logic;
+  -- Seleção do chip, ativa em '0'.
+  signal cs_n : std_logic;
+  -- Strobe de endereço de linha, ativo em '0'.
+  signal ras_n : std_logic;
+  -- Strobe de endereço de coluna, ativo em '0'.
+  signal cas_n : std_logic;
+  -- Habilita de escrita, ativo em '0'.
+  signal we_n : std_logic;
+  -- Seleção do banco.
   signal ba   : std_logic_vector(1 downto 0);
+  -- Endereço de linha ou de coluna.
   signal a    : std_logic_vector(12 downto 0);
+  -- Máscara de bytes dos dados.
   signal dqm  : std_logic_vector(1 downto 0);
+  -- Pinos de dados DQ.
   signal dq   : std_logic_vector(15 downto 0);
+  -- Dado que o controlador coloca nos pinos DQ.
   signal dq_out : std_logic_vector(15 downto 0);
+  -- O controlador dirige os pinos DQ ('1').
   signal dq_oe  : std_logic;
 begin
 
@@ -167,8 +298,8 @@ begin
     );
 
   u_ctrl : entity work.sdram_ctrl
-    generic map (TCK_PS => TCK_PS, INIT_CYCLES => INIT_CYCLES, REFRESH_CYCLES => REFRESH_CYCLES,
-                 SYNC_REQ => false)
+    generic map (tck_ps => tck_ps, init_cycles => init_cycles, refresh_cycles => refresh_cycles,
+                 sync_req => false)
     port map (
       i_clk => i_clk_mem, i_rst => i_rst_mem,
       i_req_tog => req_tog, o_ack_tog => ack_tog, o_init_done => init_i,
@@ -179,11 +310,11 @@ begin
       o_dram_dq_out => dq_out, o_dram_dq_oe => dq_oe, i_dram_dq_in => dq
     );
 
-  -- the pins: the controller drives them with its output enable, the model otherwise
+  -- os pinos: o controlador os dirige com o seu habilita de saída, o modelo nos outros casos
   dq <= dq_out when dq_oe = '1' else (others => 'Z');
 
   u_chip : entity work.sdram_model
-    generic map (TCK_PS => TCK_PS, INIT_FILE => INIT_FILE)
+    generic map (tck_ps => tck_ps, init_file => init_file)
     port map (
       i_clk => i_clk_mem, i_cke => cke, i_cs_n => cs_n, i_ras_n => ras_n, i_cas_n => cas_n,
       i_we_n => we_n, i_ba => ba, i_a => a, i_dqm => dqm, io_dq => dq, i_reinit => i_rst_mem,
@@ -192,4 +323,4 @@ begin
       o_dbg_refreshes => o_dbg_refreshes, o_dbg_init_ok => o_dbg_init_ok
     );
 
-end architecture sim;
+end architecture rtl;

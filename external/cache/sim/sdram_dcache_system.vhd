@@ -1,75 +1,189 @@
+-- =============================================================================
+-- Topo de simulação do caminho com cache
+--
+-- A cache de dados, as pontes mestre e escravo AXI4 e o sistema SDRAM atrás
+-- delas. O lado do core é a lista de portas que um core conduziria (a mesma do
+-- sdram_system, mais o flush da cache); as portas de debug chegam ao modelo do
+-- chip.
+-- =============================================================================
+
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.sdram_pkg.all;
 
--- Simulation top of the cached path: the data cache, the AXI4 master and slave bridges, and
--- the SDRAM system behind them. The core side is the port list a core would drive (the same as
--- sdram_system's, plus the cache's flush); the debug ports reach the chip model.
 entity sdram_dcache_system is
   generic (
-    WRITE_THROUGH  : boolean := false;
-    TCK_PS         : natural := T_CK_PS;
-    INIT_CYCLES    : natural := cycles(T_INIT_PS, T_CK_PS);
-    REFRESH_CYCLES : natural := cycles(T_REFI_PS, T_CK_PS) * 9 / 10
+    -- Verdadeiro: a cache escreve também na memória a cada store.
+    write_through  : boolean := false;
+    -- Período do clock em picossegundos.
+    tck_ps         : natural := T_CK_PS;
+    -- Ciclos de espera após a energização antes do primeiro comando.
+    init_cycles    : natural := cycles(T_INIT_PS, T_CK_PS);
+    -- Ciclos entre dois refreshes.
+    refresh_cycles : natural := cycles(T_REFI_PS, T_CK_PS) * 9 / 10
   );
   port (
+    -- Clock do lado do controlador SDRAM.
     i_clk_mem     : in  std_logic;
+    -- Clock do lado do core.
     i_clk_cpu     : in  std_logic;
+    -- Reset do lado do controlador SDRAM, ativo em '1'.
     i_rst_mem     : in  std_logic;
+    -- Reset do lado do core, ativo em '1'.
     i_rst_cpu     : in  std_logic;
 
+    -- Endereço do acesso.
     i_addr        : in  std_logic_vector(31 downto 0);
+    -- Dado de escrita.
     i_wdata       : in  std_logic_vector(31 downto 0);
+    -- Habilita de bytes da escrita, um bit por byte.
     i_byteena     : in  std_logic_vector(3 downto 0);
+    -- Pedido de leitura ('1' = lê).
     i_rden        : in  std_logic;
+    -- Pedido de escrita ('1' = escreve).
     i_wren        : in  std_logic;
+    -- O pipeline avançou neste ciclo, o acesso em andamento pode ser concluído.
     i_mem_advance : in  std_logic;
+    -- Acesso concluído, o dado lido é válido ('1').
     o_ready       : out std_logic;
+    -- Dado lido.
     o_rdata       : out std_logic_vector(31 downto 0);
+    -- Pede a escrita de todas as linhas sujas na memória ('1').
     i_flush       : in  std_logic;
+    -- A escrita das linhas sujas terminou ('1').
     o_flush_done  : out std_logic;
+    -- O módulo está ocupado ('1').
     o_busy        : out std_logic;
 
+    -- A inicialização da SDRAM terminou ('1').
     o_init_done       : out std_logic;
+    -- Endereço de palavra lido diretamente do modelo do chip, para depuração.
     i_dbg_word_addr   : in  std_logic_vector(23 downto 0);
+    -- Palavra do modelo do chip no endereço de dbg_word_addr.
     o_dbg_word_data   : out std_logic_vector(31 downto 0);
+    -- Pulso que inverte um bit de uma palavra armazenada, para provar que uma verificação nota a corrupção.
     i_dbg_flip        : in  std_logic;
+    -- Endereço de palavra cujo bit é invertido.
     i_dbg_flip_addr   : in  std_logic_vector(23 downto 0);
+    -- Posição do bit invertido na palavra.
     i_dbg_flip_bit    : in  std_logic_vector(4 downto 0);
+    -- Contagem de comandos AUTO REFRESH recebidos pelo chip.
     o_dbg_refreshes   : out std_logic_vector(31 downto 0);
+    -- A sequência de inicialização do chip foi aceita ('1').
     o_dbg_init_ok     : out std_logic
   );
 end entity sdram_dcache_system;
 
-architecture sim of sdram_dcache_system is
-  -- the cache's memory side
-  signal d_addr, d_wdata, d_rdata : std_logic_vector(31 downto 0);
+architecture rtl of sdram_dcache_system is
+  -- Lado da memória da cache: endereço do acesso.
+  signal d_addr : std_logic_vector(31 downto 0);
+  -- Lado da memória da cache: dado de escrita.
+  signal d_wdata : std_logic_vector(31 downto 0);
+  -- Lado da memória da cache: dado lido.
+  signal d_rdata : std_logic_vector(31 downto 0);
+  -- Lado da memória da cache: habilita de bytes da escrita.
   signal d_be      : std_logic_vector(3 downto 0);
-  signal d_rden, d_wren, d_advance, d_ready, d_err, d_line : std_logic;
-  signal d_wdx, d_rdx : std_logic_vector(95 downto 0);
+  -- Lado da memória da cache: pedido de leitura.
+  signal d_rden : std_logic;
+  -- Lado da memória da cache: pedido de escrita.
+  signal d_wren : std_logic;
+  -- Lado da memória da cache: o acesso foi aceito.
+  signal d_advance : std_logic;
+  -- Lado da memória da cache: acesso concluído.
+  signal d_ready : std_logic;
+  -- Resposta de erro da ponte mestre AXI4.
+  signal d_err : std_logic;
+  -- Lado da memória da cache: acesso de linha.
+  signal d_line : std_logic;
+  -- Lado da memória da cache: palavras 1 a 3 da escrita de linha.
+  signal d_wdx : std_logic_vector(95 downto 0);
+  -- Lado da memória da cache: palavras 1 a 3 da leitura de linha.
+  signal d_rdx : std_logic_vector(95 downto 0);
 
-  -- AXI4
-  signal awvalid, awready, wvalid, wready, bvalid, bready, wlast, rlast : std_logic;
-  signal arvalid, arready, rvalid, rready : std_logic;
-  signal awaddr, wdata_a, araddr, rdata_a : std_logic_vector(31 downto 0);
-  signal awlen, arlen : std_logic_vector(7 downto 0);
-  signal awsize, arsize : std_logic_vector(2 downto 0);
-  signal awburst, arburst : std_logic_vector(1 downto 0);
-  signal awprot, arprot : std_logic_vector(2 downto 0);
+  -- Barramento AXI4, canal de endereço de escrita: validade da transferência ('1' = válida).
+  signal awvalid : std_logic;
+  -- Barramento AXI4, canal de endereço de escrita: destino pronto para aceitar a transferência ('1').
+  signal awready : std_logic;
+  -- Barramento AXI4, canal de dados de escrita: validade da transferência ('1' = válida).
+  signal wvalid : std_logic;
+  -- Barramento AXI4, canal de dados de escrita: destino pronto para aceitar a transferência ('1').
+  signal wready : std_logic;
+  -- Barramento AXI4, canal de resposta de escrita: validade da transferência ('1' = válida).
+  signal bvalid : std_logic;
+  -- Barramento AXI4, canal de resposta de escrita: destino pronto para aceitar a transferência ('1').
+  signal bready : std_logic;
+  -- Barramento AXI4, canal de dados de escrita: último beat da rajada ('1').
+  signal wlast : std_logic;
+  -- Barramento AXI4, canal de dados de leitura: último beat da rajada ('1').
+  signal rlast : std_logic;
+  -- Barramento AXI4, canal de endereço de leitura: validade da transferência ('1' = válida).
+  signal arvalid : std_logic;
+  -- Barramento AXI4, canal de endereço de leitura: destino pronto para aceitar a transferência ('1').
+  signal arready : std_logic;
+  -- Barramento AXI4, canal de dados de leitura: validade da transferência ('1' = válida).
+  signal rvalid : std_logic;
+  -- Barramento AXI4, canal de dados de leitura: destino pronto para aceitar a transferência ('1').
+  signal rready : std_logic;
+  -- Barramento AXI4, canal de endereço de escrita: endereço do primeiro beat.
+  signal awaddr : std_logic_vector(31 downto 0);
+  -- Barramento AXI4, canal de dados de escrita: dados.
+  signal wdata_a : std_logic_vector(31 downto 0);
+  -- Barramento AXI4, canal de endereço de leitura: endereço do primeiro beat.
+  signal araddr : std_logic_vector(31 downto 0);
+  -- Barramento AXI4, canal de dados de leitura: dados.
+  signal rdata_a : std_logic_vector(31 downto 0);
+  -- Barramento AXI4, canal de endereço de escrita: número de beats da rajada menos um.
+  signal awlen : std_logic_vector(7 downto 0);
+  -- Barramento AXI4, canal de endereço de leitura: número de beats da rajada menos um.
+  signal arlen : std_logic_vector(7 downto 0);
+  -- Barramento AXI4, canal de endereço de escrita: log2 do número de bytes por beat.
+  signal awsize : std_logic_vector(2 downto 0);
+  -- Barramento AXI4, canal de endereço de leitura: log2 do número de bytes por beat.
+  signal arsize : std_logic_vector(2 downto 0);
+  -- Barramento AXI4, canal de endereço de escrita: tipo de rajada (1 = INCR).
+  signal awburst : std_logic_vector(1 downto 0);
+  -- Barramento AXI4, canal de endereço de leitura: tipo de rajada (1 = INCR).
+  signal arburst : std_logic_vector(1 downto 0);
+  -- Barramento AXI4, canal de endereço de escrita: atributos de proteção.
+  signal awprot : std_logic_vector(2 downto 0);
+  -- Barramento AXI4, canal de endereço de leitura: atributos de proteção.
+  signal arprot : std_logic_vector(2 downto 0);
+  -- Barramento AXI4, canal de dados de escrita: habilita de bytes.
   signal wstrb : std_logic_vector(3 downto 0);
-  signal bresp, rresp : std_logic_vector(1 downto 0);
+  -- Barramento AXI4, canal de resposta de escrita: resposta (0 = OKAY, 2 = SLVERR).
+  signal bresp : std_logic_vector(1 downto 0);
+  -- Barramento AXI4, canal de dados de leitura: resposta (0 = OKAY, 2 = SLVERR).
+  signal rresp : std_logic_vector(1 downto 0);
 
-  -- the SDRAM system's word port
-  signal m_addr, m_wdata, m_rdata : std_logic_vector(31 downto 0);
+  -- Lado da palavra da ponte escrava AXI4: endereço.
+  signal m_addr : std_logic_vector(31 downto 0);
+  -- Lado da palavra da ponte escrava AXI4: dado de escrita.
+  signal m_wdata : std_logic_vector(31 downto 0);
+  -- Lado da palavra da ponte escrava AXI4: dado lido.
+  signal m_rdata : std_logic_vector(31 downto 0);
+  -- Lado da palavra da ponte escrava AXI4: habilita de bytes.
   signal m_be : std_logic_vector(3 downto 0);
-  signal m_rden, m_wren, m_adv, m_ready, m_line : std_logic;
-  signal m_wdx, m_rdx : std_logic_vector(95 downto 0);
+  -- Lado da palavra da ponte escrava AXI4: pedido de leitura.
+  signal m_rden : std_logic;
+  -- Lado da palavra da ponte escrava AXI4: pedido de escrita.
+  signal m_wren : std_logic;
+  -- Lado da palavra da ponte escrava AXI4: avanço do acesso.
+  signal m_adv : std_logic;
+  -- Lado da palavra da ponte escrava AXI4: acesso concluído.
+  signal m_ready : std_logic;
+  -- Lado da palavra da ponte escrava AXI4: acesso de linha.
+  signal m_line : std_logic;
+  -- Lado da palavra da ponte escrava AXI4: palavras 1 a 3 da escrita de linha.
+  signal m_wdx : std_logic_vector(95 downto 0);
+  -- Lado da palavra da ponte escrava AXI4: palavras 1 a 3 da leitura de linha.
+  signal m_rdx : std_logic_vector(95 downto 0);
+  -- Lado da palavra da ponte escrava AXI4: habilita de bytes das palavras 1 a 3.
   signal m_bex : std_logic_vector(11 downto 0);
 begin
 
   u_cache : entity work.dcache
-    generic map (WRITE_THROUGH => WRITE_THROUGH)
+    generic map (write_through => write_through)
     port map (
       i_clk => i_clk_cpu, i_rst => i_rst_cpu,
       i_addr => i_addr, i_wdata => i_wdata, i_byteena => i_byteena, i_rden => i_rden, i_wren => i_wren,
@@ -111,7 +225,7 @@ begin
     );
 
   u_sdram : entity work.sdram_system
-    generic map (TCK_PS => TCK_PS, INIT_CYCLES => INIT_CYCLES, REFRESH_CYCLES => REFRESH_CYCLES)
+    generic map (tck_ps => tck_ps, init_cycles => init_cycles, refresh_cycles => refresh_cycles)
     port map (
       i_clk_mem => i_clk_mem, i_clk_cpu => i_clk_cpu, i_rst_mem => i_rst_mem, i_rst_cpu => i_rst_cpu,
       i_addr => m_addr, i_wdata => m_wdata, i_byteena => m_be, i_rden => m_rden, i_wren => m_wren,
@@ -123,4 +237,4 @@ begin
       o_dbg_refreshes => o_dbg_refreshes, o_dbg_init_ok => o_dbg_init_ok
     );
 
-end architecture sim;
+end architecture rtl;
