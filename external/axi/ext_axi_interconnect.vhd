@@ -30,42 +30,42 @@ entity ext_axi_interconnect is
     WRITE_THROUGH : boolean := false      -- the cache writes every store through (see dcache)
   );
   port (
-    clk         : in  std_logic;
-    rst         : in  std_logic;  -- synchronous, active high
+    i_clk         : in  std_logic;
+    i_rst         : in  std_logic;  -- synchronous, active high
 
     -- the core's external port
-    addr        : in  std_logic_vector(31 downto 0);
-    wdata       : in  std_logic_vector(31 downto 0);
-    byteena     : in  std_logic_vector(3 downto 0);
-    rden        : in  std_logic;
-    wren        : in  std_logic;
-    mem_advance : in  std_logic;
-    ready       : out std_logic;
-    rdata       : out std_logic_vector(31 downto 0);
+    i_addr        : in  std_logic_vector(31 downto 0);
+    i_wdata       : in  std_logic_vector(31 downto 0);
+    i_byteena     : in  std_logic_vector(3 downto 0);
+    i_rden        : in  std_logic;
+    i_wren        : in  std_logic;
+    i_mem_advance : in  std_logic;
+    o_ready       : out std_logic;
+    o_rdata       : out std_logic_vector(31 downto 0);
 
     -- the data cache (flush: one pulse asks for a flush, as a write to peripheral 7 does)
-    flush       : in  std_logic := '0';
-    flush_done  : out std_logic;
-    busy        : out std_logic;
+    i_flush       : in  std_logic := '0';
+    o_flush_done  : out std_logic;
+    o_busy        : out std_logic;
 
     -- AXI4 master port to the SDRAM
-    m0_awvalid : out std_logic; m0_awready : in std_logic; m0_awaddr : out std_logic_vector(31 downto 0);
-    m0_awlen   : out std_logic_vector(7 downto 0); m0_awsize : out std_logic_vector(2 downto 0); m0_awburst : out std_logic_vector(1 downto 0);
-    m0_wvalid  : out std_logic; m0_wready  : in std_logic; m0_wdata  : out std_logic_vector(31 downto 0);
-    m0_wstrb   : out std_logic_vector(3 downto 0); m0_wlast : out std_logic;
-    m0_bvalid  : in  std_logic; m0_bready  : out std_logic; m0_bresp : in std_logic_vector(1 downto 0);
-    m0_arvalid : out std_logic; m0_arready : in std_logic; m0_araddr : out std_logic_vector(31 downto 0);
-    m0_arlen   : out std_logic_vector(7 downto 0); m0_arsize : out std_logic_vector(2 downto 0); m0_arburst : out std_logic_vector(1 downto 0);
-    m0_rvalid  : in  std_logic; m0_rready  : out std_logic;
-    m0_rdata   : in  std_logic_vector(31 downto 0); m0_rresp : in std_logic_vector(1 downto 0); m0_rlast : in std_logic;
+    o_m0_awvalid : out std_logic; i_m0_awready : in std_logic; o_m0_awaddr : out std_logic_vector(31 downto 0);
+    o_m0_awlen   : out std_logic_vector(7 downto 0); o_m0_awsize : out std_logic_vector(2 downto 0); o_m0_awburst : out std_logic_vector(1 downto 0);
+    o_m0_wvalid  : out std_logic; i_m0_wready  : in std_logic; o_m0_wdata  : out std_logic_vector(31 downto 0);
+    o_m0_wstrb   : out std_logic_vector(3 downto 0); o_m0_wlast : out std_logic;
+    i_m0_bvalid  : in  std_logic; o_m0_bready  : out std_logic; i_m0_bresp : in std_logic_vector(1 downto 0);
+    o_m0_arvalid : out std_logic; i_m0_arready : in std_logic; o_m0_araddr : out std_logic_vector(31 downto 0);
+    o_m0_arlen   : out std_logic_vector(7 downto 0); o_m0_arsize : out std_logic_vector(2 downto 0); o_m0_arburst : out std_logic_vector(1 downto 0);
+    i_m0_rvalid  : in  std_logic; o_m0_rready  : out std_logic;
+    i_m0_rdata   : in  std_logic_vector(31 downto 0); i_m0_rresp : in std_logic_vector(1 downto 0); i_m0_rlast : in std_logic;
 
     -- the peripherals (as ext_interconnect)
-    p_addr      : out std_logic_vector(7 downto 0);
-    p_wdata     : out std_logic_vector(31 downto 0);
-    p_byteena   : out std_logic_vector(3 downto 0);
-    p_we        : out std_logic_vector(7 downto 0);
-    p_re        : out std_logic_vector(7 downto 0);
-    p_rdata     : in  std_logic_vector(8 * 32 - 1 downto 0)
+    o_p_addr      : out std_logic_vector(7 downto 0);
+    o_p_wdata     : out std_logic_vector(31 downto 0);
+    o_p_byteena   : out std_logic_vector(3 downto 0);
+    o_p_we        : out std_logic_vector(7 downto 0);
+    o_p_re        : out std_logic_vector(7 downto 0);
+    i_p_rdata     : in  std_logic_vector(8 * 32 - 1 downto 0)
   );
 end entity ext_axi_interconnect;
 
@@ -122,51 +122,51 @@ architecture rtl of ext_axi_interconnect is
 
 begin
 
-  mmio   <= '1' when addr(31) = '1' or addr(25 downto 12) = "11111111111111" else '0';
+  mmio   <= '1' when i_addr(31) = '1' or i_addr(25 downto 12) = "11111111111111" else '0';
   -- the core's own access takes the master when the cache is not flushing, or when it already has it
-  direct <= mmio and (rden or wren) and (own or not c_busy);
-  busy   <= c_busy;
-  c_rden <= rden and not mmio;
-  c_wren <= wren and not mmio;
+  direct <= mmio and (i_rden or i_wren) and (own or not c_busy);
+  o_busy   <= c_busy;
+  c_rden <= i_rden and not mmio;
+  c_wren <= i_wren and not mmio;
 
   u_cache : entity work.dcache
     generic map (BASE => BASE, WRITE_THROUGH => WRITE_THROUGH)
     port map (
-      clk => clk, rst => rst,
-      addr => addr, wdata => wdata, byteena => byteena, rden => c_rden, wren => c_wren,
-      mem_advance => mem_advance, ready => c_ready, rdata => c_rdata,
-      flush => flush_i, invalidate => p_wdata_i(1) and p_we_i(7), flush_done => flush_done, busy => c_busy,
-      d_addr => d_addr, d_wdata => d_wdata, d_byteena => d_be, d_rden => d_rden, d_wren => d_wren,
-      d_advance => d_advance, d_ready => d_ready, d_rdata => d_rdata,
-      d_line => d_line, d_wdata_x => d_wdata_x, d_rdata_x => d_rdata_x
+      i_clk => i_clk, i_rst => i_rst,
+      i_addr => i_addr, i_wdata => i_wdata, i_byteena => i_byteena, i_rden => c_rden, i_wren => c_wren,
+      i_mem_advance => i_mem_advance, o_ready => c_ready, o_rdata => c_rdata,
+      i_flush => flush_i, i_invalidate => p_wdata_i(1) and p_we_i(7), o_flush_done => o_flush_done, o_busy => c_busy,
+      o_d_addr => d_addr, o_d_wdata => d_wdata, o_d_byteena => d_be, o_d_rden => d_rden, o_d_wren => d_wren,
+      o_d_advance => d_advance, i_d_ready => d_ready, i_d_rdata => d_rdata,
+      o_d_line => d_line, o_d_wdata_x => d_wdata_x, i_d_rdata_x => d_rdata_x
     );
 
   -- one access at a time on the AXI4-Lite master: the core's own (not cached) or the cache's; the
   -- core's wins only while it has an access on the port, so a port that rests on a peripheral address
   -- does not keep the cache from its own accesses
-  b_addr    <= addr    when direct = '1' else d_addr;
-  b_wdata   <= wdata   when direct = '1' else d_wdata;
-  b_be      <= byteena when direct = '1' else d_be;
-  b_rden    <= rden when direct = '1' else d_rden;
-  b_wren    <= wren when direct = '1' else d_wren;
-  b_advance <= mem_advance when direct = '1' else d_advance;
+  b_addr    <= i_addr    when direct = '1' else d_addr;
+  b_wdata   <= i_wdata   when direct = '1' else d_wdata;
+  b_be      <= i_byteena when direct = '1' else d_be;
+  b_rden    <= i_rden when direct = '1' else d_rden;
+  b_wren    <= i_wren when direct = '1' else d_wren;
+  b_advance <= i_mem_advance when direct = '1' else d_advance;
   b_line    <= '0' when direct = '1' else d_line;
   b_wdata_x <= d_wdata_x;
   d_ready   <= b_ready and not direct;
   d_rdata   <= b_rdata;
   d_rdata_x <= b_rdata_x;
 
-  ready <= (b_ready and direct) when mmio = '1' else c_ready;
-  rdata <= c_rdata when sel = "00" else b_rdata when sel = "01" else hold_q;
+  o_ready <= (b_ready and direct) when mmio = '1' else c_ready;
+  o_rdata <= c_rdata when sel = "00" else b_rdata when sel = "01" else hold_q;
 
-  process (clk)
+  process (i_clk)
   begin
-    if rising_edge(clk) then
-      if rst = '1' then
+    if rising_edge(i_clk) then
+      if i_rst = '1' then
         sel    <= "00";
         hold_q <= (others => '0');
         own    <= '0';
-      elsif rden = '1' and mem_advance = '1' and ((mmio = '1' and b_ready = '1' and direct = '1') or (mmio = '0' and c_ready = '1')) then
+      elsif i_rden = '1' and i_mem_advance = '1' and ((mmio = '1' and b_ready = '1' and direct = '1') or (mmio = '0' and c_ready = '1')) then
         if mmio = '1' then sel <= "01"; else sel <= "00"; end if;
       elsif sel = "01" then
         hold_q <= b_rdata;
@@ -175,7 +175,7 @@ begin
       if direct = '1' then
         own <= '1';
       end if;
-      if direct = '1' and mem_advance = '1' and b_ready = '1' then
+      if direct = '1' and i_mem_advance = '1' and b_ready = '1' then
         own <= '0';
       end if;
     end if;
@@ -183,64 +183,64 @@ begin
 
   u_master : entity work.axi_master_bridge
     port map (
-      clk => clk, rst => rst,
-      addr => b_addr, wdata => b_wdata, byteena => b_be, rden => b_rden, wren => b_wren,
-      mem_advance => b_advance, ready => b_ready, rdata => b_rdata,
-      line => b_line, wdata_x => b_wdata_x, byteena_x => (others => '1'), rdata_x => b_rdata_x, err => b_err,
-      m_awvalid => awvalid, m_awready => awready, m_awaddr => awaddr, m_awlen => awlen,
-      m_awsize => awsize, m_awburst => awburst, m_awprot => awprot,
-      m_wvalid => wvalid, m_wready => wready, m_wdata => wdata_a, m_wstrb => wstrb, m_wlast => wlast,
-      m_bvalid => bvalid, m_bready => bready, m_bresp => bresp,
-      m_arvalid => arvalid, m_arready => arready, m_araddr => araddr, m_arlen => arlen,
-      m_arsize => arsize, m_arburst => arburst, m_arprot => arprot,
-      m_rvalid => rvalid, m_rready => rready, m_rdata => rdata_a, m_rresp => rresp, m_rlast => rlast
+      i_clk => i_clk, i_rst => i_rst,
+      i_addr => b_addr, i_wdata => b_wdata, i_byteena => b_be, i_rden => b_rden, i_wren => b_wren,
+      i_mem_advance => b_advance, o_ready => b_ready, o_rdata => b_rdata,
+      i_line => b_line, i_wdata_x => b_wdata_x, i_byteena_x => (others => '1'), o_rdata_x => b_rdata_x, o_err => b_err,
+      o_m_awvalid => awvalid, i_m_awready => awready, o_m_awaddr => awaddr, o_m_awlen => awlen,
+      o_m_awsize => awsize, o_m_awburst => awburst, o_m_awprot => awprot,
+      o_m_wvalid => wvalid, i_m_wready => wready, o_m_wdata => wdata_a, o_m_wstrb => wstrb, o_m_wlast => wlast,
+      i_m_bvalid => bvalid, o_m_bready => bready, i_m_bresp => bresp,
+      o_m_arvalid => arvalid, i_m_arready => arready, o_m_araddr => araddr, o_m_arlen => arlen,
+      o_m_arsize => arsize, o_m_arburst => arburst, o_m_arprot => arprot,
+      i_m_rvalid => rvalid, o_m_rready => rready, i_m_rdata => rdata_a, i_m_rresp => rresp, i_m_rlast => rlast
     );
 
   u_router : entity work.axi_router
     port map (
-      clk => clk, rst => rst,
-      s_awvalid => awvalid, s_awready => awready, s_awaddr => awaddr, s_awlen => awlen, s_awsize => awsize, s_awburst => awburst,
-      s_wvalid => wvalid, s_wready => wready, s_wdata => wdata_a, s_wstrb => wstrb, s_wlast => wlast,
-      s_bvalid => bvalid, s_bready => bready, s_bresp => bresp,
-      s_arvalid => arvalid, s_arready => arready, s_araddr => araddr, s_arlen => arlen, s_arsize => arsize, s_arburst => arburst,
-      s_rvalid => rvalid, s_rready => rready, s_rdata => rdata_a, s_rresp => rresp, s_rlast => rlast,
-      m0_awvalid => m0_awvalid, m0_awready => m0_awready, m0_awaddr => m0_awaddr, m0_awlen => m0_awlen,
-      m0_awsize => m0_awsize, m0_awburst => m0_awburst,
-      m0_wvalid => m0_wvalid, m0_wready => m0_wready, m0_wdata => m0_wdata, m0_wstrb => m0_wstrb, m0_wlast => m0_wlast,
-      m0_bvalid => m0_bvalid, m0_bready => m0_bready, m0_bresp => m0_bresp,
-      m0_arvalid => m0_arvalid, m0_arready => m0_arready, m0_araddr => m0_araddr, m0_arlen => m0_arlen,
-      m0_arsize => m0_arsize, m0_arburst => m0_arburst,
-      m0_rvalid => m0_rvalid, m0_rready => m0_rready, m0_rdata => m0_rdata, m0_rresp => m0_rresp, m0_rlast => m0_rlast,
-      m1_awvalid => m1_awvalid, m1_awready => m1_awready, m1_awaddr => m1_awaddr, m1_awlen => m1_awlen,
-      m1_awsize => m1_awsize, m1_awburst => m1_awburst,
-      m1_wvalid => m1_wvalid, m1_wready => m1_wready, m1_wdata => m1_wdata, m1_wstrb => m1_wstrb, m1_wlast => m1_wlast,
-      m1_bvalid => m1_bvalid, m1_bready => m1_bready, m1_bresp => m1_bresp,
-      m1_arvalid => m1_arvalid, m1_arready => m1_arready, m1_araddr => m1_araddr, m1_arlen => m1_arlen,
-      m1_arsize => m1_arsize, m1_arburst => m1_arburst,
-      m1_rvalid => m1_rvalid, m1_rready => m1_rready, m1_rdata => m1_rdata, m1_rresp => m1_rresp, m1_rlast => m1_rlast
+      i_clk => i_clk, i_rst => i_rst,
+      i_s_awvalid => awvalid, o_s_awready => awready, i_s_awaddr => awaddr, i_s_awlen => awlen, i_s_awsize => awsize, i_s_awburst => awburst,
+      i_s_wvalid => wvalid, o_s_wready => wready, i_s_wdata => wdata_a, i_s_wstrb => wstrb, i_s_wlast => wlast,
+      o_s_bvalid => bvalid, i_s_bready => bready, o_s_bresp => bresp,
+      i_s_arvalid => arvalid, o_s_arready => arready, i_s_araddr => araddr, i_s_arlen => arlen, i_s_arsize => arsize, i_s_arburst => arburst,
+      o_s_rvalid => rvalid, i_s_rready => rready, o_s_rdata => rdata_a, o_s_rresp => rresp, o_s_rlast => rlast,
+      o_m0_awvalid => o_m0_awvalid, i_m0_awready => i_m0_awready, o_m0_awaddr => o_m0_awaddr, o_m0_awlen => o_m0_awlen,
+      o_m0_awsize => o_m0_awsize, o_m0_awburst => o_m0_awburst,
+      o_m0_wvalid => o_m0_wvalid, i_m0_wready => i_m0_wready, o_m0_wdata => o_m0_wdata, o_m0_wstrb => o_m0_wstrb, o_m0_wlast => o_m0_wlast,
+      i_m0_bvalid => i_m0_bvalid, o_m0_bready => o_m0_bready, i_m0_bresp => i_m0_bresp,
+      o_m0_arvalid => o_m0_arvalid, i_m0_arready => i_m0_arready, o_m0_araddr => o_m0_araddr, o_m0_arlen => o_m0_arlen,
+      o_m0_arsize => o_m0_arsize, o_m0_arburst => o_m0_arburst,
+      i_m0_rvalid => i_m0_rvalid, o_m0_rready => o_m0_rready, i_m0_rdata => i_m0_rdata, i_m0_rresp => i_m0_rresp, i_m0_rlast => i_m0_rlast,
+      o_m1_awvalid => m1_awvalid, i_m1_awready => m1_awready, o_m1_awaddr => m1_awaddr, o_m1_awlen => m1_awlen,
+      o_m1_awsize => m1_awsize, o_m1_awburst => m1_awburst,
+      o_m1_wvalid => m1_wvalid, i_m1_wready => m1_wready, o_m1_wdata => m1_wdata, o_m1_wstrb => m1_wstrb, o_m1_wlast => m1_wlast,
+      i_m1_bvalid => m1_bvalid, o_m1_bready => m1_bready, i_m1_bresp => m1_bresp,
+      o_m1_arvalid => m1_arvalid, i_m1_arready => m1_arready, o_m1_araddr => m1_araddr, o_m1_arlen => m1_arlen,
+      o_m1_arsize => m1_arsize, o_m1_arburst => m1_arburst,
+      i_m1_rvalid => m1_rvalid, o_m1_rready => m1_rready, i_m1_rdata => m1_rdata, i_m1_rresp => m1_rresp, i_m1_rlast => m1_rlast
     );
 
   u_periph : entity work.axi_slave_periph_bank
     port map (
-      clk => clk, rst => rst,
-      s_awvalid => m1_awvalid, s_awready => m1_awready, s_awaddr => m1_awaddr, s_awlen => m1_awlen,
-      s_awsize => m1_awsize, s_awburst => m1_awburst,
-      s_wvalid => m1_wvalid, s_wready => m1_wready, s_wdata => m1_wdata, s_wstrb => m1_wstrb, s_wlast => m1_wlast,
-      s_bvalid => m1_bvalid, s_bready => m1_bready, s_bresp => m1_bresp,
-      s_arvalid => m1_arvalid, s_arready => m1_arready, s_araddr => m1_araddr, s_arlen => m1_arlen,
-      s_arsize => m1_arsize, s_arburst => m1_arburst,
-      s_rvalid => m1_rvalid, s_rready => m1_rready, s_rdata => m1_rdata, s_rresp => m1_rresp, s_rlast => m1_rlast,
-      p_addr => p_addr, p_wdata => p_wdata_i, p_byteena => p_byteena, p_we => p_we_i, p_re => p_re_i,
-      p_rdata => p_rdata_i
+      i_clk => i_clk, i_rst => i_rst,
+      i_s_awvalid => m1_awvalid, o_s_awready => m1_awready, i_s_awaddr => m1_awaddr, i_s_awlen => m1_awlen,
+      i_s_awsize => m1_awsize, i_s_awburst => m1_awburst,
+      i_s_wvalid => m1_wvalid, o_s_wready => m1_wready, i_s_wdata => m1_wdata, i_s_wstrb => m1_wstrb, i_s_wlast => m1_wlast,
+      o_s_bvalid => m1_bvalid, i_s_bready => m1_bready, o_s_bresp => m1_bresp,
+      i_s_arvalid => m1_arvalid, o_s_arready => m1_arready, i_s_araddr => m1_araddr, i_s_arlen => m1_arlen,
+      i_s_arsize => m1_arsize, i_s_arburst => m1_arburst,
+      o_s_rvalid => m1_rvalid, i_s_rready => m1_rready, o_s_rdata => m1_rdata, o_s_rresp => m1_rresp, o_s_rlast => m1_rlast,
+      o_p_addr => o_p_addr, o_p_wdata => p_wdata_i, o_p_byteena => o_p_byteena, o_p_we => p_we_i, o_p_re => p_re_i,
+      i_p_rdata => p_rdata_i
     );
 
   -- peripheral 7 is the cache's control
-  flush_i <= flush or p_we_i(7);
-  p_wdata <= p_wdata_i;
-  p_we    <= p_we_i and "01111111";
-  p_re    <= p_re_i and "01111111";
+  flush_i <= i_flush or p_we_i(7);
+  o_p_wdata <= p_wdata_i;
+  o_p_we    <= p_we_i and "01111111";
+  o_p_re    <= p_re_i and "01111111";
   p_rdata_i(7 * 32)                           <= c_busy;
   p_rdata_i(8 * 32 - 1 downto 7 * 32 + 1)     <= (others => '0');
-  p_rdata_i(7 * 32 - 1 downto 0)      <= p_rdata(7 * 32 - 1 downto 0);
+  p_rdata_i(7 * 32 - 1 downto 0)      <= i_p_rdata(7 * 32 - 1 downto 0);
 
 end architecture rtl;

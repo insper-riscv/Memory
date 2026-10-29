@@ -9,13 +9,13 @@ use altera_mf.altera_mf_components.all;
 -- 2-bit instruction register; instruction 1 selects the 48-bit register of jtag_uart.
 entity jtag_uart_shell is
   port (
-    clk     : in  std_logic;
-    rst     : in  std_logic;
-    addr    : in  std_logic_vector(7 downto 0);
-    wdata   : in  std_logic_vector(31 downto 0);
-    we      : in  std_logic;
-    re      : in  std_logic;
-    rdata   : out std_logic_vector(31 downto 0)
+    i_clk     : in  std_logic;
+    i_rst     : in  std_logic;
+    i_addr    : in  std_logic_vector(7 downto 0);
+    i_wdata   : in  std_logic_vector(31 downto 0);
+    i_we      : in  std_logic;
+    i_re      : in  std_logic;
+    o_rdata   : out std_logic_vector(31 downto 0)
   );
 end entity jtag_uart_shell;
 
@@ -50,9 +50,9 @@ begin
 
   u_uart : entity work.jtag_uart
     port map (
-      clk => clk, rst => rst, addr => addr, wdata => wdata, we => we, re => re, rdata => rdata,
-      tck => tck, tdi => tdi, tdo => tdo, ir_in => ir_in,
-      state_cdr => st_cdr, state_sdr => st_sdr, state_udr => st_udr, state_uir => st_uir
+      i_clk => i_clk, i_rst => i_rst, i_addr => i_addr, i_wdata => i_wdata, i_we => i_we, i_re => i_re, o_rdata => o_rdata,
+      i_tck => tck, i_tdi => tdi, o_tdo => tdo, i_ir_in => ir_in,
+      i_state_cdr => st_cdr, i_state_sdr => st_sdr, i_state_udr => st_udr, i_state_uir => st_uir
     );
 
 end architecture rtl;

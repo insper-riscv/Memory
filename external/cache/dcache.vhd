@@ -40,36 +40,36 @@ entity dcache is
     WRITE_THROUGH : boolean := false                           -- see the header
   );
   port (
-    clk         : in  std_logic;
-    rst         : in  std_logic;  -- synchronous, active high
+    i_clk         : in  std_logic;
+    i_rst         : in  std_logic;  -- synchronous, active high
 
     -- core side
-    addr        : in  std_logic_vector(31 downto 0);
-    wdata       : in  std_logic_vector(31 downto 0);
-    byteena     : in  std_logic_vector(3 downto 0);
-    rden        : in  std_logic;
-    wren        : in  std_logic;
-    mem_advance : in  std_logic;
-    ready       : out std_logic;
-    rdata       : out std_logic_vector(31 downto 0);
+    i_addr        : in  std_logic_vector(31 downto 0);
+    i_wdata       : in  std_logic_vector(31 downto 0);
+    i_byteena     : in  std_logic_vector(3 downto 0);
+    i_rden        : in  std_logic;
+    i_wren        : in  std_logic;
+    i_mem_advance : in  std_logic;
+    o_ready       : out std_logic;
+    o_rdata       : out std_logic_vector(31 downto 0);
 
-    flush       : in  std_logic;
-    invalidate  : in  std_logic := '0';   -- with flush: after the write-back, every line becomes invalid
-    flush_done  : out std_logic;
-    busy        : out std_logic;
+    i_flush       : in  std_logic;
+    i_invalidate  : in  std_logic := '0';   -- with flush: after the write-back, every line becomes invalid
+    o_flush_done  : out std_logic;
+    o_busy        : out std_logic;
 
     -- memory side (one word at a time)
-    d_addr      : out std_logic_vector(31 downto 0);
-    d_wdata     : out std_logic_vector(31 downto 0);
-    d_byteena   : out std_logic_vector(3 downto 0);
-    d_rden      : out std_logic;
-    d_wren      : out std_logic;
-    d_advance   : out std_logic;
-    d_ready     : in  std_logic;
-    d_rdata     : in  std_logic_vector(31 downto 0);
-    d_line      : out std_logic;
-    d_wdata_x   : out std_logic_vector(95 downto 0);
-    d_rdata_x   : in  std_logic_vector(95 downto 0) := (others => '0')
+    o_d_addr      : out std_logic_vector(31 downto 0);
+    o_d_wdata     : out std_logic_vector(31 downto 0);
+    o_d_byteena   : out std_logic_vector(3 downto 0);
+    o_d_rden      : out std_logic;
+    o_d_wren      : out std_logic;
+    o_d_advance   : out std_logic;
+    i_d_ready     : in  std_logic;
+    i_d_rdata     : in  std_logic_vector(31 downto 0);
+    o_d_line      : out std_logic;
+    o_d_wdata_x   : out std_logic_vector(95 downto 0);
+    i_d_rdata_x   : in  std_logic_vector(95 downto 0) := (others => '0')
   );
 end entity dcache;
 
@@ -122,31 +122,31 @@ architecture rtl of dcache is
 
 begin
 
-  req_tag <= addr(25 downto 12);
-  req_idx <= addr(11 downto 4);
+  req_tag <= i_addr(25 downto 12);
+  req_idx <= i_addr(11 downto 4);
   cur_idx <= std_logic_vector(f_idx) when flushing = '1' else req_idx;
   hit     <= valid(to_integer(unsigned(cur_idx))) when tag_rd = req_tag else '0';
 
   -- read addresses: the word of the access while it is looked up, the word being moved otherwise
-  ram_ra <= addr(11 downto 2) when (st = S_IDLE or st = S_LOOK) else cur_idx & std_logic_vector(cnt);
+  ram_ra <= i_addr(11 downto 2) when (st = S_IDLE or st = S_LOOK) else cur_idx & std_logic_vector(cnt);
   tag_ra <= cur_idx;
 
   -- write port: a hit writes the word, a fill writes the word that arrived
-  ram_we <= '1' when (st = S_LOOK and hit = '1' and wren = '1') or st = S_FILL_GET else '0';
-  ram_wa <= addr(11 downto 2) when st = S_LOOK else req_idx & std_logic_vector(cnt);
-  fill_w <= d_rdata when cnt = "00" else
-            d_rdata_x(31 downto 0)  when cnt = "01" else
-            d_rdata_x(63 downto 32) when cnt = "10" else
-            d_rdata_x(95 downto 64);
-  ram_wd <= wdata when st = S_LOOK else fill_w;
-  ram_be <= byteena when st = S_LOOK else "1111";
+  ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1') or st = S_FILL_GET else '0';
+  ram_wa <= i_addr(11 downto 2) when st = S_LOOK else req_idx & std_logic_vector(cnt);
+  fill_w <= i_d_rdata when cnt = "00" else
+            i_d_rdata_x(31 downto 0)  when cnt = "01" else
+            i_d_rdata_x(63 downto 32) when cnt = "10" else
+            i_d_rdata_x(95 downto 64);
+  ram_wd <= i_wdata when st = S_LOOK else fill_w;
+  ram_be <= i_byteena when st = S_LOOK else "1111";
   tag_we <= '1' when st = S_FILL_GET and cnt = "11" else '0';
   tag_wa <= req_idx;
   tag_wd <= req_tag;
 
-  process (clk)
+  process (i_clk)
   begin
-    if rising_edge(clk) then
+    if rising_edge(i_clk) then
       ram_rd <= data_ram(to_integer(unsigned(ram_ra)));
       if ram_we = '1' then
         for b in 0 to 3 loop
@@ -162,26 +162,26 @@ begin
     end if;
   end process;
 
-  ready      <= '1' when st = S_DONE else '0';
-  rdata      <= rdata_q;
-  busy       <= flush_pend or flushing;
-  flush_done <= fd_i;
+  o_ready      <= '1' when st = S_DONE else '0';
+  o_rdata      <= rdata_q;
+  o_busy       <= flush_pend or flushing;
+  o_flush_done <= fd_i;
 
-  d_addr    <= d_addr_i;
-  d_wdata   <= d_wdata_i;
-  d_byteena <= d_be_i;
-  d_rden    <= d_rden_i;
-  d_wren    <= d_wren_i;
-  d_line    <= d_line_i;
-  d_wdata_x <= wb_q(127 downto 32);
-  d_advance <= d_ready;
+  o_d_addr    <= d_addr_i;
+  o_d_wdata   <= d_wdata_i;
+  o_d_byteena <= d_be_i;
+  o_d_rden    <= d_rden_i;
+  o_d_wren    <= d_wren_i;
+  o_d_line    <= d_line_i;
+  o_d_wdata_x <= wb_q(127 downto 32);
+  o_d_advance <= i_d_ready;
 
-  process (clk)
+  process (i_clk)
     variable ci : integer range 0 to 255;
   begin
-    if rising_edge(clk) then
+    if rising_edge(i_clk) then
       fd_i <= '0';
-      if rst = '1' then
+      if i_rst = '1' then
         st       <= S_IDLE;
         valid    <= (others => '0');
         dirty    <= (others => '0');
@@ -194,9 +194,9 @@ begin
         cnt      <= (others => '0');
       else
         ci := to_integer(unsigned(cur_idx));
-        if flush = '1' then
+        if i_flush = '1' then
           flush_pend <= '1';
-          inv_pend   <= invalidate;
+          inv_pend   <= i_invalidate;
         end if;
         case st is
 
@@ -207,16 +207,16 @@ begin
               flushing   <= '1';
               f_idx      <= (others => '0');
               st         <= S_FL_TAG;
-            elsif rden = '1' or wren = '1' then
+            elsif i_rden = '1' or i_wren = '1' then
               st <= S_LOOK;
             end if;
 
           when S_LOOK =>
-            if WRITE_THROUGH and wren = '1' then
+            if WRITE_THROUGH and i_wren = '1' then
               -- the cache RAM takes the word on a hit (ram_we); the memory takes it either way
               st <= S_WT_REQ;
             elsif hit = '1' then
-              if wren = '1' then
+              if i_wren = '1' then
                 dirty(ci) <= '1';
               else
                 pend <= ram_rd;
@@ -232,8 +232,8 @@ begin
             end if;
 
           when S_DONE =>
-            if mem_advance = '1' then
-              if wren = '0' then
+            if i_mem_advance = '1' then
+              if i_wren = '0' then
                 rdata_q <= pend;
               end if;
               st <= S_IDLE;
@@ -241,14 +241,14 @@ begin
 
           -- write-through: the word of the store goes to the memory
           when S_WT_REQ =>
-            d_addr_i  <= BASE & addr(25 downto 2) & "00";
-            d_wdata_i <= wdata;
-            d_be_i    <= byteena;
+            d_addr_i  <= BASE & i_addr(25 downto 2) & "00";
+            d_wdata_i <= i_wdata;
+            d_be_i    <= i_byteena;
             d_wren_i  <= '1';
             st        <= S_WT_WAIT;
 
           when S_WT_WAIT =>
-            if d_ready = '1' then
+            if i_d_ready = '1' then
               d_wren_i <= '0';
               d_be_i   <= "1111";
               st       <= S_DONE;
@@ -275,7 +275,7 @@ begin
             st        <= S_WB_WAIT;
 
           when S_WB_WAIT =>
-            if d_ready = '1' then
+            if i_d_ready = '1' then
               d_wren_i  <= '0';
               d_line_i  <= '0';
               cnt       <= (others => '0');
@@ -295,7 +295,7 @@ begin
             st       <= S_FILL_WAIT;
 
           when S_FILL_WAIT =>
-            if d_ready = '1' then
+            if i_d_ready = '1' then
               d_rden_i <= '0';
               d_line_i <= '0';
               cnt      <= (others => '0');

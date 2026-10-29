@@ -18,43 +18,43 @@ use ieee.numeric_std.all;
 -- offered, one transaction at a time, the response waits for bready/rready.
 entity axi_slave_periph_bank is
   port (
-    clk         : in  std_logic;
-    rst         : in  std_logic;  -- synchronous, active high
+    i_clk         : in  std_logic;
+    i_rst         : in  std_logic;  -- synchronous, active high
 
     -- AXI4 slave port
-    s_awvalid   : in  std_logic;
-    s_awready   : out std_logic;
-    s_awaddr    : in  std_logic_vector(31 downto 0);
-    s_awlen     : in  std_logic_vector(7 downto 0);
-    s_awsize    : in  std_logic_vector(2 downto 0);
-    s_awburst   : in  std_logic_vector(1 downto 0);
-    s_wvalid    : in  std_logic;
-    s_wready    : out std_logic;
-    s_wdata     : in  std_logic_vector(31 downto 0);
-    s_wstrb     : in  std_logic_vector(3 downto 0);
-    s_wlast     : in  std_logic;
-    s_bvalid    : out std_logic;
-    s_bready    : in  std_logic;
-    s_bresp     : out std_logic_vector(1 downto 0);
-    s_arvalid   : in  std_logic;
-    s_arready   : out std_logic;
-    s_araddr    : in  std_logic_vector(31 downto 0);
-    s_arlen     : in  std_logic_vector(7 downto 0);
-    s_arsize    : in  std_logic_vector(2 downto 0);
-    s_arburst   : in  std_logic_vector(1 downto 0);
-    s_rvalid    : out std_logic;
-    s_rready    : in  std_logic;
-    s_rdata     : out std_logic_vector(31 downto 0);
-    s_rresp     : out std_logic_vector(1 downto 0);
-    s_rlast     : out std_logic;
+    i_s_awvalid   : in  std_logic;
+    o_s_awready   : out std_logic;
+    i_s_awaddr    : in  std_logic_vector(31 downto 0);
+    i_s_awlen     : in  std_logic_vector(7 downto 0);
+    i_s_awsize    : in  std_logic_vector(2 downto 0);
+    i_s_awburst   : in  std_logic_vector(1 downto 0);
+    i_s_wvalid    : in  std_logic;
+    o_s_wready    : out std_logic;
+    i_s_wdata     : in  std_logic_vector(31 downto 0);
+    i_s_wstrb     : in  std_logic_vector(3 downto 0);
+    i_s_wlast     : in  std_logic;
+    o_s_bvalid    : out std_logic;
+    i_s_bready    : in  std_logic;
+    o_s_bresp     : out std_logic_vector(1 downto 0);
+    i_s_arvalid   : in  std_logic;
+    o_s_arready   : out std_logic;
+    i_s_araddr    : in  std_logic_vector(31 downto 0);
+    i_s_arlen     : in  std_logic_vector(7 downto 0);
+    i_s_arsize    : in  std_logic_vector(2 downto 0);
+    i_s_arburst   : in  std_logic_vector(1 downto 0);
+    o_s_rvalid    : out std_logic;
+    i_s_rready    : in  std_logic;
+    o_s_rdata     : out std_logic_vector(31 downto 0);
+    o_s_rresp     : out std_logic_vector(1 downto 0);
+    o_s_rlast     : out std_logic;
 
     -- the peripherals
-    p_addr      : out std_logic_vector(7 downto 0);
-    p_wdata     : out std_logic_vector(31 downto 0);
-    p_byteena   : out std_logic_vector(3 downto 0);
-    p_we        : out std_logic_vector(7 downto 0);
-    p_re        : out std_logic_vector(7 downto 0);
-    p_rdata     : in  std_logic_vector(8 * 32 - 1 downto 0)
+    o_p_addr      : out std_logic_vector(7 downto 0);
+    o_p_wdata     : out std_logic_vector(31 downto 0);
+    o_p_byteena   : out std_logic_vector(3 downto 0);
+    o_p_we        : out std_logic_vector(7 downto 0);
+    o_p_re        : out std_logic_vector(7 downto 0);
+    i_p_rdata     : in  std_logic_vector(8 * 32 - 1 downto 0)
   );
 end entity axi_slave_periph_bank;
 
@@ -89,36 +89,36 @@ architecture rtl of axi_slave_periph_bank is
 
 begin
 
-  s_awready <= '1' when st = ST_IDLE else '0';
-  s_arready <= '1' when st = ST_IDLE and s_awvalid = '0' else '0';
-  s_wready  <= '1' when st = ST_WBEAT else '0';
+  o_s_awready <= '1' when st = ST_IDLE else '0';
+  o_s_arready <= '1' when st = ST_IDLE and i_s_awvalid = '0' else '0';
+  o_s_wready  <= '1' when st = ST_WBEAT else '0';
 
   id        <= to_integer(unsigned(addr_l(30 downto 28)));
-  p_addr    <= addr_l(9 downto 2);
-  p_wdata   <= wdata_l;
-  p_byteena <= strb_l;
+  o_p_addr    <= addr_l(9 downto 2);
+  o_p_wdata   <= wdata_l;
+  o_p_byteena <= strb_l;
 
   process (st, id, we_l)
   begin
-    p_we <= (others => '0');
-    p_re <= (others => '0');
+    o_p_we <= (others => '0');
+    o_p_re <= (others => '0');
     if st = ST_PULSE then
-      p_we(id) <= we_l;
-      p_re(id) <= not we_l;
+      o_p_we(id) <= we_l;
+      o_p_re(id) <= not we_l;
     end if;
   end process;
 
-  s_bvalid <= '1' when st = ST_RESP and we_l = '1' else '0';
-  s_bresp  <= "10" when bad_l = '1' else "00";
-  s_rvalid <= '1' when (st = ST_RESP and we_l = '0') or st = ST_RDROP else '0';
-  s_rresp  <= "10" when bad_l = '1' else "00";
-  s_rdata  <= rd_q when bad_l = '0' else x"00000000";
-  s_rlast  <= '1' when (st = ST_RESP and we_l = '0') or (st = ST_RDROP and left_l = 0) else '0';
+  o_s_bvalid <= '1' when st = ST_RESP and we_l = '1' else '0';
+  o_s_bresp  <= "10" when bad_l = '1' else "00";
+  o_s_rvalid <= '1' when (st = ST_RESP and we_l = '0') or st = ST_RDROP else '0';
+  o_s_rresp  <= "10" when bad_l = '1' else "00";
+  o_s_rdata  <= rd_q when bad_l = '0' else x"00000000";
+  o_s_rlast  <= '1' when (st = ST_RESP and we_l = '0') or (st = ST_RDROP and left_l = 0) else '0';
 
-  process (clk)
+  process (i_clk)
   begin
-    if rising_edge(clk) then
-      if rst = '1' then
+    if rising_edge(i_clk) then
+      if i_rst = '1' then
         st    <= ST_IDLE;
         we_l  <= '0';
         bad_l <= '0';
@@ -127,17 +127,17 @@ begin
         case st is
 
           when ST_IDLE =>
-            if s_awvalid = '1' then
-              addr_l <= s_awaddr;
+            if i_s_awvalid = '1' then
+              addr_l <= i_s_awaddr;
               we_l   <= '1';
-              bad_l  <= is_bad(s_awaddr, s_awlen, s_awsize, s_awburst);
+              bad_l  <= is_bad(i_s_awaddr, i_s_awlen, i_s_awsize, i_s_awburst);
               st     <= ST_WBEAT;
-            elsif s_arvalid = '1' then
-              addr_l <= s_araddr;
+            elsif i_s_arvalid = '1' then
+              addr_l <= i_s_araddr;
               we_l   <= '0';
-              left_l <= unsigned(s_arlen);
-              bad_l  <= is_bad(s_araddr, s_arlen, s_arsize, s_arburst);
-              if is_bad(s_araddr, s_arlen, s_arsize, s_arburst) = '1' then
+              left_l <= unsigned(i_s_arlen);
+              bad_l  <= is_bad(i_s_araddr, i_s_arlen, i_s_arsize, i_s_arburst);
+              if is_bad(i_s_araddr, i_s_arlen, i_s_arsize, i_s_arburst) = '1' then
                 st <= ST_RDROP;
               else
                 strb_l <= "1111";
@@ -146,29 +146,29 @@ begin
             end if;
 
           when ST_WBEAT =>
-            if s_wvalid = '1' then
+            if i_s_wvalid = '1' then
               if bad_l = '1' then
-                if s_wlast = '1' then
+                if i_s_wlast = '1' then
                   st <= ST_RESP;
                 end if;
               else
-                wdata_l <= s_wdata;
-                strb_l  <= s_wstrb;
+                wdata_l <= i_s_wdata;
+                strb_l  <= i_s_wstrb;
                 st      <= ST_PULSE;
               end if;
             end if;
 
           when ST_PULSE =>
-            rd_q <= p_rdata(32 * id + 31 downto 32 * id);
+            rd_q <= i_p_rdata(32 * id + 31 downto 32 * id);
             st   <= ST_RESP;
 
           when ST_RESP =>
-            if (we_l = '1' and s_bready = '1') or (we_l = '0' and s_rready = '1') then
+            if (we_l = '1' and i_s_bready = '1') or (we_l = '0' and i_s_rready = '1') then
               st <= ST_IDLE;
             end if;
 
           when ST_RDROP =>
-            if s_rready = '1' then
+            if i_s_rready = '1' then
               if left_l = 0 then
                 st <= ST_IDLE;
               else

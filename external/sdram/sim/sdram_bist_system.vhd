@@ -13,25 +13,25 @@ entity sdram_bist_system is
     CAPTURE_EXTRA : natural := 0
   );
   port (
-    clk        : in  std_logic;
-    rst        : in  std_logic;
-    start      : in  std_logic;
-    mode       : in  std_logic_vector(1 downto 0);
-    init_done  : out std_logic;
-    busy, done, fail, timeout : out std_logic;
-    phase      : out std_logic_vector(4 downto 0);
-    err_count  : out std_logic_vector(31 downto 0);
-    first_addr : out std_logic_vector(23 downto 0);
-    first_exp  : out std_logic_vector(31 downto 0);
-    first_got  : out std_logic_vector(31 downto 0);
-    ops_done   : out std_logic_vector(31 downto 0);
+    i_clk        : in  std_logic;
+    i_rst        : in  std_logic;
+    i_start      : in  std_logic;
+    i_mode       : in  std_logic_vector(1 downto 0);
+    o_init_done  : out std_logic;
+    o_busy, o_done, o_fail, o_timeout : out std_logic;
+    o_phase      : out std_logic_vector(4 downto 0);
+    o_err_count  : out std_logic_vector(31 downto 0);
+    o_first_addr : out std_logic_vector(23 downto 0);
+    o_first_exp  : out std_logic_vector(31 downto 0);
+    o_first_got  : out std_logic_vector(31 downto 0);
+    o_ops_done   : out std_logic_vector(31 downto 0);
 
-    dbg_word_addr : in  std_logic_vector(23 downto 0);
-    dbg_word_data : out std_logic_vector(31 downto 0);
-    dbg_flip      : in  std_logic;
-    dbg_flip_addr : in  std_logic_vector(23 downto 0);
-    dbg_flip_bit  : in  std_logic_vector(4 downto 0);
-    dbg_refreshes : out std_logic_vector(31 downto 0)
+    i_dbg_word_addr : in  std_logic_vector(23 downto 0);
+    o_dbg_word_data : out std_logic_vector(31 downto 0);
+    i_dbg_flip      : in  std_logic;
+    i_dbg_flip_addr : in  std_logic_vector(23 downto 0);
+    i_dbg_flip_bit  : in  std_logic_vector(4 downto 0);
+    o_dbg_refreshes : out std_logic_vector(31 downto 0)
   );
 end entity sdram_bist_system;
 
@@ -50,37 +50,37 @@ architecture sim of sdram_bist_system is
   signal init_ok : std_logic;
 begin
 
-  init_done <= init_i;
+  o_init_done <= init_i;
 
   u_bist : entity work.sdram_bist
     generic map (WINDOW_LOG2 => WINDOW_LOG2, SWEEP_LOG2 => SWEEP_LOG2, RANDOM_LOG2 => RANDOM_LOG2)
     port map (
-      clk => clk, rst => rst, start => start, mode => mode, init_done => init_i,
-      busy => busy, done => done, fail => fail, timeout => timeout, phase => phase,
-      err_count => err_count, first_addr => first_addr, first_exp => first_exp,
-      first_got => first_got, ops_done => ops_done,
-      c_req_tog => req_tog, c_ack_tog => ack_tog, c_we => c_we, c_addr => c_addr,
-      c_wdata => c_wdata, c_be => c_be, c_rdata => c_rdata
+      i_clk => i_clk, i_rst => i_rst, i_start => i_start, i_mode => i_mode, i_init_done => init_i,
+      o_busy => o_busy, o_done => o_done, o_fail => o_fail, o_timeout => o_timeout, o_phase => o_phase,
+      o_err_count => o_err_count, o_first_addr => o_first_addr, o_first_exp => o_first_exp,
+      o_first_got => o_first_got, o_ops_done => o_ops_done,
+      o_c_req_tog => req_tog, i_c_ack_tog => ack_tog, o_c_we => c_we, o_c_addr => c_addr,
+      o_c_wdata => c_wdata, o_c_be => c_be, i_c_rdata => c_rdata
     );
 
   u_ctrl : entity work.sdram_ctrl
     generic map (CAPTURE_EXTRA => CAPTURE_EXTRA)
     port map (
-      clk => clk, rst => rst,
-      req_tog => req_tog, ack_tog => ack_tog, init_done => init_i,
-      we => c_we, addr => c_addr, wdata => c_wdata, be => c_be, rdata => c_rdata,
-      dram_cke => cke, dram_cs_n => cs_n, dram_ras_n => ras_n, dram_cas_n => cas_n,
-      dram_we_n => we_n, dram_ba => ba, dram_addr => a, dram_dqm => dqm,
-      dram_dq_out => dq_out, dram_dq_oe => dq_oe, dram_dq_in => dq_in_r
+      i_clk => i_clk, i_rst => i_rst,
+      i_req_tog => req_tog, o_ack_tog => ack_tog, o_init_done => init_i,
+      i_we => c_we, i_addr => c_addr, i_wdata => c_wdata, i_be => c_be, o_rdata => c_rdata,
+      o_dram_cke => cke, o_dram_cs_n => cs_n, o_dram_ras_n => ras_n, o_dram_cas_n => cas_n,
+      o_dram_we_n => we_n, o_dram_ba => ba, o_dram_addr => a, o_dram_dqm => dqm,
+      o_dram_dq_out => dq_out, o_dram_dq_oe => dq_oe, i_dram_dq_in => dq_in_r
     );
 
   dq <= dq_out when dq_oe = '1' else (others => 'Z');
 
   -- the pins are registered once on the way in, as the board's IO cells do
   gen_registered : if CAPTURE_EXTRA = 1 generate
-    process (clk)
+    process (i_clk)
     begin
-      if rising_edge(clk) then
+      if rising_edge(i_clk) then
         dq_in_r <= dq;
       end if;
     end process;
@@ -91,11 +91,11 @@ begin
 
   u_chip : entity work.sdram_model
     port map (
-      clk => clk, cke => cke, cs_n => cs_n, ras_n => ras_n, cas_n => cas_n,
-      we_n => we_n, ba => ba, a => a, dqm => dqm, dq => dq, reinit => rst,
-      dbg_word_addr => dbg_word_addr, dbg_word_data => dbg_word_data,
-      dbg_flip => dbg_flip, dbg_flip_addr => dbg_flip_addr, dbg_flip_bit => dbg_flip_bit,
-      dbg_refreshes => dbg_refreshes, dbg_init_ok => init_ok
+      i_clk => i_clk, i_cke => cke, i_cs_n => cs_n, i_ras_n => ras_n, i_cas_n => cas_n,
+      i_we_n => we_n, i_ba => ba, i_a => a, i_dqm => dqm, io_dq => dq, i_reinit => i_rst,
+      i_dbg_word_addr => i_dbg_word_addr, o_dbg_word_data => o_dbg_word_data,
+      i_dbg_flip => i_dbg_flip, i_dbg_flip_addr => i_dbg_flip_addr, i_dbg_flip_bit => i_dbg_flip_bit,
+      o_dbg_refreshes => o_dbg_refreshes, o_dbg_init_ok => init_ok
     );
 
 end architecture sim;

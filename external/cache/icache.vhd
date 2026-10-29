@@ -32,24 +32,24 @@ entity icache is
     BASE : std_logic_vector(5 downto 0) := "010000"   -- bits 31:26 of the SDRAM addresses (0x40000000)
   );
   port (
-    clk        : in  std_logic;
-    rst        : in  std_logic;  -- synchronous, active high
+    i_clk        : in  std_logic;
+    i_rst        : in  std_logic;  -- synchronous, active high
 
     -- fetch side
-    addr       : in  std_logic_vector(31 downto 0);
-    sel        : in  std_logic;
-    ready      : out std_logic;
-    data       : out std_logic_vector(31 downto 0);
-    invalidate : in  std_logic := '0';
+    i_addr       : in  std_logic_vector(31 downto 0);
+    i_sel        : in  std_logic;
+    o_ready      : out std_logic;
+    o_data       : out std_logic_vector(31 downto 0);
+    i_invalidate : in  std_logic := '0';
 
     -- memory side
-    d_addr     : out std_logic_vector(31 downto 0);
-    d_rden     : out std_logic;
-    d_advance  : out std_logic;
-    d_ready    : in  std_logic;
-    d_rdata    : in  std_logic_vector(31 downto 0);
-    d_line     : out std_logic;
-    d_rdata_x  : in  std_logic_vector(95 downto 0) := (others => '0')
+    o_d_addr     : out std_logic_vector(31 downto 0);
+    o_d_rden     : out std_logic;
+    o_d_advance  : out std_logic;
+    i_d_ready    : in  std_logic;
+    i_d_rdata    : in  std_logic_vector(31 downto 0);
+    o_d_line     : out std_logic;
+    i_d_rdata_x  : in  std_logic_vector(95 downto 0) := (others => '0')
   );
 end entity icache;
 
@@ -89,25 +89,25 @@ begin
 
   tag_match <= '1' when tag_rd = addr_q(25 downto 12) else '0';
   hit       <= sel_q and valid_rd and tag_match;
-  ready     <= hit when addr_q = addr else '0';
-  data      <= ram_rd;
+  o_ready     <= hit when addr_q = i_addr else '0';
+  o_data      <= ram_rd;
 
-  fill_w <= d_rdata when cnt = "00" else
-            d_rdata_x(31 downto 0)  when cnt = "01" else
-            d_rdata_x(63 downto 32) when cnt = "10" else
-            d_rdata_x(95 downto 64);
+  fill_w <= i_d_rdata when cnt = "00" else
+            i_d_rdata_x(31 downto 0)  when cnt = "01" else
+            i_d_rdata_x(63 downto 32) when cnt = "10" else
+            i_d_rdata_x(95 downto 64);
   ram_wa <= fill_idx & std_logic_vector(cnt);
   ram_we <= '1' when st = S_FILL_GET else '0';
   tag_we <= '1' when st = S_FILL_GET and cnt = "11" else '0';
 
-  process (clk)
+  process (i_clk)
   begin
-    if rising_edge(clk) then
-      ram_rd   <= data_ram(to_integer(unsigned(addr(11 downto 2))));
-      tag_rd   <= tag_ram(to_integer(unsigned(addr(11 downto 4))));
-      valid_rd <= valid(to_integer(unsigned(addr(11 downto 4))));
-      addr_q   <= addr;
-      sel_q    <= sel;
+    if rising_edge(i_clk) then
+      ram_rd   <= data_ram(to_integer(unsigned(i_addr(11 downto 2))));
+      tag_rd   <= tag_ram(to_integer(unsigned(i_addr(11 downto 4))));
+      valid_rd <= valid(to_integer(unsigned(i_addr(11 downto 4))));
+      addr_q   <= i_addr;
+      sel_q    <= i_sel;
       if ram_we = '1' then
         data_ram(to_integer(unsigned(ram_wa))) <= fill_w;
       end if;
@@ -117,15 +117,15 @@ begin
     end if;
   end process;
 
-  d_addr    <= d_addr_i;
-  d_rden    <= d_rden_i;
-  d_line    <= d_line_i;
-  d_advance <= d_ready;
+  o_d_addr    <= d_addr_i;
+  o_d_rden    <= d_rden_i;
+  o_d_line    <= d_line_i;
+  o_d_advance <= i_d_ready;
 
-  process (clk)
+  process (i_clk)
   begin
-    if rising_edge(clk) then
-      if rst = '1' then
+    if rising_edge(i_clk) then
+      if i_rst = '1' then
         st       <= S_IDLE;
         valid    <= (others => '0');
         drop     <= '0';
@@ -133,7 +133,7 @@ begin
         d_line_i <= '0';
         cnt      <= (others => '0');
       else
-        if invalidate = '1' then
+        if i_invalidate = '1' then
           valid <= (others => '0');
           if st /= S_IDLE then
             drop <= '1';
@@ -144,7 +144,7 @@ begin
           when S_IDLE =>
             drop <= '0';
             -- a miss of the address that is still on addr: bring its line in
-            if sel_q = '1' and hit = '0' and addr_q = addr and invalidate = '0' then
+            if sel_q = '1' and hit = '0' and addr_q = i_addr and i_invalidate = '0' then
               fill_tag <= addr_q(25 downto 12);
               fill_idx <= addr_q(11 downto 4);
               st       <= S_FILL_REQ;
@@ -157,7 +157,7 @@ begin
             st       <= S_FILL_WAIT;
 
           when S_FILL_WAIT =>
-            if d_ready = '1' then
+            if i_d_ready = '1' then
               d_rden_i <= '0';
               d_line_i <= '0';
               cnt      <= (others => '0');
@@ -166,7 +166,7 @@ begin
 
           when S_FILL_GET =>
             if cnt = "11" then
-              if drop = '0' and invalidate = '0' then
+              if drop = '0' and i_invalidate = '0' then
                 valid(to_integer(unsigned(fill_idx))) <= '1';
               end if;
               cnt <= (others => '0');

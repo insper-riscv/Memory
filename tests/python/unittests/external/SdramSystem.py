@@ -20,8 +20,8 @@ from tests.python.unittests.external.sdram_helpers import (
 async def test_power_up_and_first_access(dut):
     """The power-up sequence completes, and a write followed by a read returns the word."""
     await start(dut)
-    assert int(dut.dbg_init_ok.value) == 1
-    assert int(dut.dbg_refreshes.value) >= 8
+    assert int(dut.o_dbg_init_ok.value) == 1
+    assert int(dut.o_dbg_refreshes.value) >= 8
     _, _ = await access(dut, True, 0x123456, 0xCAFEBABE)
     got, _ = await access(dut, False, 0x123456)
     assert got == 0xCAFEBABE, f"read 0x{got:08X}"
@@ -93,10 +93,10 @@ async def test_refresh_keeps_running(dut):
     """With the bus idle for several refresh periods the controller keeps refreshing
     (the chip model fails the simulation if two refreshes are more than 7.8 us apart)."""
     await start(dut)
-    before = int(dut.dbg_refreshes.value)
+    before = int(dut.o_dbg_refreshes.value)
     for _ in range(int(60_000 / CPU_NS)):        # 60 us
         await _post_edge(dut)
-    after = int(dut.dbg_refreshes.value)
+    after = int(dut.o_dbg_refreshes.value)
     assert after - before >= 7, f"only {after - before} refreshes in 60 us"
     await access(dut, True, 0x42, 0x0BADF00D)
     got, _ = await access(dut, False, 0x42)
@@ -153,17 +153,17 @@ async def test_a_corrupted_chip_is_noticed(dut):
     await start(dut)
     await access(dut, True, 0x777, 0x00FF00FF)
     for bit in (0, 7, 16, 31):
-        dut.dbg_flip_addr.value = 0x777
-        dut.dbg_flip_bit.value = bit
-        dut.dbg_flip.value = 1
+        dut.i_dbg_flip_addr.value = 0x777
+        dut.i_dbg_flip_bit.value = bit
+        dut.i_dbg_flip.value = 1
         await Timer(5, unit="ns")
-        dut.dbg_flip.value = 0
+        dut.i_dbg_flip.value = 0
         await Timer(5, unit="ns")
         got, _ = await access(dut, False, 0x777)
         assert got == 0x00FF00FF ^ (1 << bit), f"bit {bit}: read 0x{got:08X}"
-        dut.dbg_flip.value = 1                      # put it back
+        dut.i_dbg_flip.value = 1                      # put it back
         await Timer(5, unit="ns")
-        dut.dbg_flip.value = 0
+        dut.i_dbg_flip.value = 0
         await Timer(5, unit="ns")
 
 

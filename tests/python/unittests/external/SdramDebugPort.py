@@ -23,18 +23,18 @@ HALF_TCK_NS = 40
 async def tck(dut, **states):
     """One JTAG clock with the given state flags (cdr, sdr, udr, uir) high."""
     for name in ("cdr", "sdr", "udr", "uir"):
-        getattr(dut, f"jtag_state_{name}").value = 1 if states.get(name) else 0
-    dut.jtag_tck.value = 0
+        getattr(dut, f"i_jtag_state_{name}").value = 1 if states.get(name) else 0
+    dut.i_jtag_tck.value = 0
     await Timer(HALF_TCK_NS, unit="ns")
-    dut.jtag_tck.value = 1
+    dut.i_jtag_tck.value = 1
     await Timer(HALF_TCK_NS, unit="ns")
-    dut.jtag_tck.value = 0
+    dut.i_jtag_tck.value = 0
     for name in ("cdr", "sdr", "udr", "uir"):
-        getattr(dut, f"jtag_state_{name}").value = 0
+        getattr(dut, f"i_jtag_state_{name}").value = 0
 
 
 async def load_ir(dut, value):
-    dut.jtag_ir_in.value = value
+    dut.i_jtag_ir_in.value = value
     await tck(dut, uir=True)
 
 
@@ -43,9 +43,9 @@ async def shift_dr(dut, length, value):
     await tck(dut, cdr=True)
     out = 0
     for i in range(length):
-        dut.jtag_tdi.value = (value >> i) & 1
+        dut.i_jtag_tdi.value = (value >> i) & 1
         await Timer(1, unit="ns")
-        out |= int(dut.jtag_tdo.value) << i
+        out |= int(dut.o_jtag_tdo.value) << i
         await tck(dut, sdr=True)
     await tck(dut, udr=True)
     return out

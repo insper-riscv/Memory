@@ -21,14 +21,14 @@ module props (input clk);
   wire d_st, d_gb, d_lb, d_gi, d_li, d_atl, d_itl; wire [1:0] d_as, d_is;   // internal registers, exposed in the verification copy of the netlist
   wire [31:0] a_rdata, b_rdata, c_wdata; wire [23:0] c_addr; wire [3:0] c_be;
 
-  sdram_arbiter dut (.clk(clk), .rst(rst),
-    .a_req_tog(a_req_tog), .a_ack_tog(a_ack_tog), .a_we(a_we), .a_addr(a_addr), .a_wdata(a_wdata), .a_be(a_be), .a_rdata(a_rdata),
-    .i_req_tog(i_req_tog), .i_ack_tog(i_ack_tog), .i_we(i_we), .i_addr(i_addr), .i_wdata(i_wdata), .i_be(i_be), .i_rdata(i_rdata),
-    .i_line(i_line), .i_wdata_x(i_wdata_x), .i_be_x(i_be_x), .i_rdata_x(i_rdata_x),
-    .b_req_tog(b_req_tog), .b_ack_tog(b_ack_tog), .b_we(b_we), .b_addr(b_addr), .b_wdata(b_wdata), .b_be(b_be), .b_rdata(b_rdata),
-    .c_req_tog(c_req_tog), .c_ack_tog(c_ack_tog), .c_we(c_we), .c_addr(c_addr), .c_wdata(c_wdata), .c_be(c_be), .c_rdata(c_rdata),
-    .a_line(a_line), .a_wdata_x(a_wdata_x), .a_be_x(a_be_x), .a_rdata_x(a_rdata_x),
-    .c_line(c_line), .c_wdata_x(c_wdata_x), .c_be_x(c_be_x), .c_rdata_x(c_rdata_x),
+  sdram_arbiter dut (.i_clk(clk), .i_rst(rst),
+    .i_a_req_tog(a_req_tog), .o_a_ack_tog(a_ack_tog), .i_a_we(a_we), .i_a_addr(a_addr), .i_a_wdata(a_wdata), .i_a_be(a_be), .o_a_rdata(a_rdata),
+    .i_ins_req_tog(i_req_tog), .o_ins_ack_tog(i_ack_tog), .i_ins_we(i_we), .i_ins_addr(i_addr), .i_ins_wdata(i_wdata), .i_ins_be(i_be), .o_ins_rdata(i_rdata),
+    .i_ins_line(i_line), .i_ins_wdata_x(i_wdata_x), .i_ins_be_x(i_be_x), .o_ins_rdata_x(i_rdata_x),
+    .i_b_req_tog(b_req_tog), .o_b_ack_tog(b_ack_tog), .i_b_we(b_we), .i_b_addr(b_addr), .i_b_wdata(b_wdata), .i_b_be(b_be), .o_b_rdata(b_rdata),
+    .o_c_req_tog(c_req_tog), .i_c_ack_tog(c_ack_tog), .o_c_we(c_we), .o_c_addr(c_addr), .o_c_wdata(c_wdata), .o_c_be(c_be), .i_c_rdata(c_rdata),
+    .i_a_line(a_line), .i_a_wdata_x(a_wdata_x), .i_a_be_x(a_be_x), .o_a_rdata_x(a_rdata_x),
+    .o_c_line(c_line), .o_c_wdata_x(c_wdata_x), .o_c_be_x(c_be_x), .i_c_rdata_x(c_rdata_x),
     .dbg_st(d_st), .dbg_grant_b(d_gb), .dbg_last_b(d_lb), .dbg_a_tog_l(d_atl), .dbg_a_s(d_as),
     .dbg_grant_i(d_gi), .dbg_last_i(d_li), .dbg_i_tog_l(d_itl), .dbg_i_s(d_is));
 

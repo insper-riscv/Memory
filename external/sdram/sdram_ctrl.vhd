@@ -35,33 +35,33 @@ entity sdram_ctrl is
     SYNC_REQ       : boolean := true
   );
   port (
-    clk       : in  std_logic;
-    rst       : in  std_logic;  -- synchronous, active high
+    i_clk       : in  std_logic;
+    i_rst       : in  std_logic;  -- synchronous, active high
 
-    req_tog   : in  std_logic;
-    ack_tog   : out std_logic;
-    init_done : out std_logic;
-    we        : in  std_logic;
-    addr      : in  std_logic_vector(23 downto 0);
-    wdata     : in  std_logic_vector(31 downto 0);
-    be        : in  std_logic_vector(3 downto 0);
-    rdata     : out std_logic_vector(31 downto 0);
-    line      : in  std_logic := '0';
-    wdata_x   : in  std_logic_vector(95 downto 0) := (others => '0');
-    be_x      : in  std_logic_vector(11 downto 0) := (others => '0');
-    rdata_x   : out std_logic_vector(95 downto 0);
+    i_req_tog   : in  std_logic;
+    o_ack_tog   : out std_logic;
+    o_init_done : out std_logic;
+    i_we        : in  std_logic;
+    i_addr      : in  std_logic_vector(23 downto 0);
+    i_wdata     : in  std_logic_vector(31 downto 0);
+    i_be        : in  std_logic_vector(3 downto 0);
+    o_rdata     : out std_logic_vector(31 downto 0);
+    i_line      : in  std_logic := '0';
+    i_wdata_x   : in  std_logic_vector(95 downto 0) := (others => '0');
+    i_be_x      : in  std_logic_vector(11 downto 0) := (others => '0');
+    o_rdata_x   : out std_logic_vector(95 downto 0);
 
-    dram_cke   : out std_logic;
-    dram_cs_n  : out std_logic;
-    dram_ras_n : out std_logic;
-    dram_cas_n : out std_logic;
-    dram_we_n  : out std_logic;
-    dram_ba    : out std_logic_vector(1 downto 0);
-    dram_addr  : out std_logic_vector(12 downto 0);
-    dram_dqm   : out std_logic_vector(1 downto 0);
-    dram_dq_out : out std_logic_vector(15 downto 0);
-    dram_dq_oe  : out std_logic;
-    dram_dq_in  : in  std_logic_vector(15 downto 0)
+    o_dram_cke   : out std_logic;
+    o_dram_cs_n  : out std_logic;
+    o_dram_ras_n : out std_logic;
+    o_dram_cas_n : out std_logic;
+    o_dram_we_n  : out std_logic;
+    o_dram_ba    : out std_logic_vector(1 downto 0);
+    o_dram_addr  : out std_logic_vector(12 downto 0);
+    o_dram_dqm   : out std_logic_vector(1 downto 0);
+    o_dram_dq_out : out std_logic_vector(15 downto 0);
+    o_dram_dq_oe  : out std_logic;
+    i_dram_dq_in  : in  std_logic_vector(15 downto 0)
   );
 end entity sdram_ctrl;
 
@@ -123,14 +123,14 @@ architecture rtl of sdram_ctrl is
 
 begin
 
-  ack_tog   <= ack_i;
-  req_eff   <= req_s(1) when SYNC_REQ else req_tog;
-  init_done <= init_i;
-  rdata     <= rdata_i;
-  rdata_x   <= rdx_i;
-  dram_cke  <= '1';
+  o_ack_tog   <= ack_i;
+  req_eff   <= req_s(1) when SYNC_REQ else i_req_tog;
+  o_init_done <= init_i;
+  o_rdata     <= rdata_i;
+  o_rdata_x   <= rdx_i;
+  o_dram_cke  <= '1';
 
-  process (clk)
+  process (i_clk)
     variable cmd : std_logic_vector(3 downto 0);
 
     -- next state after n clocks: the command was issued on this edge, the next
@@ -153,21 +153,21 @@ begin
       return '0';
     end function;
   begin
-    if rising_edge(clk) then
+    if rising_edge(i_clk) then
       cmd := CMD_NOP;
-      dram_ba     <= "00";
-      dram_addr   <= (others => '0');
-      dram_dqm    <= "00";
-      dram_dq_oe  <= '0';
-      dram_dq_out <= (others => '0');
+      o_dram_ba     <= "00";
+      o_dram_addr   <= (others => '0');
+      o_dram_dqm    <= "00";
+      o_dram_dq_oe  <= '0';
+      o_dram_dq_out <= (others => '0');
 
-      req_s <= req_s(0) & req_tog;
+      req_s <= req_s(0) & i_req_tog;
 
       if act_cnt /= 0 then
         act_cnt <= act_cnt - 1;
       end if;
 
-      if rst = '1' then
+      if i_rst = '1' then
         st       <= ST_INIT_WAIT;
         wcnt     <= INIT_CYCLES;
         act_cnt  <= 0;
@@ -198,11 +198,11 @@ begin
           for m in 0 to 7 loop
             if rd_t = CAS_LATENCY + 2 + CAPTURE_EXTRA + m then
               if m = 0 then
-                rdata_i(15 downto 0) <= dram_dq_in;
+                rdata_i(15 downto 0) <= i_dram_dq_in;
               elsif m = 1 then
-                rdata_i(31 downto 16) <= dram_dq_in;
+                rdata_i(31 downto 16) <= i_dram_dq_in;
               else
-                rdx_i(16 * (m - 2) + 15 downto 16 * (m - 2)) <= dram_dq_in;
+                rdx_i(16 * (m - 2) + 15 downto 16 * (m - 2)) <= i_dram_dq_in;
               end if;
               if (line_l = '0' and m = 1) or m = 7 then
                 ack_i  <= tog_l;
@@ -224,7 +224,7 @@ begin
 
           when ST_INIT_PRE =>
             cmd := CMD_PRECHARGE;
-            dram_addr(10) <= '1';                 -- all banks
+            o_dram_addr(10) <= '1';                 -- all banks
             goto_after(C_RP, ST_INIT_REF);
 
           when ST_INIT_REF =>
@@ -238,7 +238,7 @@ begin
 
           when ST_INIT_MRS =>
             cmd := CMD_LOAD_MODE;
-            dram_addr <= MODE_REG;
+            o_dram_addr <= MODE_REG;
             init_i    <= '1';
             ref_cnt   <= REFRESH_CYCLES;
             act_cnt   <= T_MRD_CK;
@@ -260,18 +260,18 @@ begin
             elsif req_eff /= ack_i and act_cnt = 0 then
               -- the request buses are stable from the flip of req_tog on
               tog_l   <= req_eff;
-              we_l    <= we;
-              addr_l  <= addr;
-              wdata_l <= wdata;
-              be_l    <= be;
-              line_l  <= line;
-              wdx_l   <= wdata_x;
-              bex_l   <= be_x;
+              we_l    <= i_we;
+              addr_l  <= i_addr;
+              wdata_l <= i_wdata;
+              be_l    <= i_be;
+              line_l  <= i_line;
+              wdx_l   <= i_wdata_x;
+              bex_l   <= i_be_x;
               lcnt    <= 0;
               cmd     := CMD_ACTIVE;
-              dram_ba   <= addr(10 downto 9);
-              dram_addr <= addr(23 downto 11);
-              if line = '1' then
+              o_dram_ba   <= i_addr(10 downto 9);
+              o_dram_addr <= i_addr(23 downto 11);
+              if i_line = '1' then
                 act_cnt <= ACT_TO_ACT_LINE;
               else
                 act_cnt <= ACT_TO_ACT;
@@ -282,22 +282,22 @@ begin
           when ST_RW =>
             -- the column of word lcnt of a line (a single word keeps its own column); auto-precharge
             -- on the last command
-            dram_ba <= addr_l(10 downto 9);
+            o_dram_ba <= addr_l(10 downto 9);
             if line_l = '1' then
-              dram_addr <= "00" & to_unsigned_bit(lcnt = 3) & addr_l(8 downto 2) & std_logic_vector(to_unsigned(lcnt, 2)) & '0';
+              o_dram_addr <= "00" & to_unsigned_bit(lcnt = 3) & addr_l(8 downto 2) & std_logic_vector(to_unsigned(lcnt, 2)) & '0';
             else
-              dram_addr <= "00" & '1' & addr_l(8 downto 0) & '0';   -- A10 = auto-precharge
+              o_dram_addr <= "00" & '1' & addr_l(8 downto 0) & '0';   -- A10 = auto-precharge
             end if;
             if we_l = '1' then
               cmd := CMD_WRITE;
               if lcnt = 0 then
-                dram_dq_out <= wdata_l(15 downto 0);
-                dram_dqm    <= not be_l(1 downto 0);
+                o_dram_dq_out <= wdata_l(15 downto 0);
+                o_dram_dqm    <= not be_l(1 downto 0);
               else
-                dram_dq_out <= wdx_l(32 * (lcnt - 1) + 15 downto 32 * (lcnt - 1));
-                dram_dqm    <= not bex_l(4 * (lcnt - 1) + 1 downto 4 * (lcnt - 1));
+                o_dram_dq_out <= wdx_l(32 * (lcnt - 1) + 15 downto 32 * (lcnt - 1));
+                o_dram_dqm    <= not bex_l(4 * (lcnt - 1) + 1 downto 4 * (lcnt - 1));
               end if;
-              dram_dq_oe  <= '1';
+              o_dram_dq_oe  <= '1';
               st <= ST_WRITE2;
             else
               cmd := CMD_READ;
@@ -318,13 +318,13 @@ begin
 
           when ST_WRITE2 =>
             if lcnt = 0 then
-              dram_dq_out <= wdata_l(31 downto 16);
-              dram_dqm    <= not be_l(3 downto 2);
+              o_dram_dq_out <= wdata_l(31 downto 16);
+              o_dram_dqm    <= not be_l(3 downto 2);
             else
-              dram_dq_out <= wdx_l(32 * (lcnt - 1) + 31 downto 32 * (lcnt - 1) + 16);
-              dram_dqm    <= not bex_l(4 * (lcnt - 1) + 3 downto 4 * (lcnt - 1) + 2);
+              o_dram_dq_out <= wdx_l(32 * (lcnt - 1) + 31 downto 32 * (lcnt - 1) + 16);
+              o_dram_dqm    <= not bex_l(4 * (lcnt - 1) + 3 downto 4 * (lcnt - 1) + 2);
             end if;
-            dram_dq_oe  <= '1';
+            o_dram_dq_oe  <= '1';
             if line_l = '1' and lcnt /= 3 then
               lcnt <= lcnt + 1;
               st   <= ST_RW;
@@ -339,10 +339,10 @@ begin
         end case;
       end if;
 
-      dram_cs_n  <= cmd(3);
-      dram_ras_n <= cmd(2);
-      dram_cas_n <= cmd(1);
-      dram_we_n  <= cmd(0);
+      o_dram_cs_n  <= cmd(3);
+      o_dram_ras_n <= cmd(2);
+      o_dram_cas_n <= cmd(1);
+      o_dram_we_n  <= cmd(0);
     end if;
   end process;
 

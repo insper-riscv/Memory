@@ -25,27 +25,27 @@ entity sdram_model is
     INIT_FILE : string  := ""
   );
   port (
-    clk    : in    std_logic;
-    cke    : in    std_logic;
-    cs_n   : in    std_logic;
-    ras_n  : in    std_logic;
-    cas_n  : in    std_logic;
-    we_n   : in    std_logic;
-    ba     : in    std_logic_vector(1 downto 0);
-    a      : in    std_logic_vector(12 downto 0);
-    dqm    : in    std_logic_vector(1 downto 0);
-    dq     : inout std_logic_vector(15 downto 0);
+    i_clk    : in    std_logic;
+    i_cke    : in    std_logic;
+    i_cs_n   : in    std_logic;
+    i_ras_n  : in    std_logic;
+    i_cas_n  : in    std_logic;
+    i_we_n   : in    std_logic;
+    i_ba     : in    std_logic_vector(1 downto 0);
+    i_a      : in    std_logic_vector(12 downto 0);
+    i_dqm    : in    std_logic_vector(1 downto 0);
+    io_dq     : inout std_logic_vector(15 downto 0);
     -- high while the controller is in reset: the chip starts a new power-up
     -- sequence (the wait, PRECHARGE ALL, refreshes and mode register again)
-    reinit : in    std_logic;
+    i_reinit : in    std_logic;
 
-    dbg_word_addr   : in  std_logic_vector(23 downto 0);
-    dbg_word_data   : out std_logic_vector(31 downto 0);
-    dbg_flip        : in  std_logic;
-    dbg_flip_addr   : in  std_logic_vector(23 downto 0);
-    dbg_flip_bit    : in  std_logic_vector(4 downto 0);
-    dbg_refreshes   : out std_logic_vector(31 downto 0);
-    dbg_init_ok     : out std_logic
+    i_dbg_word_addr   : in  std_logic_vector(23 downto 0);
+    o_dbg_word_data   : out std_logic_vector(31 downto 0);
+    i_dbg_flip        : in  std_logic;
+    i_dbg_flip_addr   : in  std_logic_vector(23 downto 0);
+    i_dbg_flip_bit    : in  std_logic_vector(4 downto 0);
+    o_dbg_refreshes   : out std_logic_vector(31 downto 0);
+    o_dbg_init_ok     : out std_logic
   );
 end entity sdram_model;
 
@@ -122,7 +122,7 @@ architecture sim of sdram_model is
 
 begin
 
-  dq <= dq_drv when dq_oe = '1' else (others => 'Z');
+  io_dq <= dq_drv when dq_oe = '1' else (others => 'Z');
 
   load_image : process
     file f      : text;
@@ -149,32 +149,32 @@ begin
     wait;
   end process;
 
-  dbg_refreshes <= std_logic_vector(to_unsigned(refresh_count, 32));
-  dbg_init_ok   <= init_ok;
+  o_dbg_refreshes <= std_logic_vector(to_unsigned(refresh_count, 32));
+  o_dbg_init_ok   <= init_ok;
 
-  dbg_read : process (clk)
+  dbg_read : process (i_clk)
     variable w : natural;
   begin
-    if rising_edge(clk) then
-      w := to_integer(unsigned(dbg_word_addr));
-      dbg_word_data <= mem.read(2 * w + 1) & mem.read(2 * w);
+    if rising_edge(i_clk) then
+      w := to_integer(unsigned(i_dbg_word_addr));
+      o_dbg_word_data <= mem.read(2 * w + 1) & mem.read(2 * w);
     end if;
   end process;
 
-  dbg_flipper : process (dbg_flip)
+  dbg_flipper : process (i_dbg_flip)
     variable w, k : natural;
     variable v    : std_logic_vector(15 downto 0);
   begin
-    if rising_edge(dbg_flip) then
-      w := to_integer(unsigned(dbg_flip_addr));
-      k := to_integer(unsigned(dbg_flip_bit));
+    if rising_edge(i_dbg_flip) then
+      w := to_integer(unsigned(i_dbg_flip_addr));
+      k := to_integer(unsigned(i_dbg_flip_bit));
       v := mem.read(2 * w + k / 16);
       v(k mod 16) := not v(k mod 16);
       mem.write(2 * w + k / 16, v);
     end if;
   end process;
 
-  chip : process (clk)
+  chip : process (i_clk)
     variable cmd         : std_logic_vector(3 downto 0);
     variable power_up    : time := 0 ns;
     variable seen_cmd    : boolean := false;
@@ -203,9 +203,9 @@ begin
     variable ap          : boolean;
     variable old, merged : std_logic_vector(15 downto 0);
   begin
-    if rising_edge(clk) then
+    if rising_edge(i_clk) then
 
-      if reinit = '1' then
+      if i_reinit = '1' then
         power_up   := now;
         seen_cmd   := false;
         pre_all_ok := false;
@@ -236,8 +236,8 @@ begin
       if wr_pending then
         old    := mem.read(wr_key);
         merged := old;
-        if dqm(0) = '0' then merged(7 downto 0)  := dq(7 downto 0);  end if;
-        if dqm(1) = '0' then merged(15 downto 8) := dq(15 downto 8); end if;
+        if i_dqm(0) = '0' then merged(7 downto 0)  := io_dq(7 downto 0);  end if;
+        if i_dqm(1) = '0' then merged(15 downto 8) := io_dq(15 downto 8); end if;
         mem.write(wr_key, merged);
         last_wr_end(wr_bank) := now;
         wr_pending := false;
@@ -250,8 +250,8 @@ begin
       end if;
 
       -- a command that the controller drives on the edge of its own reset belongs to the run before it
-      if cke = '1' and cs_n = '0' and reinit = '0' then
-        cmd := cs_n & ras_n & cas_n & we_n;
+      if i_cke = '1' and i_cs_n = '0' and i_reinit = '0' then
+        cmd := i_cs_n & i_ras_n & i_cas_n & i_we_n;
 
         if cmd /= CMD_NOP then
           if not seen_cmd then
@@ -261,16 +261,16 @@ begin
           end if;
         end if;
 
-        b   := to_integer(unsigned(ba));
-        row := to_integer(unsigned(a));
-        col := to_integer(unsigned(a(9 downto 0)));
-        ap  := a(10) = '1';
+        b   := to_integer(unsigned(i_ba));
+        row := to_integer(unsigned(i_a));
+        col := to_integer(unsigned(i_a(9 downto 0)));
+        ap  := i_a(10) = '1';
 
         if cmd = CMD_LOAD_MODE then
           assert pre_all_ok and n_refresh >= 2
             report "SDRAM model: LOAD MODE REGISTER before PRECHARGE ALL and two refreshes" severity failure;
           assert now >= ref_until report "SDRAM model: LOAD MODE REGISTER inside tRFC" severity failure;
-          assert a = MODE_REG
+          assert i_a = MODE_REG
             report "SDRAM model: unexpected mode register value" severity failure;
           mrs_done  := true;
           mrs_until := now + T_MRD_CK * TCK;
@@ -304,7 +304,7 @@ begin
         elsif cmd = CMD_REFRESH then
           for i in 0 to 3 loop
             assert not bank_open(i) and now >= idle_time(i)
-              report "SDRAM model: AUTO REFRESH with a bank not idle" severity failure;
+              report "SDRAM model: AUTO REFRESH with i_a bank not idle" severity failure;
           end loop;
           assert now >= ref_until report "SDRAM model: AUTO REFRESH inside tRFC" severity failure;
           assert pre_all_ok report "SDRAM model: AUTO REFRESH before PRECHARGE ALL" severity failure;
@@ -329,10 +329,10 @@ begin
 
         elsif cmd = CMD_READ or cmd = CMD_WRITE then
           assert mrs_done report "SDRAM model: read/write before the mode register is set" severity failure;
-          assert bank_open(b) report "SDRAM model: read/write on a bank that is not open" severity failure;
+          assert bank_open(b) report "SDRAM model: read/write on i_a bank that is not open" severity failure;
           assert now - act_time(b) >= T_RCD_PS * 1 ps
             report "SDRAM model: read/write inside tRCD" severity failure;
-          assert now >= burst_until report "SDRAM model: read/write overlaps a burst" severity failure;
+          assert now >= burst_until report "SDRAM model: read/write overlaps i_a burst" severity failure;
           assert col mod 2 = 0 report "SDRAM model: burst of 2 must start on an even column" severity failure;
           key := key_of(bank_row(b), b, col);
 
@@ -354,8 +354,8 @@ begin
           else
             old    := mem.read(key);
             merged := old;
-            if dqm(0) = '0' then merged(7 downto 0)  := dq(7 downto 0);  end if;
-            if dqm(1) = '0' then merged(15 downto 8) := dq(15 downto 8); end if;
+            if i_dqm(0) = '0' then merged(7 downto 0)  := io_dq(7 downto 0);  end if;
+            if i_dqm(1) = '0' then merged(15 downto 8) := io_dq(15 downto 8); end if;
             mem.write(key, merged);
             wr_pending := true;
             wr_key     := key + 1;

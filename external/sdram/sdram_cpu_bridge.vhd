@@ -23,36 +23,36 @@ use ieee.numeric_std.all;
 -- synchronizer latency), not synchronizers.
 entity sdram_cpu_bridge is
   port (
-    clk_cpu     : in  std_logic;
-    rst_cpu     : in  std_logic;  -- synchronous, active high
+    i_clk_cpu     : in  std_logic;
+    i_rst_cpu     : in  std_logic;  -- synchronous, active high
 
     -- core side
-    addr        : in  std_logic_vector(31 downto 0);
-    wdata       : in  std_logic_vector(31 downto 0);
-    byteena     : in  std_logic_vector(3 downto 0);
-    rden        : in  std_logic;
-    wren        : in  std_logic;
-    mem_advance : in  std_logic;
-    ready       : out std_logic;
-    rdata       : out std_logic_vector(31 downto 0);
-    line        : in  std_logic := '0';
-    wdata_x     : in  std_logic_vector(95 downto 0) := (others => '0');
-    byteena_x   : in  std_logic_vector(11 downto 0) := (others => '0');
-    rdata_x     : out std_logic_vector(95 downto 0);
+    i_addr        : in  std_logic_vector(31 downto 0);
+    i_wdata       : in  std_logic_vector(31 downto 0);
+    i_byteena     : in  std_logic_vector(3 downto 0);
+    i_rden        : in  std_logic;
+    i_wren        : in  std_logic;
+    i_mem_advance : in  std_logic;
+    o_ready       : out std_logic;
+    o_rdata       : out std_logic_vector(31 downto 0);
+    i_line        : in  std_logic := '0';
+    i_wdata_x     : in  std_logic_vector(95 downto 0) := (others => '0');
+    i_byteena_x   : in  std_logic_vector(11 downto 0) := (others => '0');
+    o_rdata_x     : out std_logic_vector(95 downto 0);
 
     -- controller side
-    req_tog     : out std_logic;
-    ack_tog     : in  std_logic;
-    init_done   : in  std_logic;
-    c_we        : out std_logic;
-    c_addr      : out std_logic_vector(23 downto 0);
-    c_wdata     : out std_logic_vector(31 downto 0);
-    c_be        : out std_logic_vector(3 downto 0);
-    c_rdata     : in  std_logic_vector(31 downto 0);
-    c_line      : out std_logic;
-    c_wdata_x   : out std_logic_vector(95 downto 0);
-    c_be_x      : out std_logic_vector(11 downto 0);
-    c_rdata_x   : in  std_logic_vector(95 downto 0)
+    o_req_tog     : out std_logic;
+    i_ack_tog     : in  std_logic;
+    i_init_done   : in  std_logic;
+    o_c_we        : out std_logic;
+    o_c_addr      : out std_logic_vector(23 downto 0);
+    o_c_wdata     : out std_logic_vector(31 downto 0);
+    o_c_be        : out std_logic_vector(3 downto 0);
+    i_c_rdata     : in  std_logic_vector(31 downto 0);
+    o_c_line      : out std_logic;
+    o_c_wdata_x   : out std_logic_vector(95 downto 0);
+    o_c_be_x      : out std_logic_vector(11 downto 0);
+    i_c_rdata_x   : in  std_logic_vector(95 downto 0)
   );
 end entity sdram_cpu_bridge;
 
@@ -73,20 +73,20 @@ architecture rtl of sdram_cpu_bridge is
 
 begin
 
-  req_tog <= req_i;
-  c_we    <= we_l;
-  ready   <= '1' when st = ST_DONE else '0';
-  rdata   <= rdata_q;
-  rdata_x <= rdx_q;
-  c_line  <= line_l;
+  o_req_tog <= req_i;
+  o_c_we    <= we_l;
+  o_ready   <= '1' when st = ST_DONE else '0';
+  o_rdata   <= rdata_q;
+  o_rdata_x <= rdx_q;
+  o_c_line  <= line_l;
 
-  process (clk_cpu)
+  process (i_clk_cpu)
   begin
-    if rising_edge(clk_cpu) then
-      ack_s  <= ack_s(0) & ack_tog;
-      init_s <= init_s(0) & init_done;
+    if rising_edge(i_clk_cpu) then
+      ack_s  <= ack_s(0) & i_ack_tog;
+      init_s <= init_s(0) & i_init_done;
 
-      if rst_cpu = '1' then
+      if i_rst_cpu = '1' then
         st      <= ST_IDLE;
         req_i   <= '0';
         ack_s   <= "00";
@@ -96,27 +96,27 @@ begin
         case st is
 
           when ST_IDLE =>
-            if (rden = '1' or wren = '1') and init_s(1) = '1' then
-              c_addr  <= addr(25 downto 2);
-              c_wdata <= wdata;
-              c_be    <= byteena;
-              line_l    <= line;
-              c_wdata_x <= wdata_x;
-              c_be_x    <= byteena_x;
-              we_l    <= wren;
+            if (i_rden = '1' or i_wren = '1') and init_s(1) = '1' then
+              o_c_addr  <= i_addr(25 downto 2);
+              o_c_wdata <= i_wdata;
+              o_c_be    <= i_byteena;
+              line_l    <= i_line;
+              o_c_wdata_x <= i_wdata_x;
+              o_c_be_x    <= i_byteena_x;
+              we_l    <= i_wren;
               req_i   <= not req_i;
               st      <= ST_WAIT;
             end if;
 
           when ST_WAIT =>
             if ack_s(1) = req_i then
-              pending   <= c_rdata;
-              pending_x <= c_rdata_x;
+              pending   <= i_c_rdata;
+              pending_x <= i_c_rdata_x;
               st        <= ST_DONE;
             end if;
 
           when ST_DONE =>
-            if mem_advance = '1' then
+            if i_mem_advance = '1' then
               if we_l = '0' then
                 rdata_q <= pending;
                 rdx_q   <= pending_x;

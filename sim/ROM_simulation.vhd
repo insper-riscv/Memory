@@ -11,18 +11,18 @@
       ROM_FILE: string := "initROM.hex"
     );
     port (
-      addr : in  std_logic_vector (addrWidth-1 downto 0);
-      clk  : in  std_logic;
-      re   : in  std_logic;
-      data : out std_logic_vector (dataWidth-1 downto 0);
+      i_addr : in  std_logic_vector (addrWidth-1 downto 0);
+      i_clk  : in  std_logic;
+      i_re   : in  std_logic;
+      o_data : out std_logic_vector (dataWidth-1 downto 0);
 
       -- Harvard modificado: segunda porta de leitura, mesmo array
       -- memROM, dominio de clock proprio -- paridade com rom2port.vhd
       -- (hardware real), usada pelo estagio MEM do core.
-      addr2 : in  std_logic_vector (addrWidth-1 downto 0) := (others => '0');
-      clk2  : in  std_logic := '0';
-      re2   : in  std_logic := '0';
-      data2 : out std_logic_vector (dataWidth-1 downto 0)
+      i_addr2 : in  std_logic_vector (addrWidth-1 downto 0) := (others => '0');
+      i_clk2  : in  std_logic := '0';
+      i_re2   : in  std_logic := '0';
+      o_data2 : out std_logic_vector (dataWidth-1 downto 0)
     );
   end entity;
 
@@ -101,28 +101,28 @@
       wait;
     end process;
 
-    localAddress <= addr(memoryAddrWidth-1 downto 0);
-    localAddress2 <= addr2(memoryAddrWidth-1 downto 0);
+    localAddress <= i_addr(memoryAddrWidth-1 downto 0);
+    localAddress2 <= i_addr2(memoryAddrWidth-1 downto 0);
 
-    sync_read: process(clk)
+    sync_read: process(i_clk)
     begin
-      if rising_edge(clk) then
-        if re = '1' then
+      if rising_edge(i_clk) then
+        if i_re = '1' then
           data_reg <= memROM(to_integer(unsigned(localAddress)));
         end if;
       end if;
     end process;
 
-    sync_read2: process(clk2)
+    sync_read2: process(i_clk2)
     begin
-      if rising_edge(clk2) then
-        if re2 = '1' then
+      if rising_edge(i_clk2) then
+        if i_re2 = '1' then
           data_reg2 <= memROM(to_integer(unsigned(localAddress2)));
         end if;
       end if;
     end process;
 
-    data <= data_reg;
-    data2 <= data_reg2;
+    o_data <= data_reg;
+    o_data2 <= data_reg2;
 
   end architecture;

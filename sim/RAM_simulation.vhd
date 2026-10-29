@@ -14,14 +14,14 @@ entity RAM_simulation is
     RAM_FILE: string := ""
   );
   port (
-    clk      : in  std_logic;
-    addr     : in  std_logic_vector(addrWidth-1 downto 0);
-    data_in  : in  std_logic_vector(dataWidth-1 downto 0);
-    data_out : out std_logic_vector(dataWidth-1 downto 0);
-    weRAM    : in  std_logic;                     -- habilita escrita
-    reRAM    : in  std_logic;                     -- habilita leitura
-    eRAM     : in  std_logic;                     -- chip enable (RAM ativa)
-    mask     : in  std_logic_vector(3 downto 0)   -- byte enables
+    i_clk      : in  std_logic;
+    i_addr     : in  std_logic_vector(addrWidth-1 downto 0);
+    i_data_in  : in  std_logic_vector(dataWidth-1 downto 0);
+    o_data_out : out std_logic_vector(dataWidth-1 downto 0);
+    i_we_ram    : in  std_logic;                     -- habilita escrita
+    i_re_ram    : in  std_logic;                     -- habilita leitura
+    i_en_ram     : in  std_logic;                     -- chip enable (RAM ativa)
+    i_mask     : in  std_logic_vector(3 downto 0)   -- byte enables
   );
 end entity;
 
@@ -40,7 +40,7 @@ begin
   -- correctly) — meant any word beyond the fixed 512-word range
   -- silently aliased to (real_word_index mod 512) instead of being
   -- reachable, no matter how large memoryAddrWidth/mem itself was set.
-  widx <= addr(memoryAddrWidth - 1 downto 0);
+  widx <= i_addr(memoryAddrWidth - 1 downto 0);
 
   -- The same process loads the initial image and writes the array afterwards, so
   -- the array keeps a single driver. The image goes through the signal, not
@@ -69,36 +69,36 @@ begin
     end if;
 
     loop
-      wait until rising_edge(clk);
-      if (weRAM = '1' and eRAM = '1') then
+      wait until rising_edge(i_clk);
+      if (i_we_ram = '1' and i_en_ram = '1') then
         -- update selected bytes inside the 32-bit word
-        if mask(0) = '1' then
-          mem(to_integer(unsigned(widx)))(7 downto 0)   <= data_in(7 downto 0);
+        if i_mask(0) = '1' then
+          mem(to_integer(unsigned(widx)))(7 downto 0)   <= i_data_in(7 downto 0);
         end if;
-        if mask(1) = '1' then
-          mem(to_integer(unsigned(widx)))(15 downto 8)  <= data_in(15 downto 8);
+        if i_mask(1) = '1' then
+          mem(to_integer(unsigned(widx)))(15 downto 8)  <= i_data_in(15 downto 8);
         end if;
-        if mask(2) = '1' then
-          mem(to_integer(unsigned(widx)))(23 downto 16) <= data_in(23 downto 16);
+        if i_mask(2) = '1' then
+          mem(to_integer(unsigned(widx)))(23 downto 16) <= i_data_in(23 downto 16);
         end if;
-        if mask(3) = '1' then
-          mem(to_integer(unsigned(widx)))(31 downto 24) <= data_in(31 downto 24);
+        if i_mask(3) = '1' then
+          mem(to_integer(unsigned(widx)))(31 downto 24) <= i_data_in(31 downto 24);
         end if;
       end if;
     end loop;
   end process;
 
   -- leitura síncrona: captura mem(...) na subida do clock se eRAM='1' e reRAM='1'
-  sync_read: process(clk)
+  sync_read: process(i_clk)
   begin
-    if rising_edge(clk) then
-      if (eRAM = '1' and reRAM = '1') then
+    if rising_edge(i_clk) then
+      if (i_en_ram = '1' and i_re_ram = '1') then
         data_out_reg <= mem(to_integer(unsigned(widx)));
       end if;
       -- caso contrário, mantém o valor anterior (nenhuma alteração)
     end if;
   end process;
 
-  data_out <= data_out_reg;
+  o_data_out <= data_out_reg;
 
 end architecture;

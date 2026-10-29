@@ -26,14 +26,14 @@ module props (input clk);
   wire [31:0] awaddr, wdata_m, araddr; wire [2:0] awprot, arprot, awsize, arsize; wire [3:0] wstrb;
   wire [7:0] awlen, arlen; wire [1:0] awburst, arburst;
 
-  axi_master_bridge dut (.clk(clk), .rst(rst),
-    .addr(addr), .wdata(wdata), .byteena(byteena), .rden(rden), .wren(wren), .mem_advance(mem_advance),
-    .ready(ready), .rdata(rdata), .line(line), .wdata_x(wdata_x), .byteena_x(byteena_x), .rdata_x(rdata_x), .err(err),
-    .m_awvalid(awvalid), .m_awready(awready), .m_awaddr(awaddr), .m_awlen(awlen), .m_awsize(awsize), .m_awburst(awburst), .m_awprot(awprot),
-    .m_wvalid(wvalid), .m_wready(wready), .m_wdata(wdata_m), .m_wstrb(wstrb), .m_wlast(wlast),
-    .m_bvalid(bvalid), .m_bready(bready), .m_bresp(bresp),
-    .m_arvalid(arvalid), .m_arready(arready), .m_araddr(araddr), .m_arlen(arlen), .m_arsize(arsize), .m_arburst(arburst), .m_arprot(arprot),
-    .m_rvalid(rvalid), .m_rready(rready), .m_rdata(rdata_s), .m_rresp(rresp), .m_rlast(rlast_s),
+  axi_master_bridge dut (.i_clk(clk), .i_rst(rst),
+    .i_addr(addr), .i_wdata(wdata), .i_byteena(byteena), .i_rden(rden), .i_wren(wren), .i_mem_advance(mem_advance),
+    .o_ready(ready), .o_rdata(rdata), .i_line(line), .i_wdata_x(wdata_x), .i_byteena_x(byteena_x), .o_rdata_x(rdata_x), .o_err(err),
+    .o_m_awvalid(awvalid), .i_m_awready(awready), .o_m_awaddr(awaddr), .o_m_awlen(awlen), .o_m_awsize(awsize), .o_m_awburst(awburst), .o_m_awprot(awprot),
+    .o_m_wvalid(wvalid), .i_m_wready(wready), .o_m_wdata(wdata_m), .o_m_wstrb(wstrb), .o_m_wlast(wlast),
+    .i_m_bvalid(bvalid), .o_m_bready(bready), .i_m_bresp(bresp),
+    .o_m_arvalid(arvalid), .i_m_arready(arready), .o_m_araddr(araddr), .o_m_arlen(arlen), .o_m_arsize(arsize), .o_m_arburst(arburst), .o_m_arprot(arprot),
+    .i_m_rvalid(rvalid), .o_m_rready(rready), .i_m_rdata(rdata_s), .i_m_rresp(rresp), .i_m_rlast(rlast_s),
     .dbg_st(d_st), .dbg_awv(d_awv), .dbg_wv(d_wv), .dbg_arv(d_arv), .dbg_we(d_we),
     .dbg_beat(d_beat), .dbg_last(d_last), .dbg_wdx(d_wdx), .dbg_bex(d_bex));
 

@@ -24,29 +24,29 @@ entity sdram_dbg_master is
     TIMEOUT_CYCLES : natural := 1 * 2**16
   );
   port (
-    clk        : in  std_logic;
-    rst        : in  std_logic;  -- synchronous, active high
+    i_clk        : in  std_logic;
+    i_rst        : in  std_logic;  -- synchronous, active high
 
-    cmd_tog    : in  std_logic;
-    done_tog   : out std_logic;
-    op         : in  std_logic_vector(3 downto 0);
-    be         : in  std_logic_vector(3 downto 0);
-    addr       : in  std_logic_vector(23 downto 0);
-    data       : in  std_logic_vector(31 downto 0);
-    rsp_addr   : out std_logic_vector(23 downto 0);
-    rsp_data   : out std_logic_vector(31 downto 0);
-    rsp_status : out std_logic_vector(7 downto 0);
+    i_cmd_tog    : in  std_logic;
+    o_done_tog   : out std_logic;
+    i_op         : in  std_logic_vector(3 downto 0);
+    i_be         : in  std_logic_vector(3 downto 0);
+    i_addr       : in  std_logic_vector(23 downto 0);
+    i_data       : in  std_logic_vector(31 downto 0);
+    o_rsp_addr   : out std_logic_vector(23 downto 0);
+    o_rsp_data   : out std_logic_vector(31 downto 0);
+    o_rsp_status : out std_logic_vector(7 downto 0);
 
-    init_done  : in  std_logic;
+    i_init_done  : in  std_logic;
 
     -- master B of sdram_arbiter
-    b_req_tog  : out std_logic;
-    b_ack_tog  : in  std_logic;
-    b_we       : out std_logic;
-    b_addr     : out std_logic_vector(23 downto 0);
-    b_wdata    : out std_logic_vector(31 downto 0);
-    b_be       : out std_logic_vector(3 downto 0);
-    b_rdata    : in  std_logic_vector(31 downto 0)
+    o_b_req_tog  : out std_logic;
+    i_b_ack_tog  : in  std_logic;
+    o_b_we       : out std_logic;
+    o_b_addr     : out std_logic_vector(23 downto 0);
+    o_b_wdata    : out std_logic_vector(31 downto 0);
+    o_b_be       : out std_logic_vector(3 downto 0);
+    i_b_rdata    : in  std_logic_vector(31 downto 0)
   );
 end entity sdram_dbg_master;
 
@@ -74,32 +74,32 @@ architecture rtl of sdram_dbg_master is
 
 begin
 
-  done_tog   <= done_i;
-  b_req_tog  <= req_i;
-  rsp_addr   <= std_logic_vector(last);
-  rsp_data   <= rdata_i;
-  rsp_status <= "00000" & init_s(1) & err & '0';
+  o_done_tog   <= done_i;
+  o_b_req_tog  <= req_i;
+  o_rsp_addr   <= std_logic_vector(last);
+  o_rsp_data   <= rdata_i;
+  o_rsp_status <= "00000" & init_s(1) & err & '0';
   pending    <= '1' when cmd_s(1) /= done_i else '0';
 
-  process (clk)
+  process (i_clk)
     procedure issue (a : unsigned(23 downto 0); we : std_logic; d : std_logic_vector(31 downto 0);
                      b : std_logic_vector(3 downto 0)) is
     begin
-      b_addr  <= std_logic_vector(a);
-      b_we    <= we;
-      b_wdata <= d;
-      b_be    <= b;
+      o_b_addr  <= std_logic_vector(a);
+      o_b_we    <= we;
+      o_b_wdata <= d;
+      o_b_be    <= b;
       cur_addr <= a;
       req_i   <= not req_i;
       wcnt    <= 0;
       st      <= ST_WAIT;
     end procedure;
   begin
-    if rising_edge(clk) then
-      cmd_s  <= cmd_s(0) & cmd_tog;
-      init_s <= init_s(0) & init_done;
+    if rising_edge(i_clk) then
+      cmd_s  <= cmd_s(0) & i_cmd_tog;
+      init_s <= init_s(0) & i_init_done;
 
-      if rst = '1' then
+      if i_rst = '1' then
         st     <= ST_IDLE;
         cmd_s  <= "00";
         done_i <= '0';
@@ -114,38 +114,38 @@ begin
           when ST_IDLE =>
             if pending = '1' then
               -- the command buses are stable from the flip of cmd_tog on
-              op_l   <= op;
-              be_l   <= be;
-              data_l <= data;
+              op_l   <= i_op;
+              be_l   <= i_be;
+              data_l <= i_data;
               err    <= '0';
-              case op is
+              case i_op is
                 when "0001" =>
-                  issue(unsigned(addr), '0', (others => '0'), "1111");
+                  issue(unsigned(i_addr), '0', (others => '0'), "1111");
                 when "0010" =>
-                  issue(unsigned(addr), '1', data, be);
+                  issue(unsigned(i_addr), '1', i_data, i_be);
                 when "0011" =>
                   if count = 0 then
                     done_i <= cmd_s(1);
                   else
                     left <= count - 1;
-                    issue(unsigned(addr), '1', data, "1111");
+                    issue(unsigned(i_addr), '1', i_data, "1111");
                   end if;
                 when "0100" =>
-                  count  <= unsigned(data(24 downto 0));
+                  count  <= unsigned(i_data(24 downto 0));
                   done_i <= cmd_s(1);
                 when "0101" =>
                   issue(last + 1, '0', (others => '0'), "1111");
                 when "0110" =>
-                  issue(last + 1, '1', data, be);
+                  issue(last + 1, '1', i_data, i_be);
                 when others =>
                   done_i <= cmd_s(1);
               end case;
             end if;
 
           when ST_WAIT =>
-            if b_ack_tog = req_i then
+            if i_b_ack_tog = req_i then
               last    <= cur_addr;
-              rdata_i <= b_rdata;
+              rdata_i <= i_b_rdata;
               st      <= ST_NEXT;
             elsif wcnt = TIMEOUT_CYCLES then
               err    <= '1';

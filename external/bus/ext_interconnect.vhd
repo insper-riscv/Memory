@@ -23,35 +23,35 @@ use ieee.numeric_std.all;
 -- 32 bits per slot, slot i in bits 32 i + 31 downto 32 i.
 entity ext_interconnect is
   port (
-    clk         : in  std_logic;
-    rst         : in  std_logic;  -- synchronous, active high
+    i_clk         : in  std_logic;
+    i_rst         : in  std_logic;  -- synchronous, active high
 
     -- the core's external port
-    addr        : in  std_logic_vector(31 downto 0);
-    wdata       : in  std_logic_vector(31 downto 0);
-    byteena     : in  std_logic_vector(3 downto 0);
-    rden        : in  std_logic;
-    wren        : in  std_logic;
-    mem_advance : in  std_logic;
-    ready       : out std_logic;
-    rdata       : out std_logic_vector(31 downto 0);
+    i_addr        : in  std_logic_vector(31 downto 0);
+    i_wdata       : in  std_logic_vector(31 downto 0);
+    i_byteena     : in  std_logic_vector(3 downto 0);
+    i_rden        : in  std_logic;
+    i_wren        : in  std_logic;
+    i_mem_advance : in  std_logic;
+    o_ready       : out std_logic;
+    o_rdata       : out std_logic_vector(31 downto 0);
 
     -- the memory (the SDRAM bridge)
-    m_addr      : out std_logic_vector(31 downto 0);
-    m_wdata     : out std_logic_vector(31 downto 0);
-    m_byteena   : out std_logic_vector(3 downto 0);
-    m_rden      : out std_logic;
-    m_wren      : out std_logic;
-    m_ready     : in  std_logic;
-    m_rdata     : in  std_logic_vector(31 downto 0);
+    o_m_addr      : out std_logic_vector(31 downto 0);
+    o_m_wdata     : out std_logic_vector(31 downto 0);
+    o_m_byteena   : out std_logic_vector(3 downto 0);
+    o_m_rden      : out std_logic;
+    o_m_wren      : out std_logic;
+    i_m_ready     : in  std_logic;
+    i_m_rdata     : in  std_logic_vector(31 downto 0);
 
     -- the peripherals
-    p_addr      : out std_logic_vector(7 downto 0);
-    p_wdata     : out std_logic_vector(31 downto 0);
-    p_byteena   : out std_logic_vector(3 downto 0);
-    p_we        : out std_logic_vector(7 downto 0);
-    p_re        : out std_logic_vector(7 downto 0);
-    p_rdata     : in  std_logic_vector(8 * 32 - 1 downto 0)
+    o_p_addr      : out std_logic_vector(7 downto 0);
+    o_p_wdata     : out std_logic_vector(31 downto 0);
+    o_p_byteena   : out std_logic_vector(3 downto 0);
+    o_p_we        : out std_logic_vector(7 downto 0);
+    o_p_re        : out std_logic_vector(7 downto 0);
+    i_p_rdata     : in  std_logic_vector(8 * 32 - 1 downto 0)
   );
 end entity ext_interconnect;
 
@@ -69,39 +69,39 @@ architecture rtl of ext_interconnect is
 
 begin
 
-  is_periph <= addr(31);
-  active    <= rden or wren;
-  id        <= to_integer(unsigned(addr(30 downto 28)));
+  is_periph <= i_addr(31);
+  active    <= i_rden or i_wren;
+  id        <= to_integer(unsigned(i_addr(30 downto 28)));
 
-  m_addr    <= addr;
-  m_wdata   <= wdata;
-  m_byteena <= byteena;
-  m_rden    <= rden and not is_periph;
-  m_wren    <= wren and not is_periph;
+  o_m_addr    <= i_addr;
+  o_m_wdata   <= i_wdata;
+  o_m_byteena <= i_byteena;
+  o_m_rden    <= i_rden and not is_periph;
+  o_m_wren    <= i_wren and not is_periph;
 
-  p_addr    <= addr(9 downto 2);
-  p_wdata   <= wdata;
-  p_byteena <= byteena;
+  o_p_addr    <= i_addr(9 downto 2);
+  o_p_wdata   <= i_wdata;
+  o_p_byteena <= i_byteena;
 
   pulse <= '1' when st = ST_IDLE and is_periph = '1' and active = '1' else '0';
-  process (pulse, id, rden, wren)
+  process (pulse, id, i_rden, i_wren)
   begin
-    p_we <= (others => '0');
-    p_re <= (others => '0');
+    o_p_we <= (others => '0');
+    o_p_re <= (others => '0');
     if pulse = '1' then
-      p_we(id) <= wren;
-      p_re(id) <= rden;
+      o_p_we(id) <= i_wren;
+      o_p_re(id) <= i_rden;
     end if;
   end process;
 
-  ready <= (m_ready) when is_periph = '0' else
+  o_ready <= (i_m_ready) when is_periph = '0' else
            '1' when st = ST_DONE else '0';
-  rdata <= p_rdata_q when sel_wb = '1' else m_rdata;
+  o_rdata <= p_rdata_q when sel_wb = '1' else i_m_rdata;
 
-  process (clk)
+  process (i_clk)
   begin
-    if rising_edge(clk) then
-      if rst = '1' then
+    if rising_edge(i_clk) then
+      if i_rst = '1' then
         st        <= ST_IDLE;
         sel_wb    <= '0';
         p_rdata_q <= (others => '0');
@@ -110,12 +110,12 @@ begin
         case st is
           when ST_IDLE =>
             if is_periph = '1' and active = '1' then
-              pending <= p_rdata(32 * id + 31 downto 32 * id);
+              pending <= i_p_rdata(32 * id + 31 downto 32 * id);
               st      <= ST_DONE;
             end if;
           when ST_DONE =>
-            if mem_advance = '1' then
-              if rden = '1' then
+            if i_mem_advance = '1' then
+              if i_rden = '1' then
                 p_rdata_q <= pending;
                 sel_wb    <= '1';
               end if;
@@ -123,7 +123,7 @@ begin
             end if;
         end case;
         -- a memory access completing hands the data back to the memory
-        if is_periph = '0' and rden = '1' and m_ready = '1' and mem_advance = '1' then
+        if is_periph = '0' and i_rden = '1' and i_m_ready = '1' and i_mem_advance = '1' then
           sel_wb <= '0';
         end if;
       end if;

@@ -21,49 +21,49 @@ use ieee.numeric_std.all;
 -- been taken.
 entity axi_slave_word_bridge is
   port (
-    clk         : in  std_logic;
-    rst         : in  std_logic;  -- synchronous, active high
+    i_clk         : in  std_logic;
+    i_rst         : in  std_logic;  -- synchronous, active high
 
     -- AXI4 slave port
-    s_awvalid   : in  std_logic;
-    s_awready   : out std_logic;
-    s_awaddr    : in  std_logic_vector(31 downto 0);
-    s_awlen     : in  std_logic_vector(7 downto 0);
-    s_awsize    : in  std_logic_vector(2 downto 0);
-    s_awburst   : in  std_logic_vector(1 downto 0);
-    s_wvalid    : in  std_logic;
-    s_wready    : out std_logic;
-    s_wdata     : in  std_logic_vector(31 downto 0);
-    s_wstrb     : in  std_logic_vector(3 downto 0);
-    s_wlast     : in  std_logic;
-    s_bvalid    : out std_logic;
-    s_bready    : in  std_logic;
-    s_bresp     : out std_logic_vector(1 downto 0);
-    s_arvalid   : in  std_logic;
-    s_arready   : out std_logic;
-    s_araddr    : in  std_logic_vector(31 downto 0);
-    s_arlen     : in  std_logic_vector(7 downto 0);
-    s_arsize    : in  std_logic_vector(2 downto 0);
-    s_arburst   : in  std_logic_vector(1 downto 0);
-    s_rvalid    : out std_logic;
-    s_rready    : in  std_logic;
-    s_rdata     : out std_logic_vector(31 downto 0);
-    s_rresp     : out std_logic_vector(1 downto 0);
-    s_rlast     : out std_logic;
+    i_s_awvalid   : in  std_logic;
+    o_s_awready   : out std_logic;
+    i_s_awaddr    : in  std_logic_vector(31 downto 0);
+    i_s_awlen     : in  std_logic_vector(7 downto 0);
+    i_s_awsize    : in  std_logic_vector(2 downto 0);
+    i_s_awburst   : in  std_logic_vector(1 downto 0);
+    i_s_wvalid    : in  std_logic;
+    o_s_wready    : out std_logic;
+    i_s_wdata     : in  std_logic_vector(31 downto 0);
+    i_s_wstrb     : in  std_logic_vector(3 downto 0);
+    i_s_wlast     : in  std_logic;
+    o_s_bvalid    : out std_logic;
+    i_s_bready    : in  std_logic;
+    o_s_bresp     : out std_logic_vector(1 downto 0);
+    i_s_arvalid   : in  std_logic;
+    o_s_arready   : out std_logic;
+    i_s_araddr    : in  std_logic_vector(31 downto 0);
+    i_s_arlen     : in  std_logic_vector(7 downto 0);
+    i_s_arsize    : in  std_logic_vector(2 downto 0);
+    i_s_arburst   : in  std_logic_vector(1 downto 0);
+    o_s_rvalid    : out std_logic;
+    i_s_rready    : in  std_logic;
+    o_s_rdata     : out std_logic_vector(31 downto 0);
+    o_s_rresp     : out std_logic_vector(1 downto 0);
+    o_s_rlast     : out std_logic;
 
     -- the memory's word port, with the line extension
-    addr        : out std_logic_vector(31 downto 0);
-    wdata       : out std_logic_vector(31 downto 0);
-    byteena     : out std_logic_vector(3 downto 0);
-    rden        : out std_logic;
-    wren        : out std_logic;
-    mem_advance : out std_logic;
-    ready       : in  std_logic;
-    rdata       : in  std_logic_vector(31 downto 0);
-    line        : out std_logic;
-    wdata_x     : out std_logic_vector(95 downto 0);
-    byteena_x   : out std_logic_vector(11 downto 0);
-    rdata_x     : in  std_logic_vector(95 downto 0)
+    o_addr        : out std_logic_vector(31 downto 0);
+    o_wdata       : out std_logic_vector(31 downto 0);
+    o_byteena     : out std_logic_vector(3 downto 0);
+    o_rden        : out std_logic;
+    o_wren        : out std_logic;
+    o_mem_advance : out std_logic;
+    i_ready       : in  std_logic;
+    i_rdata       : in  std_logic_vector(31 downto 0);
+    o_line        : out std_logic;
+    o_wdata_x     : out std_logic_vector(95 downto 0);
+    o_byteena_x   : out std_logic_vector(11 downto 0);
+    i_rdata_x     : in  std_logic_vector(95 downto 0)
   );
 end entity axi_slave_word_bridge;
 
@@ -112,38 +112,38 @@ architecture rtl of axi_slave_word_bridge is
 begin
 
   awr <= '1' when st = ST_IDLE else '0';
-  arr <= '1' when st = ST_IDLE and s_awvalid = '0' else '0';
-  s_awready <= awr;
-  s_arready <= arr;
-  s_wready  <= '1' when st = ST_WBEAT else '0';
+  arr <= '1' when st = ST_IDLE and i_s_awvalid = '0' else '0';
+  o_s_awready <= awr;
+  o_s_arready <= arr;
+  o_s_wready  <= '1' when st = ST_WBEAT else '0';
 
-  addr        <= addr_l;
-  wdata       <= wdata_l;
-  byteena     <= strb_l;
-  wdata_x     <= wdx_l;
-  byteena_x   <= bex_l;
-  line        <= fast_l;
-  rden        <= '1' when (st = ST_ACC or st = ST_ADV) and we_l = '0' else '0';
-  wren        <= '1' when (st = ST_ACC or st = ST_ADV) and we_l = '1' else '0';
-  mem_advance <= '1' when st = ST_ADV else '0';
+  o_addr        <= addr_l;
+  o_wdata       <= wdata_l;
+  o_byteena     <= strb_l;
+  o_wdata_x     <= wdx_l;
+  o_byteena_x   <= bex_l;
+  o_line        <= fast_l;
+  o_rden        <= '1' when (st = ST_ACC or st = ST_ADV) and we_l = '0' else '0';
+  o_wren        <= '1' when (st = ST_ACC or st = ST_ADV) and we_l = '1' else '0';
+  o_mem_advance <= '1' when st = ST_ADV else '0';
 
-  s_bvalid <= '1' when st = ST_BRESP else '0';
-  s_bresp  <= "10" when err_l = '1' else "00";
+  o_s_bvalid <= '1' when st = ST_BRESP else '0';
+  o_s_bresp  <= "10" when err_l = '1' else "00";
 
-  s_rvalid <= '1' when st = ST_RBEAT else '0';
-  s_rresp  <= "10" when bad_l = '1' else "00";
-  s_rlast  <= '1' when st = ST_RBEAT and ((fast_l = '1' and k = 3) or (fast_l = '0' and left_l = 0)) else '0';
+  o_s_rvalid <= '1' when st = ST_RBEAT else '0';
+  o_s_rresp  <= "10" when bad_l = '1' else "00";
+  o_s_rlast  <= '1' when st = ST_RBEAT and ((fast_l = '1' and k = 3) or (fast_l = '0' and left_l = 0)) else '0';
   -- the memory's read data only changes on its own mem_advance, so it stays valid while a beat waits
-  s_rdata  <= x"00000000" when bad_l = '1' else
-              rdata when (fast_l = '0' or k = 0) else
-              rdata_x(31 downto 0)  when k = 1 else
-              rdata_x(63 downto 32) when k = 2 else
-              rdata_x(95 downto 64);
+  o_s_rdata  <= x"00000000" when bad_l = '1' else
+              i_rdata when (fast_l = '0' or k = 0) else
+              i_rdata_x(31 downto 0)  when k = 1 else
+              i_rdata_x(63 downto 32) when k = 2 else
+              i_rdata_x(95 downto 64);
 
-  process (clk)
+  process (i_clk)
   begin
-    if rising_edge(clk) then
-      if rst = '1' then
+    if rising_edge(i_clk) then
+      if i_rst = '1' then
         st    <= ST_IDLE;
         we_l  <= '0';
         bad_l <= '0';
@@ -154,31 +154,31 @@ begin
         case st is
 
           when ST_IDLE =>
-            if s_awvalid = '1' then
-              addr_l <= s_awaddr;
-              left_l <= unsigned(s_awlen);
+            if i_s_awvalid = '1' then
+              addr_l <= i_s_awaddr;
+              left_l <= unsigned(i_s_awlen);
               we_l   <= '1';
-              bad_l  <= is_bad(s_awaddr, s_awsize, s_awburst);
-              if is_bad(s_awaddr, s_awsize, s_awburst) = '0' and is_line(s_awaddr, s_awlen) = '1' then
+              bad_l  <= is_bad(i_s_awaddr, i_s_awsize, i_s_awburst);
+              if is_bad(i_s_awaddr, i_s_awsize, i_s_awburst) = '0' and is_line(i_s_awaddr, i_s_awlen) = '1' then
                 fast_l <= '1';
               else
                 fast_l <= '0';
               end if;
-              err_l  <= is_bad(s_awaddr, s_awsize, s_awburst);
+              err_l  <= is_bad(i_s_awaddr, i_s_awsize, i_s_awburst);
               k      <= 0;
               st     <= ST_WBEAT;
-            elsif s_arvalid = '1' then
-              addr_l <= s_araddr;
-              left_l <= unsigned(s_arlen);
+            elsif i_s_arvalid = '1' then
+              addr_l <= i_s_araddr;
+              left_l <= unsigned(i_s_arlen);
               we_l   <= '0';
-              bad_l  <= is_bad(s_araddr, s_arsize, s_arburst);
-              if is_bad(s_araddr, s_arsize, s_arburst) = '0' and is_line(s_araddr, s_arlen) = '1' then
+              bad_l  <= is_bad(i_s_araddr, i_s_arsize, i_s_arburst);
+              if is_bad(i_s_araddr, i_s_arsize, i_s_arburst) = '0' and is_line(i_s_araddr, i_s_arlen) = '1' then
                 fast_l <= '1';
               else
                 fast_l <= '0';
               end if;
               k      <= 0;
-              if is_bad(s_araddr, s_arsize, s_arburst) = '1' then
+              if is_bad(i_s_araddr, i_s_arsize, i_s_arburst) = '1' then
                 st <= ST_RBEAT;          -- the error beats need no access
               else
                 st <= ST_ACC;
@@ -186,25 +186,25 @@ begin
             end if;
 
           when ST_WBEAT =>
-            if s_wvalid = '1' then
+            if i_s_wvalid = '1' then
               if bad_l = '1' then
                 -- consume the beats; nothing reaches the memory
-                if s_wlast = '1' then
+                if i_s_wlast = '1' then
                   st <= ST_BRESP;
                 end if;
               elsif fast_l = '1' then
                 if k = 0 then
-                  wdata_l <= s_wdata;
-                  strb_l  <= s_wstrb;
+                  wdata_l <= i_s_wdata;
+                  strb_l  <= i_s_wstrb;
                 elsif k = 1 then
-                  wdx_l(31 downto 0)  <= s_wdata;
-                  bex_l(3 downto 0)   <= s_wstrb;
+                  wdx_l(31 downto 0)  <= i_s_wdata;
+                  bex_l(3 downto 0)   <= i_s_wstrb;
                 elsif k = 2 then
-                  wdx_l(63 downto 32) <= s_wdata;
-                  bex_l(7 downto 4)   <= s_wstrb;
+                  wdx_l(63 downto 32) <= i_s_wdata;
+                  bex_l(7 downto 4)   <= i_s_wstrb;
                 else
-                  wdx_l(95 downto 64) <= s_wdata;
-                  bex_l(11 downto 8)  <= s_wstrb;
+                  wdx_l(95 downto 64) <= i_s_wdata;
+                  bex_l(11 downto 8)  <= i_s_wstrb;
                 end if;
                 if k = 3 then
                   k  <= 0;
@@ -213,14 +213,14 @@ begin
                   k <= k + 1;
                 end if;
               else
-                wdata_l <= s_wdata;
-                strb_l  <= s_wstrb;
+                wdata_l <= i_s_wdata;
+                strb_l  <= i_s_wstrb;
                 st      <= ST_ACC;
               end if;
             end if;
 
           when ST_ACC =>
-            if ready = '1' then
+            if i_ready = '1' then
               st <= ST_ADV;
             end if;
 
@@ -238,7 +238,7 @@ begin
             end if;
 
           when ST_RBEAT =>
-            if s_rready = '1' then
+            if i_s_rready = '1' then
               if (fast_l = '1' and k = 3) or (fast_l = '0' and left_l = 0) then
                 st <= ST_IDLE;
                 k  <= 0;
@@ -254,7 +254,7 @@ begin
             end if;
 
           when ST_BRESP =>
-            if s_bready = '1' then
+            if i_s_bready = '1' then
               st <= ST_IDLE;
               k  <= 0;
             end if;

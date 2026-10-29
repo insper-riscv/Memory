@@ -36,11 +36,12 @@ class Slave:
         cocotb.start_soon(self.run())
 
     def sig(self, name):
-        return getattr(self.dut, f"m{self.n}_{name}")
+        direction = "i" if name in SLAVE_DRIVEN else "o"
+        return getattr(self.dut, f"{direction}_m{self.n}_{name}")
 
     async def run(self):
         while True:
-            await RisingEdge(self.dut.clk)
+            await RisingEdge(self.dut.i_clk)
             v = lambda name: int(self.sig(name).value)
             # the values at the edge: handshakes of this clock
             if v("awvalid") and v("awready"):
@@ -78,93 +79,97 @@ class Slave:
                 self.sig("rlast").value = 0
 
 
+# Signals of a master port that the slave (this testbench) drives into the router.
+SLAVE_DRIVEN = {"awready", "wready", "arready", "bvalid", "bresp", "rvalid", "rdata", "rresp", "rlast"}
+
+
 async def setup(dut):
     for sig in ("awvalid", "wvalid", "arvalid", "bready", "rready"):
-        getattr(dut, f"s_{sig}").value = 0
+        getattr(dut, f"i_s_{sig}").value = 0
     for ch in ("aw", "ar"):
-        getattr(dut, f"s_{ch}len").value = 0
-        getattr(dut, f"s_{ch}size").value = 2
-        getattr(dut, f"s_{ch}burst").value = 1
-    dut.s_wlast.value = 1
+        getattr(dut, f"i_s_{ch}len").value = 0
+        getattr(dut, f"i_s_{ch}size").value = 2
+        getattr(dut, f"i_s_{ch}burst").value = 1
+    dut.i_s_wlast.value = 1
     for n in (0, 1):
         for ch in ("awready", "wready", "arready", "bvalid", "rvalid"):
-            getattr(dut, f"m{n}_{ch}").value = 0
-    dut.rst.value = 1
-    cocotb.start_soon(Clock(dut.clk, 20, unit="ns").start())
+            getattr(dut, f"i_m{n}_{ch}").value = 0
+    dut.i_rst.value = 1
+    cocotb.start_soon(Clock(dut.i_clk, 20, unit="ns").start())
     s = [Slave(dut, 0), Slave(dut, 1)]
     for _ in range(3):
-        await RisingEdge(dut.clk)
-    dut.rst.value = 0
+        await RisingEdge(dut.i_clk)
+    dut.i_rst.value = 0
     await Timer(1, unit="ns")
     return s
 
 
 async def write(dut, addr, data, strb=0xF, w_first=False):
     """A write; returns the response. With w_first W is offered a clock before AW."""
-    dut.s_awaddr.value = addr
-    dut.s_wdata.value = data
-    dut.s_wstrb.value = strb
+    dut.i_s_awaddr.value = addr
+    dut.i_s_wdata.value = data
+    dut.i_s_wstrb.value = strb
     aw_done = w_done = False
     if w_first:
-        dut.s_wvalid.value = 1
+        dut.i_s_wvalid.value = 1
     else:
-        dut.s_awvalid.value = 1
-        dut.s_wvalid.value = 1
+        dut.i_s_awvalid.value = 1
+        dut.i_s_wvalid.value = 1
     for cycle in range(40):
         await Timer(1, unit="ns")
-        aw_hs = int(dut.s_awvalid.value) and int(dut.s_awready.value)
-        w_hs = int(dut.s_wvalid.value) and int(dut.s_wready.value)
+        aw_hs = int(dut.i_s_awvalid.value) and int(dut.o_s_awready.value)
+        w_hs = int(dut.i_s_wvalid.value) and int(dut.o_s_wready.value)
         if w_first and cycle == 0:
             assert not w_hs, "W was taken before its AW"
-        await RisingEdge(dut.clk)
+        await RisingEdge(dut.i_clk)
         await Timer(1, unit="ns")
         if aw_hs:
-            dut.s_awvalid.value = 0
+            dut.i_s_awvalid.value = 0
             aw_done = True
         if w_hs:
-            dut.s_wvalid.value = 0
+            dut.i_s_wvalid.value = 0
             w_done = True
         if w_first and cycle == 0:
-            dut.s_awvalid.value = 1
+            dut.i_s_awvalid.value = 1
         if aw_done and w_done:
             break
     assert aw_done and w_done, "the write request was never accepted"
-    dut.s_bready.value = 1
+    dut.i_s_bready.value = 1
     for _ in range(40):
         await Timer(1, unit="ns")
-        if int(dut.s_bvalid.value):
-            resp = int(dut.s_bresp.value)
-            await RisingEdge(dut.clk)
+        if int(dut.o_s_bvalid.value):
+            resp = int(dut.o_s_bresp.value)
+            await RisingEdge(dut.i_clk)
             await Timer(1, unit="ns")
-            dut.s_bready.value = 0
+            dut.i_s_bready.value = 0
             return resp
-        await RisingEdge(dut.clk)
+        await RisingEdge(dut.i_clk)
     raise AssertionError("no write response")
 
 
 async def read(dut, addr):
-    dut.s_araddr.value = addr
-    dut.s_arvalid.value = 1
+    dut.i_s_araddr.value = addr
+    dut.i_s_arvalid.value = 1
     for _ in range(40):
         await Timer(1, unit="ns")
-        hs = int(dut.s_arready.value)
-        await RisingEdge(dut.clk)
+        hs = int(dut.o_s_arready.value)
+        await RisingEdge(dut.i_clk)
         await Timer(1, unit="ns")
         if hs:
             break
     else:
         raise AssertionError("the read request was never accepted")
-    dut.s_arvalid.value = 0
-    dut.s_rready.value = 1
+    dut.i_s_arvalid.value = 0
+    dut.i_s_rready.value = 1
     for _ in range(40):
         await Timer(1, unit="ns")
-        if int(dut.s_rvalid.value):
-            out = (int(dut.s_rdata.value), int(dut.s_rresp.value))
-            await RisingEdge(dut.clk)
+        if int(dut.o_s_rvalid.value):
+            out = (int(dut.o_s_rdata.value), int(dut.o_s_rresp.value))
+            await RisingEdge(dut.i_clk)
             await Timer(1, unit="ns")
-            dut.s_rready.value = 0
+            dut.i_s_rready.value = 0
             return out
-        await RisingEdge(dut.clk)
+        await RisingEdge(dut.i_clk)
     raise AssertionError("no read response")
 
 
@@ -216,91 +221,91 @@ async def test_back_to_back(dut):
 
 async def write_burst(dut, addr, beats, w_first=False, size=2, burst=1):
     """A burst write of len(beats) beats of (data, strobes); returns the response."""
-    dut.s_awaddr.value = addr
-    dut.s_awlen.value = len(beats) - 1
-    dut.s_awsize.value = size
-    dut.s_awburst.value = burst
-    dut.s_awvalid.value = 0 if w_first else 1
+    dut.i_s_awaddr.value = addr
+    dut.i_s_awlen.value = len(beats) - 1
+    dut.i_s_awsize.value = size
+    dut.i_s_awburst.value = burst
+    dut.i_s_awvalid.value = 0 if w_first else 1
     aw_done = False
     i = 0
-    dut.s_wvalid.value = 1
+    dut.i_s_wvalid.value = 1
     for cycle in range(200):
         data, strb = beats[i]
-        dut.s_wdata.value = data
-        dut.s_wstrb.value = strb
-        dut.s_wlast.value = 1 if i == len(beats) - 1 else 0
+        dut.i_s_wdata.value = data
+        dut.i_s_wstrb.value = strb
+        dut.i_s_wlast.value = 1 if i == len(beats) - 1 else 0
         if w_first and cycle == 2:
-            dut.s_awvalid.value = 1
+            dut.i_s_awvalid.value = 1
         await Timer(1, unit="ns")
-        aw_hs = int(dut.s_awvalid.value) and int(dut.s_awready.value)
-        w_hs = int(dut.s_wvalid.value) and int(dut.s_wready.value)
-        await RisingEdge(dut.clk)
+        aw_hs = int(dut.i_s_awvalid.value) and int(dut.o_s_awready.value)
+        w_hs = int(dut.i_s_wvalid.value) and int(dut.o_s_wready.value)
+        await RisingEdge(dut.i_clk)
         await Timer(1, unit="ns")
         if aw_hs:
-            dut.s_awvalid.value = 0
+            dut.i_s_awvalid.value = 0
             aw_done = True
         if w_hs:
             if i == len(beats) - 1:
-                dut.s_wvalid.value = 0
-                dut.s_wlast.value = 1
+                dut.i_s_wvalid.value = 0
+                dut.i_s_wlast.value = 1
                 if aw_done:
                     break
                 i = len(beats) - 1
             else:
                 i += 1
-        if not dut.s_wvalid.value and aw_done:
+        if not dut.i_s_wvalid.value and aw_done:
             break
-    dut.s_awlen.value = 0
-    dut.s_awsize.value = 2
-    dut.s_awburst.value = 1
-    dut.s_wlast.value = 1
-    dut.s_bready.value = 1
+    dut.i_s_awlen.value = 0
+    dut.i_s_awsize.value = 2
+    dut.i_s_awburst.value = 1
+    dut.i_s_wlast.value = 1
+    dut.i_s_bready.value = 1
     for _ in range(100):
         await Timer(1, unit="ns")
-        if int(dut.s_bvalid.value):
-            resp = int(dut.s_bresp.value)
-            await RisingEdge(dut.clk)
+        if int(dut.o_s_bvalid.value):
+            resp = int(dut.o_s_bresp.value)
+            await RisingEdge(dut.i_clk)
             await Timer(1, unit="ns")
-            dut.s_bready.value = 0
+            dut.i_s_bready.value = 0
             return resp
-        await RisingEdge(dut.clk)
+        await RisingEdge(dut.i_clk)
     raise AssertionError("no write response")
 
 
 async def read_burst(dut, addr, n, size=2, burst=1):
     """A burst read of n beats; returns [(data, resp, last)]."""
-    dut.s_araddr.value = addr
-    dut.s_arlen.value = n - 1
-    dut.s_arsize.value = size
-    dut.s_arburst.value = burst
-    dut.s_arvalid.value = 1
+    dut.i_s_araddr.value = addr
+    dut.i_s_arlen.value = n - 1
+    dut.i_s_arsize.value = size
+    dut.i_s_arburst.value = burst
+    dut.i_s_arvalid.value = 1
     for _ in range(60):
         await Timer(1, unit="ns")
-        hs = int(dut.s_arready.value)
-        await RisingEdge(dut.clk)
+        hs = int(dut.o_s_arready.value)
+        await RisingEdge(dut.i_clk)
         await Timer(1, unit="ns")
         if hs:
             break
     else:
         raise AssertionError("the read request was never accepted")
-    dut.s_arvalid.value = 0
-    dut.s_arlen.value = 0
-    dut.s_arsize.value = 2
-    dut.s_arburst.value = 1
-    dut.s_rready.value = 1
+    dut.i_s_arvalid.value = 0
+    dut.i_s_arlen.value = 0
+    dut.i_s_arsize.value = 2
+    dut.i_s_arburst.value = 1
+    dut.i_s_rready.value = 1
     got = []
     for _ in range(200):
         await Timer(1, unit="ns")
-        if int(dut.s_rvalid.value):
-            got.append((int(dut.s_rdata.value), int(dut.s_rresp.value), int(dut.s_rlast.value)))
+        if int(dut.o_s_rvalid.value):
+            got.append((int(dut.o_s_rdata.value), int(dut.o_s_rresp.value), int(dut.o_s_rlast.value)))
             last = got[-1][2]
-            await RisingEdge(dut.clk)
+            await RisingEdge(dut.i_clk)
             await Timer(1, unit="ns")
             if last:
-                dut.s_rready.value = 0
+                dut.i_s_rready.value = 0
                 return got
         else:
-            await RisingEdge(dut.clk)
+            await RisingEdge(dut.i_clk)
     raise AssertionError(f"the burst ended after {len(got)} beats")
 
 

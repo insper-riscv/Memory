@@ -40,25 +40,25 @@ entity jtag_uart is
     LOG2_DEPTH : natural := 6
   );
   port (
-    clk     : in  std_logic;
-    rst     : in  std_logic;  -- synchronous, active high
+    i_clk     : in  std_logic;
+    i_rst     : in  std_logic;  -- synchronous, active high
 
     -- core side, one pulse per access
-    addr    : in  std_logic_vector(7 downto 0);  -- word offset
-    wdata   : in  std_logic_vector(31 downto 0);
-    we      : in  std_logic;
-    re      : in  std_logic;
-    rdata   : out std_logic_vector(31 downto 0);  -- valid in the cycle of the pulse
+    i_addr    : in  std_logic_vector(7 downto 0);  -- word offset
+    i_wdata   : in  std_logic_vector(31 downto 0);
+    i_we      : in  std_logic;
+    i_re      : in  std_logic;
+    o_rdata   : out std_logic_vector(31 downto 0);  -- valid in the cycle of the pulse
 
     -- host side (see above)
-    tck       : in  std_logic;
-    tdi       : in  std_logic;
-    tdo       : out std_logic;
-    ir_in     : in  std_logic_vector(1 downto 0);
-    state_cdr : in  std_logic;
-    state_sdr : in  std_logic;
-    state_udr : in  std_logic;
-    state_uir : in  std_logic
+    i_tck       : in  std_logic;
+    i_tdi       : in  std_logic;
+    o_tdo       : out std_logic;
+    i_ir_in     : in  std_logic_vector(1 downto 0);
+    i_state_cdr : in  std_logic;
+    i_state_sdr : in  std_logic;
+    i_state_udr : in  std_logic;
+    i_state_uir : in  std_logic
   );
 end entity jtag_uart;
 
@@ -98,41 +98,41 @@ begin
   tx_level <= tx_w - tx_r;
   rx_level <= rx_w - rx_r;
   busy     <= '1' when cmd_i /= done_s(1) else '0';
-  tdo      <= sr(0) when ir = "01" else bypass;
+  o_tdo      <= sr(0) when ir = "01" else bypass;
 
   -- the registers read by the core
-  process (addr, rx_mem, rx_r, rx_level, tx_level, lost, attached)
+  process (i_addr, rx_mem, rx_r, rx_level, tx_level, lost, attached)
     variable free : unsigned(15 downto 0);
   begin
-    rdata <= (others => '0');
-    case to_integer(unsigned(addr)) is
+    o_rdata <= (others => '0');
+    case to_integer(unsigned(i_addr)) is
       when 1 =>
         if rx_level /= 0 then
-          rdata(8) <= '1';
-          rdata(7 downto 0) <= rx_mem(to_integer(rx_r(LOG2_DEPTH - 1 downto 0)));
+          o_rdata(8) <= '1';
+          o_rdata(7 downto 0) <= rx_mem(to_integer(rx_r(LOG2_DEPTH - 1 downto 0)));
         end if;
       when 2 =>
         free := to_unsigned(DEPTH, 16) - resize(tx_level, 16);
-        rdata(7 downto 0)  <= std_logic_vector(free(7 downto 0));
-        rdata(15 downto 8) <= std_logic_vector(resize(rx_level, 8));
-        rdata(16)          <= lost;
-        rdata(17)          <= attached;
+        o_rdata(7 downto 0)  <= std_logic_vector(free(7 downto 0));
+        o_rdata(15 downto 8) <= std_logic_vector(resize(rx_level, 8));
+        o_rdata(16)          <= lost;
+        o_rdata(17)          <= attached;
       when others =>
         null;
     end case;
   end process;
 
-  process (clk)
+  process (i_clk)
     variable n      : natural range 0 to 4;
     variable taken  : std_logic_vector(31 downto 0);
     variable rxovf  : std_logic;
     variable tx_r_n : unsigned(LOG2_DEPTH downto 0);
     variable left   : unsigned(LOG2_DEPTH downto 0);
   begin
-    if rising_edge(clk) then
+    if rising_edge(i_clk) then
       cmd_s <= cmd_s(0) & cmd_i;
 
-      if rst = '1' then
+      if i_rst = '1' then
         tx_w <= (others => '0');
         tx_r <= (others => '0');
         rx_w <= (others => '0');
@@ -143,18 +143,18 @@ begin
         resp <= (others => '0');
       else
         -- the core
-        if we = '1' and to_integer(unsigned(addr)) = 0 then
+        if i_we = '1' and to_integer(unsigned(i_addr)) = 0 then
           if tx_level = DEPTH then
             lost <= '1';
           else
-            tx_mem(to_integer(tx_w(LOG2_DEPTH - 1 downto 0))) <= wdata(7 downto 0);
+            tx_mem(to_integer(tx_w(LOG2_DEPTH - 1 downto 0))) <= i_wdata(7 downto 0);
             tx_w <= tx_w + 1;
           end if;
         end if;
-        if re = '1' then
-          if to_integer(unsigned(addr)) = 1 and rx_level /= 0 then
+        if i_re = '1' then
+          if to_integer(unsigned(i_addr)) = 1 and rx_level /= 0 then
             rx_r <= rx_r + 1;
-          elsif to_integer(unsigned(addr)) = 2 then
+          elsif to_integer(unsigned(i_addr)) = 2 then
             lost <= '0';
           end if;
         end if;
@@ -196,28 +196,28 @@ begin
     end if;
   end process;
 
-  process (tck)
+  process (i_tck)
   begin
-    if rising_edge(tck) then
+    if rising_edge(i_tck) then
       done_s <= done_s(0) & done_i;
 
-      if state_uir = '1' then
-        ir <= ir_in;
+      if i_state_uir = '1' then
+        ir <= i_ir_in;
       end if;
 
-      if state_cdr = '1' then
+      if i_state_cdr = '1' then
         if ir = "01" then
           sr <= held(47 downto 37) & overrun & held(35 downto 0);
           -- an answer is shown once
           held(34 downto 0) <= (others => '0');
         end if;
-      elsif state_sdr = '1' then
+      elsif i_state_sdr = '1' then
         if ir = "01" then
-          sr <= tdi & sr(47 downto 1);
+          sr <= i_tdi & sr(47 downto 1);
         else
-          bypass <= tdi;
+          bypass <= i_tdi;
         end if;
-      elsif state_udr = '1' then
+      elsif i_state_udr = '1' then
         if ir = "01" then
           -- the answer of the command before is now in the other clock's register for good (the
           -- shift lasted many tck edges): keep it for the next capture

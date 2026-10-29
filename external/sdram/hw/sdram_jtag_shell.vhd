@@ -10,15 +10,15 @@ use altera_mf.altera_mf_components.all;
 entity sdram_jtag_shell is
   port (
     -- toward sdram_dbg_master (see sdram_jtag_core)
-    cmd_tog    : out std_logic;
-    op         : out std_logic_vector(3 downto 0);
-    be         : out std_logic_vector(3 downto 0);
-    addr       : out std_logic_vector(23 downto 0);
-    data       : out std_logic_vector(31 downto 0);
-    done_tog   : in  std_logic;
-    rsp_addr   : in  std_logic_vector(23 downto 0);
-    rsp_data   : in  std_logic_vector(31 downto 0);
-    rsp_status : in  std_logic_vector(7 downto 0)
+    o_cmd_tog    : out std_logic;
+    o_op         : out std_logic_vector(3 downto 0);
+    o_be         : out std_logic_vector(3 downto 0);
+    o_addr       : out std_logic_vector(23 downto 0);
+    o_data       : out std_logic_vector(31 downto 0);
+    i_done_tog   : in  std_logic;
+    i_rsp_addr   : in  std_logic_vector(23 downto 0);
+    i_rsp_data   : in  std_logic_vector(31 downto 0);
+    i_rsp_status : in  std_logic_vector(7 downto 0)
   );
 end entity sdram_jtag_shell;
 
@@ -53,10 +53,10 @@ begin
 
   u_core : entity work.sdram_jtag_core
     port map (
-      tck => tck, tdi => tdi, tdo => tdo, ir_in => ir_in,
-      state_cdr => st_cdr, state_sdr => st_sdr, state_udr => st_udr, state_uir => st_uir,
-      cmd_tog => cmd_tog, op => op, be => be, addr => addr, data => data,
-      done_tog => done_tog, rsp_addr => rsp_addr, rsp_data => rsp_data, rsp_status => rsp_status
+      i_tck => tck, i_tdi => tdi, o_tdo => tdo, i_ir_in => ir_in,
+      i_state_cdr => st_cdr, i_state_sdr => st_sdr, i_state_udr => st_udr, i_state_uir => st_uir,
+      o_cmd_tog => o_cmd_tog, o_op => o_op, o_be => o_be, o_addr => o_addr, o_data => o_data,
+      i_done_tog => i_done_tog, i_rsp_addr => i_rsp_addr, i_rsp_data => i_rsp_data, i_rsp_status => i_rsp_status
     );
 
 end architecture rtl;

@@ -8,34 +8,34 @@ use ieee.numeric_std.all;
 -- jtag_* stand for a Virtual JTAG instance (see jtag_uart).
 entity ext_axi_bus_system is
   port (
-    clk         : in  std_logic;
-    rst         : in  std_logic;
+    i_clk         : in  std_logic;
+    i_rst         : in  std_logic;
 
-    addr        : in  std_logic_vector(31 downto 0);
-    wdata       : in  std_logic_vector(31 downto 0);
-    byteena     : in  std_logic_vector(3 downto 0);
-    rden        : in  std_logic;
-    wren        : in  std_logic;
-    mem_advance : in  std_logic;
-    ready       : out std_logic;
-    rdata       : out std_logic_vector(31 downto 0);
+    i_addr        : in  std_logic_vector(31 downto 0);
+    i_wdata       : in  std_logic_vector(31 downto 0);
+    i_byteena     : in  std_logic_vector(3 downto 0);
+    i_rden        : in  std_logic;
+    i_wren        : in  std_logic;
+    i_mem_advance : in  std_logic;
+    o_ready       : out std_logic;
+    o_rdata       : out std_logic_vector(31 downto 0);
 
-    flush       : in  std_logic := '0';
-    flush_done  : out std_logic;
-    busy        : out std_logic;
+    i_flush       : in  std_logic := '0';
+    o_flush_done  : out std_logic;
+    o_busy        : out std_logic;
 
     -- the word memory behind the SDRAM slave, read without going through the bus
-    dbg_word_addr : in  std_logic_vector(11 downto 0) := (others => '0');
-    dbg_word_data : out std_logic_vector(31 downto 0);
+    i_dbg_word_addr : in  std_logic_vector(11 downto 0) := (others => '0');
+    o_dbg_word_data : out std_logic_vector(31 downto 0);
 
-    jtag_tck        : in  std_logic := '0';
-    jtag_tdi        : in  std_logic := '0';
-    jtag_tdo        : out std_logic;
-    jtag_ir_in      : in  std_logic_vector(1 downto 0) := "00";
-    jtag_state_cdr  : in  std_logic := '0';
-    jtag_state_sdr  : in  std_logic := '0';
-    jtag_state_udr  : in  std_logic := '0';
-    jtag_state_uir  : in  std_logic := '0'
+    i_jtag_tck        : in  std_logic := '0';
+    i_jtag_tdi        : in  std_logic := '0';
+    o_jtag_tdo        : out std_logic;
+    i_jtag_ir_in      : in  std_logic_vector(1 downto 0) := "00";
+    i_jtag_state_cdr  : in  std_logic := '0';
+    i_jtag_state_sdr  : in  std_logic := '0';
+    i_jtag_state_udr  : in  std_logic := '0';
+    i_jtag_state_uir  : in  std_logic := '0'
   );
 end entity ext_axi_bus_system;
 
@@ -69,46 +69,46 @@ begin
 
   u_ic : entity work.ext_axi_interconnect
     port map (
-      clk => clk, rst => rst,
-      addr => addr, wdata => wdata, byteena => byteena, rden => rden, wren => wren,
-      mem_advance => mem_advance, ready => ready, rdata => rdata,
-      flush => flush, flush_done => flush_done, busy => busy,
-      m0_awvalid => awvalid, m0_awready => awready, m0_awaddr => awaddr, m0_awlen => awlen,
-      m0_awsize => awsize, m0_awburst => awburst,
-      m0_wvalid => wvalid, m0_wready => wready, m0_wdata => wdata_a, m0_wstrb => wstrb, m0_wlast => wlast,
-      m0_bvalid => bvalid, m0_bready => bready, m0_bresp => bresp,
-      m0_arvalid => arvalid, m0_arready => arready, m0_araddr => araddr, m0_arlen => arlen,
-      m0_arsize => arsize, m0_arburst => arburst,
-      m0_rvalid => rvalid, m0_rready => rready, m0_rdata => rdata_a, m0_rresp => rresp, m0_rlast => rlast,
-      p_addr => p_addr, p_wdata => p_wdata, p_byteena => p_byteena, p_we => p_we, p_re => p_re,
-      p_rdata => p_rdata
+      i_clk => i_clk, i_rst => i_rst,
+      i_addr => i_addr, i_wdata => i_wdata, i_byteena => i_byteena, i_rden => i_rden, i_wren => i_wren,
+      i_mem_advance => i_mem_advance, o_ready => o_ready, o_rdata => o_rdata,
+      i_flush => i_flush, o_flush_done => o_flush_done, o_busy => o_busy,
+      o_m0_awvalid => awvalid, i_m0_awready => awready, o_m0_awaddr => awaddr, o_m0_awlen => awlen,
+      o_m0_awsize => awsize, o_m0_awburst => awburst,
+      o_m0_wvalid => wvalid, i_m0_wready => wready, o_m0_wdata => wdata_a, o_m0_wstrb => wstrb, o_m0_wlast => wlast,
+      i_m0_bvalid => bvalid, o_m0_bready => bready, i_m0_bresp => bresp,
+      o_m0_arvalid => arvalid, i_m0_arready => arready, o_m0_araddr => araddr, o_m0_arlen => arlen,
+      o_m0_arsize => arsize, o_m0_arburst => arburst,
+      i_m0_rvalid => rvalid, o_m0_rready => rready, i_m0_rdata => rdata_a, i_m0_rresp => rresp, i_m0_rlast => rlast,
+      o_p_addr => p_addr, o_p_wdata => p_wdata, o_p_byteena => p_byteena, o_p_we => p_we, o_p_re => p_re,
+      i_p_rdata => p_rdata
     );
 
   u_slave : entity work.axi_slave_word_bridge
     port map (
-      clk => clk, rst => rst,
-      s_awvalid => awvalid, s_awready => awready, s_awaddr => awaddr, s_awlen => awlen,
-      s_awsize => awsize, s_awburst => awburst,
-      s_wvalid => wvalid, s_wready => wready, s_wdata => wdata_a, s_wstrb => wstrb, s_wlast => wlast,
-      s_bvalid => bvalid, s_bready => bready, s_bresp => bresp,
-      s_arvalid => arvalid, s_arready => arready, s_araddr => araddr, s_arlen => arlen,
-      s_arsize => arsize, s_arburst => arburst,
-      s_rvalid => rvalid, s_rready => rready, s_rdata => rdata_a, s_rresp => rresp, s_rlast => rlast,
-      addr => m_addr, wdata => m_wdata, byteena => m_be, rden => m_rden, wren => m_wren,
-      mem_advance => m_adv, ready => m_ready, rdata => m_rdata,
-      line => m_line, wdata_x => m_wdx, byteena_x => m_bex, rdata_x => m_rdx
+      i_clk => i_clk, i_rst => i_rst,
+      i_s_awvalid => awvalid, o_s_awready => awready, i_s_awaddr => awaddr, i_s_awlen => awlen,
+      i_s_awsize => awsize, i_s_awburst => awburst,
+      i_s_wvalid => wvalid, o_s_wready => wready, i_s_wdata => wdata_a, i_s_wstrb => wstrb, i_s_wlast => wlast,
+      o_s_bvalid => bvalid, i_s_bready => bready, o_s_bresp => bresp,
+      i_s_arvalid => arvalid, o_s_arready => arready, i_s_araddr => araddr, i_s_arlen => arlen,
+      i_s_arsize => arsize, i_s_arburst => arburst,
+      o_s_rvalid => rvalid, i_s_rready => rready, o_s_rdata => rdata_a, o_s_rresp => rresp, o_s_rlast => rlast,
+      o_addr => m_addr, o_wdata => m_wdata, o_byteena => m_be, o_rden => m_rden, o_wren => m_wren,
+      o_mem_advance => m_adv, i_ready => m_ready, i_rdata => m_rdata,
+      o_line => m_line, o_wdata_x => m_wdx, o_byteena_x => m_bex, i_rdata_x => m_rdx
     );
 
   -- the memory: ready two clocks after the access starts, a level until mem_advance; the read
   -- data changes on the edge of mem_advance. A line access moves the four words of the line.
   m_ready <= ready_i;
-  dbg_word_data <= mem(to_integer(unsigned(dbg_word_addr)));
-  process (clk)
+  o_dbg_word_data <= mem(to_integer(unsigned(i_dbg_word_addr)));
+  process (i_clk)
     variable i : integer;
   begin
-    if rising_edge(clk) then
+    if rising_edge(i_clk) then
       i := to_integer(unsigned(m_addr(13 downto 2)));
-      if rst = '1' then
+      if i_rst = '1' then
         ready_i <= '0';
         lat     <= 0;
       elsif m_adv = '1' then
@@ -148,11 +148,11 @@ begin
 
   u_uart : entity work.jtag_uart
     port map (
-      clk => clk, rst => rst, addr => p_addr, wdata => p_wdata, we => p_we(4), re => p_re(4),
-      rdata => p_rdata(32 * 4 + 31 downto 32 * 4),
-      tck => jtag_tck, tdi => jtag_tdi, tdo => jtag_tdo, ir_in => jtag_ir_in,
-      state_cdr => jtag_state_cdr, state_sdr => jtag_state_sdr,
-      state_udr => jtag_state_udr, state_uir => jtag_state_uir
+      i_clk => i_clk, i_rst => i_rst, i_addr => p_addr, i_wdata => p_wdata, i_we => p_we(4), i_re => p_re(4),
+      o_rdata => p_rdata(32 * 4 + 31 downto 32 * 4),
+      i_tck => i_jtag_tck, i_tdi => i_jtag_tdi, o_tdo => o_jtag_tdo, i_ir_in => i_jtag_ir_in,
+      i_state_cdr => i_jtag_state_cdr, i_state_sdr => i_jtag_state_sdr,
+      i_state_udr => i_jtag_state_udr, i_state_uir => i_jtag_state_uir
     );
 
 end architecture sim;

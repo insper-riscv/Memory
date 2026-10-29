@@ -27,32 +27,32 @@ entity sdram_bist is
     TIMEOUT_CYCLES : natural := 4096
   );
   port (
-    clk        : in  std_logic;
-    rst        : in  std_logic;  -- synchronous, active high
+    i_clk        : in  std_logic;
+    i_rst        : in  std_logic;  -- synchronous, active high
 
-    start      : in  std_logic;
-    mode       : in  std_logic_vector(1 downto 0);
-    init_done  : in  std_logic;
+    i_start      : in  std_logic;
+    i_mode       : in  std_logic_vector(1 downto 0);
+    i_init_done  : in  std_logic;
 
-    busy       : out std_logic;
-    done       : out std_logic;  -- a run finished (stays high until the next start)
-    fail       : out std_logic;  -- a word differed, or the controller did not answer
-    timeout    : out std_logic;
-    phase      : out std_logic_vector(4 downto 0);
-    err_count  : out std_logic_vector(31 downto 0);
-    first_addr : out std_logic_vector(23 downto 0);
-    first_exp  : out std_logic_vector(31 downto 0);
-    first_got  : out std_logic_vector(31 downto 0);
-    ops_done   : out std_logic_vector(31 downto 0);
+    o_busy       : out std_logic;
+    o_done       : out std_logic;  -- a run finished (stays high until the next start)
+    o_fail       : out std_logic;  -- a word differed, or the controller did not answer
+    o_timeout    : out std_logic;
+    o_phase      : out std_logic_vector(4 downto 0);
+    o_err_count  : out std_logic_vector(31 downto 0);
+    o_first_addr : out std_logic_vector(23 downto 0);
+    o_first_exp  : out std_logic_vector(31 downto 0);
+    o_first_got  : out std_logic_vector(31 downto 0);
+    o_ops_done   : out std_logic_vector(31 downto 0);
 
     -- the request interface of sdram_ctrl, on the same clock
-    c_req_tog  : out std_logic;
-    c_ack_tog  : in  std_logic;
-    c_we       : out std_logic;
-    c_addr     : out std_logic_vector(23 downto 0);
-    c_wdata    : out std_logic_vector(31 downto 0);
-    c_be       : out std_logic_vector(3 downto 0);
-    c_rdata    : in  std_logic_vector(31 downto 0)
+    o_c_req_tog  : out std_logic;
+    i_c_ack_tog  : in  std_logic;
+    o_c_we       : out std_logic;
+    o_c_addr     : out std_logic_vector(23 downto 0);
+    o_c_wdata    : out std_logic_vector(31 downto 0);
+    o_c_be       : out std_logic_vector(3 downto 0);
+    i_c_rdata    : in  std_logic_vector(31 downto 0)
   );
 end entity sdram_bist;
 
@@ -165,27 +165,27 @@ architecture rtl of sdram_bist is
 
 begin
 
-  busy       <= busy_i;
-  done       <= done_i;
-  fail       <= fail_i;
-  timeout    <= timeout_i;
-  phase      <= std_logic_vector(to_unsigned(idx, 5));
-  err_count  <= std_logic_vector(errs);
-  first_addr <= f_addr;
-  first_exp  <= f_exp;
-  first_got  <= f_got;
-  ops_done   <= std_logic_vector(ops);
-  c_req_tog  <= req_i;
+  o_busy       <= busy_i;
+  o_done       <= done_i;
+  o_fail       <= fail_i;
+  o_timeout    <= timeout_i;
+  o_phase      <= std_logic_vector(to_unsigned(idx, 5));
+  o_err_count  <= std_logic_vector(errs);
+  o_first_addr <= f_addr;
+  o_first_exp  <= f_exp;
+  o_first_got  <= f_got;
+  o_ops_done   <= std_logic_vector(ops);
+  o_c_req_tog  <= req_i;
 
-  process (clk)
+  process (i_clk)
     variable next_lf : unsigned(31 downto 0);
     variable last    : boolean;
     variable a       : unsigned(23 downto 0);
   begin
-    if rising_edge(clk) then
-      start_q <= start;
+    if rising_edge(i_clk) then
+      start_q <= i_start;
 
-      if rst = '1' then
+      if i_rst = '1' then
         st        <= ST_IDLE;
         req_i     <= '0';
         busy_i    <= '0';
@@ -199,8 +199,8 @@ begin
         case st is
 
           when ST_IDLE =>
-            if start = '1' and start_q = '0' and init_done = '1' then
-              mode_l    <= mode;
+            if i_start = '1' and start_q = '0' and i_init_done = '1' then
+              mode_l    <= i_mode;
               idx       <= 0;
               busy_i    <= '1';
               done_i    <= '0';
@@ -234,14 +234,14 @@ begin
               a := n(23 downto 0);
             end if;
             addr_r  <= a;
-            c_addr  <= std_logic_vector(a);
+            o_c_addr  <= std_logic_vector(a);
             if cur.kind = K_WRITE then
-              c_we <= '1';
+              o_c_we <= '1';
             else
-              c_we <= '0';
+              o_c_we <= '0';
             end if;
-            c_be    <= cur.be;
-            c_wdata <= expected(cur.pat, a);
+            o_c_be    <= cur.be;
+            o_c_wdata <= expected(cur.pat, a);
             exp_r   <= expected(cur.pat, a);
             wait_cnt <= 0;
             st      <= ST_TOG;
@@ -251,13 +251,13 @@ begin
             st    <= ST_WAIT;
 
           when ST_WAIT =>
-            if c_ack_tog = req_i then
+            if i_c_ack_tog = req_i then
               ops <= ops + 1;
-              if cur.kind = K_READ and c_rdata /= exp_r then
+              if cur.kind = K_READ and i_c_rdata /= exp_r then
                 if errs = 0 then
                   f_addr <= std_logic_vector(addr_r);
                   f_exp  <= exp_r;
-                  f_got  <= c_rdata;
+                  f_got  <= i_c_rdata;
                 end if;
                 errs   <= errs + 1;
                 fail_i <= '1';

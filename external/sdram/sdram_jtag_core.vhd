@@ -26,25 +26,25 @@ use ieee.numeric_std.all;
 -- done_tog and rsp_* are read through a synchronizer on tck.
 entity sdram_jtag_core is
   port (
-    tck       : in  std_logic;
-    tdi       : in  std_logic;
-    tdo       : out std_logic;
-    ir_in     : in  std_logic_vector(1 downto 0);
-    state_cdr : in  std_logic;
-    state_sdr : in  std_logic;
-    state_udr : in  std_logic;
-    state_uir : in  std_logic;
+    i_tck       : in  std_logic;
+    i_tdi       : in  std_logic;
+    o_tdo       : out std_logic;
+    i_ir_in     : in  std_logic_vector(1 downto 0);
+    i_state_cdr : in  std_logic;
+    i_state_sdr : in  std_logic;
+    i_state_udr : in  std_logic;
+    i_state_uir : in  std_logic;
 
     -- toward sdram_dbg_master
-    cmd_tog    : out std_logic;
-    op         : out std_logic_vector(3 downto 0);
-    be         : out std_logic_vector(3 downto 0);
-    addr       : out std_logic_vector(23 downto 0);
-    data       : out std_logic_vector(31 downto 0);
-    done_tog   : in  std_logic;
-    rsp_addr   : in  std_logic_vector(23 downto 0);
-    rsp_data   : in  std_logic_vector(31 downto 0);
-    rsp_status : in  std_logic_vector(7 downto 0)
+    o_cmd_tog    : out std_logic;
+    o_op         : out std_logic_vector(3 downto 0);
+    o_be         : out std_logic_vector(3 downto 0);
+    o_addr       : out std_logic_vector(23 downto 0);
+    o_data       : out std_logic_vector(31 downto 0);
+    i_done_tog   : in  std_logic;
+    i_rsp_addr   : in  std_logic_vector(23 downto 0);
+    i_rsp_data   : in  std_logic_vector(31 downto 0);
+    i_rsp_status : in  std_logic_vector(7 downto 0)
   );
 end entity sdram_jtag_core;
 
@@ -65,33 +65,33 @@ architecture rtl of sdram_jtag_core is
 begin
 
   busy    <= '1' when cmd_i /= done_s(1) else '0';
-  cmd_tog <= cmd_i;
-  op      <= op_r;
-  be      <= be_r;
-  addr    <= addr_r;
-  data    <= data_r;
-  tdo     <= sr(0) when ir = "01" else bypass;
+  o_cmd_tog <= cmd_i;
+  o_op      <= op_r;
+  o_be      <= be_r;
+  o_addr    <= addr_r;
+  o_data    <= data_r;
+  o_tdo     <= sr(0) when ir = "01" else bypass;
 
-  process (tck)
+  process (i_tck)
   begin
-    if rising_edge(tck) then
-      done_s <= done_s(0) & done_tog;
+    if rising_edge(i_tck) then
+      done_s <= done_s(0) & i_done_tog;
 
-      if state_uir = '1' then
-        ir <= ir_in;
+      if i_state_uir = '1' then
+        ir <= i_ir_in;
       end if;
 
-      if state_cdr = '1' then
+      if i_state_cdr = '1' then
         if ir = "01" then
-          sr <= ("0000" & overrun & rsp_status(2 downto 1) & busy) & rsp_addr & rsp_data;
+          sr <= ("0000" & overrun & i_rsp_status(2 downto 1) & busy) & i_rsp_addr & i_rsp_data;
         end if;
-      elsif state_sdr = '1' then
+      elsif i_state_sdr = '1' then
         if ir = "01" then
-          sr <= tdi & sr(63 downto 1);
+          sr <= i_tdi & sr(63 downto 1);
         else
-          bypass <= tdi;
+          bypass <= i_tdi;
         end if;
-      elsif state_udr = '1' then
+      elsif i_state_udr = '1' then
         -- op 0 is only a way to read the status: it sends nothing
         if ir = "01" and sr(63 downto 60) /= "0000" then
           if busy = '1' then
