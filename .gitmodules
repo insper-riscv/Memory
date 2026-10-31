@@ -1,0 +1,3 @@
+[submodule "Common-Components"]
+	path = Common-Components
+	url = https://github.com/insper-riscv/Common-Components.git
