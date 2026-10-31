@@ -25,15 +25,15 @@ module props (input clk);
   wire [95:0] wdata_x; wire [11:0] byteena_x;
   wire [2:0] d_st; wire d_we, d_bad, d_fast; wire [1:0] d_k; wire [7:0] d_left;
 
-  axi_slave_word_bridge dut (.clk(clk), .rst(rst),
-    .s_awvalid(awvalid), .s_awready(awready), .s_awaddr(awaddr), .s_awlen(awlen), .s_awsize(awsize), .s_awburst(awburst),
-    .s_wvalid(wvalid), .s_wready(wready), .s_wdata(wdata_s), .s_wstrb(wstrb), .s_wlast(wlast),
-    .s_bvalid(bvalid), .s_bready(bready), .s_bresp(bresp),
-    .s_arvalid(arvalid), .s_arready(arready), .s_araddr(araddr), .s_arlen(arlen), .s_arsize(arsize), .s_arburst(arburst),
-    .s_rvalid(rvalid), .s_rready(rready), .s_rdata(rdata_s), .s_rresp(rresp), .s_rlast(rlast_o),
-    .addr(addr), .wdata(wdata), .byteena(byteena), .rden(rden), .wren(wren),
-    .mem_advance(mem_advance), .ready(mready), .rdata(mrdata),
-    .line(line), .wdata_x(wdata_x), .byteena_x(byteena_x), .rdata_x(mrdata_x),
+  axi_slave_word_bridge dut (.i_clk(clk), .i_rst(rst),
+    .i_s_awvalid(awvalid), .o_s_awready(awready), .i_s_awaddr(awaddr), .i_s_awlen(awlen), .i_s_awsize(awsize), .i_s_awburst(awburst),
+    .i_s_wvalid(wvalid), .o_s_wready(wready), .i_s_wdata(wdata_s), .i_s_wstrb(wstrb), .i_s_wlast(wlast),
+    .o_s_bvalid(bvalid), .i_s_bready(bready), .o_s_bresp(bresp),
+    .i_s_arvalid(arvalid), .o_s_arready(arready), .i_s_araddr(araddr), .i_s_arlen(arlen), .i_s_arsize(arsize), .i_s_arburst(arburst),
+    .o_s_rvalid(rvalid), .i_s_rready(rready), .o_s_rdata(rdata_s), .o_s_rresp(rresp), .o_s_rlast(rlast_o),
+    .o_addr(addr), .o_wdata(wdata), .o_byteena(byteena), .o_rden(rden), .o_wren(wren),
+    .o_mem_advance(mem_advance), .i_ready(mready), .i_rdata(mrdata),
+    .o_line(line), .o_wdata_x(wdata_x), .o_byteena_x(byteena_x), .i_rdata_x(mrdata_x),
     .dbg_st(d_st), .dbg_we(d_we), .dbg_bad(d_bad), .dbg_fast(d_fast), .dbg_k(d_k), .dbg_left(d_left));
 
   reg f_past_valid = 0;

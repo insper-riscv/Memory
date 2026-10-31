@@ -16,9 +16,9 @@ UNCACHED = 0x43FFF000       # the last 4 KB of the SDRAM space; the memory of th
 
 
 async def peek(dut, word):
-    dut.dbg_word_addr.value = word
+    dut.i_dbg_word_addr.value = word
     await post_edge(dut)
-    return int(dut.dbg_word_data.value)
+    return int(dut.o_dbg_word_data.value)
 
 
 async def wait_idle(dut):
@@ -87,21 +87,21 @@ async def test_flush_with_invalidate_drops_the_lines(dut):
 
 async def store_bytes(dut, addr, data, be):
     """One store the way the core makes a byte or half-word one: the byte address, the data, the byte enables."""
-    dut.addr.value = addr
-    dut.wdata.value = data
-    dut.byteena.value = be
-    dut.wren.value = 1
-    dut.rden.value = 0
+    dut.i_addr.value = addr
+    dut.i_wdata.value = data
+    dut.i_byteena.value = be
+    dut.i_wren.value = 1
+    dut.i_rden.value = 0
     for _ in range(200):
         await post_edge(dut)
-        if int(dut.ready.value):
+        if int(dut.o_ready.value):
             break
     else:
         raise AssertionError("the store never completed")
-    dut.mem_advance.value = 1
+    dut.i_mem_advance.value = 1
     await post_edge(dut)
-    dut.mem_advance.value = 0
-    dut.wren.value = 0
+    dut.i_mem_advance.value = 0
+    dut.i_wren.value = 0
 
 
 @cocotb.test()

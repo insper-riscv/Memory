@@ -23,21 +23,21 @@ async def read_rom_sync(dut, word_addr: int, do_re: bool = True):
     Usa valores inteiros (0/1) para atribuir sinais std_logic.
     """
     # assegurar valores estáveis antes da borda
-    dut.addr.value = word_addr
+    dut.i_addr.value = word_addr
     # **IMPORTANTE**: atribuir inteiros, não strings, para sinais std_logic
-    dut.re.value = 1 if do_re else 0
+    dut.i_re.value = 1 if do_re else 0
     # garantir clock em '0' antes da subida
-    dut.clk.value = 0
+    dut.i_clk.value = 0
     await Timer(1, units="ns")
 
     # gerar subida de clock
-    dut.clk.value = 1
+    dut.i_clk.value = 1
     await Timer(1, units="ns")  # esperar um pouco depois da borda para a saída estabilizar
 
     # capturar valor
-    val = int(dut.data.value)
+    val = int(dut.o_data.value)
     # voltar clock para 0 e esperar pequena margem
-    dut.clk.value = 0
+    dut.i_clk.value = 0
     await Timer(1, units="ns")
 
     return val

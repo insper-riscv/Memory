@@ -15,50 +15,50 @@ RANDOM = 1 << 8
 
 
 async def start(dut):
-    dut.rst.value = 1
-    dut.start.value = 0
-    dut.mode.value = 0
-    dut.dbg_word_addr.value = 0
-    dut.dbg_flip.value = 0
-    dut.dbg_flip_addr.value = 0
-    dut.dbg_flip_bit.value = 0
-    cocotb.start_soon(Clock(dut.clk, 7, unit="ns").start())
+    dut.i_rst.value = 1
+    dut.i_start.value = 0
+    dut.i_mode.value = 0
+    dut.i_dbg_word_addr.value = 0
+    dut.i_dbg_flip.value = 0
+    dut.i_dbg_flip_addr.value = 0
+    dut.i_dbg_flip_bit.value = 0
+    cocotb.start_soon(Clock(dut.i_clk, 7, unit="ns").start())
     for _ in range(6):
-        await RisingEdge(dut.clk)
-    dut.rst.value = 0
+        await RisingEdge(dut.i_clk)
+    dut.i_rst.value = 0
     for _ in range(40_000):                        # 200 us of power-up wait
-        await RisingEdge(dut.clk)
-        if int(dut.init_done.value):
+        await RisingEdge(dut.i_clk)
+        if int(dut.o_init_done.value):
             break
     else:
         raise AssertionError("the controller never finished its power-up sequence")
     for _ in range(4):
-        await RisingEdge(dut.clk)
+        await RisingEdge(dut.i_clk)
 
 
 async def run(dut, mode, on_phase=None, limit=2_000_000):
     """Start a run and wait for it to finish; on_phase(phase) is called at each clock."""
-    dut.mode.value = mode
-    dut.start.value = 1
+    dut.i_mode.value = mode
+    dut.i_start.value = 1
     for _ in range(3):
-        await RisingEdge(dut.clk)
-    dut.start.value = 0
+        await RisingEdge(dut.i_clk)
+    dut.i_start.value = 0
     for _ in range(limit):
-        await RisingEdge(dut.clk)
+        await RisingEdge(dut.i_clk)
         await Timer(1, unit="ns")
         if on_phase:
-            await on_phase(int(dut.phase.value))
-        if int(dut.done.value) and not int(dut.busy.value):
+            await on_phase(int(dut.o_phase.value))
+        if int(dut.o_done.value) and not int(dut.o_busy.value):
             return
     raise AssertionError("the run never finished")
 
 
 def result(dut):
     return {
-        "fail": int(dut.fail.value),
-        "timeout": int(dut.timeout.value),
-        "errors": int(dut.err_count.value),
-        "ops": int(dut.ops_done.value),
+        "fail": int(dut.o_fail.value),
+        "timeout": int(dut.o_timeout.value),
+        "errors": int(dut.o_err_count.value),
+        "ops": int(dut.o_ops_done.value),
     }
 
 
@@ -105,15 +105,15 @@ async def test_a_flipped_bit_is_found(dut):
         nonlocal flipped
         if phase == 2 and not flipped:             # the first read pass, right at its start
             flipped = True
-            dut.dbg_flip_addr.value = 0x23
-            dut.dbg_flip_bit.value = 5
-            dut.dbg_flip.value = 1
+            dut.i_dbg_flip_addr.value = 0x23
+            dut.i_dbg_flip_bit.value = 5
+            dut.i_dbg_flip.value = 1
             await Timer(5, unit="ns")
-            dut.dbg_flip.value = 0
+            dut.i_dbg_flip.value = 0
 
     await run(dut, 0, on_phase)
     r = result(dut)
     assert flipped and r["fail"] == 1, r
     assert r["errors"] >= 1, r
-    assert int(dut.first_addr.value) == 0x23, hex(int(dut.first_addr.value))
-    assert int(dut.first_exp.value) ^ int(dut.first_got.value) == 1 << 5
+    assert int(dut.o_first_addr.value) == 0x23, hex(int(dut.o_first_addr.value))
+    assert int(dut.o_first_exp.value) ^ int(dut.o_first_got.value) == 1 << 5

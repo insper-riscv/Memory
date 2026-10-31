@@ -1,41 +1,63 @@
+-- =============================================================================
+-- Constantes compartilhadas pelo controlador da SDRAM e pelo modelo do chip
+--
+-- SDRAM SDR de 32M x 16 da DE0-CV (4 bancos, 13 bits de linha, 10 de coluna),
+-- grau -7 a 143 MHz, latência CAS 3. Os valores foram conferidos com as
+-- características AC do datasheet da ISSI IS42/45S16320D: cada um é igual ou mais
+-- conservador que o mínimo do datasheet. São números simples (em picossegundos)
+-- para que mudá-los não toque o controlador. O modelo do chip faz a simulação
+-- falhar quando o controlador viola qualquer um deles.
+-- =============================================================================
+
 library ieee;
 use ieee.std_logic_1164.all;
 
--- Constants shared by the SDRAM controller and the chip model: the 32M x 16 SDR
--- SDRAM of the DE0-CV (4 banks, 13 row bits, 10 column bits), -7 grade at 143 MHz.
---
--- PROVISIONAL: the timings below are the usual values of a 143 MHz SDR part,
--- not read from the datasheet of the chip yet. They are plain numbers (in
--- picoseconds) so that correcting them does not touch the controller. The chip
--- model fails the simulation when the controller violates any of them.
 package sdram_pkg is
 
-  constant T_CK_PS    : natural := 7000;        -- clock period the cycle counts assume (142.857 MHz)
-  constant T_RCD_PS   : natural := 15000;       -- ACTIVE to READ/WRITE
-  constant T_RP_PS    : natural := 15000;       -- PRECHARGE to ACTIVE
-  constant T_RAS_PS   : natural := 42000;       -- ACTIVE to PRECHARGE
-  constant T_RC_PS    : natural := 60000;       -- ACTIVE to ACTIVE, same bank
-  constant T_RFC_PS   : natural := 63000;       -- AUTO REFRESH to any command
-  constant T_WR_PS    : natural := 14000;       -- last write data to PRECHARGE
-  constant T_MRD_CK   : natural := 2;           -- LOAD MODE REGISTER to any command, in clocks
-  constant T_INIT_PS  : natural := 200_000_000; -- wait with a stable clock before the first command
-  constant T_REFI_PS  : natural := 7_812_500;   -- 64 ms / 8192 rows
-  constant INIT_REFRESHES : natural := 8;       -- AUTO REFRESH commands of the power-up sequence
+  -- Período do clock que as contagens de ciclos assumem (142,857 MHz).
+  constant T_CK_PS    : natural := 7000;
+  -- ACTIVE até READ/WRITE.
+  constant T_RCD_PS   : natural := 15000;
+  -- PRECHARGE até ACTIVE.
+  constant T_RP_PS    : natural := 15000;
+  -- ACTIVE até PRECHARGE.
+  constant T_RAS_PS   : natural := 42000;
+  -- ACTIVE até ACTIVE no mesmo banco.
+  constant T_RC_PS    : natural := 60000;
+  -- AUTO REFRESH até qualquer comando (o REF até REF do datasheet: tRC).
+  constant T_RFC_PS   : natural := 63000;
+  -- Último dado de escrita até PRECHARGE.
+  constant T_WR_PS    : natural := 14000;
+  -- LOAD MODE REGISTER até qualquer comando, em clocks.
+  constant T_MRD_CK   : natural := 2;
+  -- Espera com clock estável antes do primeiro comando (datasheet: 100 us).
+  constant T_INIT_PS  : natural := 200_000_000;
+  -- Intervalo entre refreshes: 64 ms / 8192 linhas.
+  constant T_REFI_PS  : natural := 7_812_500;
+  -- Comandos AUTO REFRESH da sequência de energização (datasheet: pelo menos 2).
+  constant INIT_REFRESHES : natural := 8;
 
+  -- Latência CAS em clocks.
   constant CAS_LATENCY : natural := 3;
-  -- burst length 2 (one 32-bit word), sequential, CAS latency 3, burst writes
+  -- Registrador de modo: rajada de 2 (uma palavra de 32 bits), sequencial, latência CAS 3, escritas em rajada.
   constant MODE_REG : std_logic_vector(12 downto 0) := "0000000110001";
 
-  -- command encodings: cs_n & ras_n & cas_n & we_n
+  -- Comando NOP, codificado como cs_n & ras_n & cas_n & we_n.
   constant CMD_NOP       : std_logic_vector(3 downto 0) := "0111";
+  -- Comando ACTIVE.
   constant CMD_ACTIVE    : std_logic_vector(3 downto 0) := "0011";
+  -- Comando READ.
   constant CMD_READ      : std_logic_vector(3 downto 0) := "0101";
+  -- Comando WRITE.
   constant CMD_WRITE     : std_logic_vector(3 downto 0) := "0100";
+  -- Comando PRECHARGE.
   constant CMD_PRECHARGE : std_logic_vector(3 downto 0) := "0010";
+  -- Comando AUTO REFRESH.
   constant CMD_REFRESH   : std_logic_vector(3 downto 0) := "0001";
+  -- Comando LOAD MODE REGISTER.
   constant CMD_LOAD_MODE : std_logic_vector(3 downto 0) := "0000";
 
-  -- Clock cycles that cover a time (rounded up).
+  -- Ciclos de clock que cobrem um tempo (arredondado para cima).
   function cycles(ps : natural; tck_ps : natural) return natural;
 
 end package sdram_pkg;

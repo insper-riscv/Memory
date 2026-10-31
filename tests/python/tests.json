@@ -2,24 +2,41 @@
     "RAM": {
         "toplevel": "ram_simulation",
         "sources": [
-            "sim/RAM_simulation.vhd"
+            "sim/ram_simulation.vhd"
         ],
-        "test_module": "tests.python.unittests.sim.RAM"
+        "test_module": "tests.python.unittests.sim.RAM",
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ]
     },
     "ROM": {
         "toplevel": "rom_simulation",
         "sources": [
-            "sim/ROM_simulation.vhd"
+            "sim/rom_simulation.vhd"
         ],
         "test_module": "tests.python.unittests.sim.ROM",
         "parameters": {
             "ROM_FILE": "tests/python/unittests/sim/data/testROM.hex"
-        }
+        },
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ]
     },
     "SdramSystem": {
         "toplevel": "sdram_system",
         "sources": [
             "external/sdram/sdram_pkg.vhd",
+            "Common-Components/src/synchronizer.vhd",
             "external/sdram/sdram_ctrl.vhd",
             "external/sdram/sdram_cpu_bridge.vhd",
             "external/sdram/sdram_arbiter.vhd",
@@ -40,6 +57,7 @@
         "toplevel": "sdram_bist_system",
         "sources": [
             "external/sdram/sdram_pkg.vhd",
+            "Common-Components/src/synchronizer.vhd",
             "external/sdram/sdram_ctrl.vhd",
             "external/sdram/sdram_bist.vhd",
             "external/sdram/sim/sdram_model.vhd",
@@ -60,6 +78,7 @@
         "toplevel": "sdram_bist_system",
         "sources": [
             "external/sdram/sdram_pkg.vhd",
+            "Common-Components/src/synchronizer.vhd",
             "external/sdram/sdram_ctrl.vhd",
             "external/sdram/sdram_bist.vhd",
             "external/sdram/sim/sdram_model.vhd",
@@ -80,6 +99,7 @@
         "toplevel": "sdram_system",
         "sources": [
             "external/sdram/sdram_pkg.vhd",
+            "Common-Components/src/synchronizer.vhd",
             "external/sdram/sdram_ctrl.vhd",
             "external/sdram/sdram_cpu_bridge.vhd",
             "external/sdram/sdram_arbiter.vhd",
@@ -115,6 +135,7 @@
         "toplevel": "sdram_dcache_system",
         "sources": [
             "external/sdram/sdram_pkg.vhd",
+            "Common-Components/src/synchronizer.vhd",
             "external/sdram/sdram_ctrl.vhd",
             "external/sdram/sdram_cpu_bridge.vhd",
             "external/sdram/sdram_arbiter.vhd",
@@ -192,6 +213,7 @@
         "toplevel": "sdram_dcache_system",
         "sources": [
             "external/sdram/sdram_pkg.vhd",
+            "Common-Components/src/synchronizer.vhd",
             "external/sdram/sdram_ctrl.vhd",
             "external/sdram/sdram_cpu_bridge.vhd",
             "external/sdram/sdram_arbiter.vhd",
@@ -219,6 +241,7 @@
         "toplevel": "axi_sdram_slave_system",
         "sources": [
             "external/sdram/sdram_pkg.vhd",
+            "Common-Components/src/synchronizer.vhd",
             "external/sdram/sdram_ctrl.vhd",
             "external/sdram/sdram_cpu_bridge.vhd",
             "external/sdram/sdram_arbiter.vhd",
@@ -230,6 +253,106 @@
             "external/axi/sim/axi_sdram_slave_system.vhd"
         ],
         "test_module": "tests.python.unittests.external.AxiSdramSlave",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "InstructionCache": {
+        "toplevel": "icache",
+        "sources": [
+            "external/cache/icache.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.InstructionCache",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "FlashChip": {
+        "toplevel": "flash_chip",
+        "sources": [
+            "external/cache/flash_chip.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.FlashChip",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "MemRegionRouter": {
+        "toplevel": "mem_region_router",
+        "sources": [
+            "external/cache/mem_region_router.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.MemRegionRouter",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "FlashArbiter": {
+        "toplevel": "flash_arbiter",
+        "sources": [
+            "external/cache/flash_arbiter.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.FlashArbiter",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "FlashPath": {
+        "toplevel": "flash_path_system",
+        "sources": [
+            "external/cache/icache.vhd",
+            "external/cache/flash_chip.vhd",
+            "external/cache/mem_region_router.vhd",
+            "external/cache/flash_arbiter.vhd",
+            "external/cache/sim/flash_path_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.FlashPath",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "DataCacheFlash": {
+        "toplevel": "dcache",
+        "sources": [
+            "external/cache/dcache.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.DataCacheFlash",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "WRITE_THROUGH": true
+        }
+    },
+    "SegDisplay": {
+        "toplevel": "seg_display",
+        "sources": [
+            "external/bus/hex_to_seg7.vhd",
+            "Common-Components/src/synchronizer.vhd",
+            "external/bus/seg_display.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.SegDisplay",
         "build_args": [
             "--std=08"
         ],

@@ -18,24 +18,24 @@ SAME_INDEX = LINES * LINE_WORDS   # words apart that map to the same line of the
 
 
 async def begin(dut):
-    dut.flush.value = 0
+    dut.i_flush.value = 0
     await start(dut)
 
 
 async def flush(dut):
     """Write back every dirty line; returns the cpu cycles it took."""
-    dut.flush.value = 1
+    dut.i_flush.value = 1
     await _post_edge(dut)
-    dut.flush.value = 0
+    dut.i_flush.value = 0
     cycles = 1
     while True:
-        await RisingEdge(dut.clk_cpu)
+        await RisingEdge(dut.i_clk_cpu)
         cycles += 1
-        if int(dut.flush_done.value):
+        if int(dut.o_flush_done.value):
             break
         assert cycles < 200_000, "flush never finished"
     await _post_edge(dut)
-    assert int(dut.busy.value) == 0
+    assert int(dut.o_busy.value) == 0
     return cycles
 
 

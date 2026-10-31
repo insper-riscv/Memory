@@ -19,7 +19,7 @@ DEPTH = 64
 
 
 async def post_edge(dut):
-    await RisingEdge(dut.clk)
+    await RisingEdge(dut.i_clk)
     await Timer(1, unit="ns")
 
 
@@ -29,19 +29,19 @@ def own_memory(dut):
 
 
 async def start(dut):
-    for sig in (dut.rden, dut.wren, dut.mem_advance):
+    for sig in (dut.i_rden, dut.i_wren, dut.i_mem_advance):
         sig.value = 0
     if own_memory(dut):
-        dut.m_ready.value = 0
-        dut.m_rdata.value = MEM_VALUE
-    dut.addr.value = 0
-    dut.wdata.value = 0
-    dut.byteena.value = 0
-    dut.rst.value = 1
-    cocotb.start_soon(Clock(dut.clk, 20, unit="ns").start())
+        dut.i_m_ready.value = 0
+        dut.i_m_rdata.value = MEM_VALUE
+    dut.i_addr.value = 0
+    dut.i_wdata.value = 0
+    dut.i_byteena.value = 0
+    dut.i_rst.value = 1
+    cocotb.start_soon(Clock(dut.i_clk, 20, unit="ns").start())
     for _ in range(4):
-        await RisingEdge(dut.clk)
-    dut.rst.value = 0
+        await RisingEdge(dut.i_clk)
+    dut.i_rst.value = 0
     await post_edge(dut)
     await load_ir(dut, 1)
 
@@ -49,49 +49,49 @@ async def start(dut):
 async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):
     """One core access; returns (read data, cycles until ready). The port holds until ready, then
     `hold` more cycles (the pipeline stopped by something else) before mem_advance."""
-    dut.addr.value = addr
-    dut.wdata.value = wdata
-    dut.byteena.value = 0xF
-    dut.wren.value = 1 if we else 0
-    dut.rden.value = 0 if we else 1
+    dut.i_addr.value = addr
+    dut.i_wdata.value = wdata
+    dut.i_byteena.value = 0xF
+    dut.i_wren.value = 1 if we else 0
+    dut.i_rden.value = 0 if we else 1
     cycles = 0
     while True:
         await post_edge(dut)
         cycles += 1
         if own_memory(dut) and addr < 0x80000000 and cycles == mem_latency:
-            dut.m_ready.value = 1     # the memory answers, as a level
+            dut.i_m_ready.value = 1     # the memory answers, as a level
         if own_memory(dut) and addr >= 0x80000000:
-            assert int(dut.m_rden.value) == 0 and int(dut.m_wren.value) == 0, "a peripheral access reached the memory"
-        if int(dut.ready.value):
+            assert int(dut.o_m_rden.value) == 0 and int(dut.o_m_wren.value) == 0, "a peripheral access reached the memory"
+        if int(dut.o_ready.value):
             break
         assert cycles < 5000, "the access never completed"
     for _ in range(hold):
-        assert int(dut.ready.value), "ready dropped before the pipeline advanced"
+        assert int(dut.o_ready.value), "ready dropped before the pipeline advanced"
         await post_edge(dut)
-    dut.mem_advance.value = 1
+    dut.i_mem_advance.value = 1
     await post_edge(dut)
-    dut.mem_advance.value = 0
+    dut.i_mem_advance.value = 0
     if own_memory(dut):
-        dut.m_ready.value = 0
-    dut.rden.value = 0
-    dut.wren.value = 0
-    return int(dut.rdata.value), cycles
+        dut.i_m_ready.value = 0
+    dut.i_rden.value = 0
+    dut.i_wren.value = 0
+    return int(dut.o_rdata.value), cycles
 
 
 async def tck(dut, **states):
     for name in ("cdr", "sdr", "udr", "uir"):
-        getattr(dut, f"jtag_state_{name}").value = 1 if states.get(name) else 0
-    dut.jtag_tck.value = 0
+        getattr(dut, f"i_jtag_state_{name}").value = 1 if states.get(name) else 0
+    dut.i_jtag_tck.value = 0
     await Timer(HALF_TCK_NS, unit="ns")
-    dut.jtag_tck.value = 1
+    dut.i_jtag_tck.value = 1
     await Timer(HALF_TCK_NS, unit="ns")
-    dut.jtag_tck.value = 0
+    dut.i_jtag_tck.value = 0
     for name in ("cdr", "sdr", "udr", "uir"):
-        getattr(dut, f"jtag_state_{name}").value = 0
+        getattr(dut, f"i_jtag_state_{name}").value = 0
 
 
 async def load_ir(dut, value):
-    dut.jtag_ir_in.value = value
+    dut.i_jtag_ir_in.value = value
     await tck(dut, uir=True)
 
 
@@ -102,9 +102,9 @@ async def scan(dut, push=None):
     await tck(dut, cdr=True)
     out = 0
     for i in range(48):
-        dut.jtag_tdi.value = (value >> i) & 1
+        dut.i_jtag_tdi.value = (value >> i) & 1
         await Timer(1, unit="ns")
-        out |= int(dut.jtag_tdo.value) << i
+        out |= int(dut.o_jtag_tdo.value) << i
         await tck(dut, sdr=True)
     await tck(dut, udr=True)
     n = (out >> 32) & 7
@@ -265,28 +265,28 @@ async def test_the_load_in_the_last_stage_keeps_its_data(dut):
         await scan(dut, push=b)
         await Timer(1, unit="us")
     # A: a peripheral read, completes and advances
-    dut.addr.value = RXDATA
-    dut.rden.value = 1
+    dut.i_addr.value = RXDATA
+    dut.i_rden.value = 1
     while True:
         await post_edge(dut)
-        if int(dut.ready.value):
+        if int(dut.o_ready.value):
             break
-    dut.mem_advance.value = 1
+    dut.i_mem_advance.value = 1
     await post_edge(dut)
-    dut.mem_advance.value = 0
+    dut.i_mem_advance.value = 0
     # B is on the port now: a second peripheral read, still working; A's data is on rdata
-    dut.addr.value = RXDATA
+    dut.i_addr.value = RXDATA
     waited = 0
-    while waited < 3 or not int(dut.ready.value):
-        assert int(dut.rdata.value) == 0x141, hex(int(dut.rdata.value))
+    while waited < 3 or not int(dut.o_ready.value):
+        assert int(dut.o_rdata.value) == 0x141, hex(int(dut.o_rdata.value))
         await post_edge(dut)
         waited += 1
         assert waited < 5000, "the access never completed"
-    dut.mem_advance.value = 1
+    dut.i_mem_advance.value = 1
     await post_edge(dut)
-    dut.mem_advance.value = 0
-    assert int(dut.rdata.value) == 0x142
-    dut.rden.value = 0
+    dut.i_mem_advance.value = 0
+    assert int(dut.o_rdata.value) == 0x142
+    dut.i_rden.value = 0
 
 
 @cocotb.test()

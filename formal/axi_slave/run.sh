@@ -21,7 +21,7 @@ netlist() {  # <vhdl> <name>
   ghdl -a --std=08 --workdir="$work" "$1"
   ghdl --synth --std=08 --workdir="$work" --out=verilog axi_slave_word_bridge > "$2.v"
   # a copy that exposes the state registers the invariants need (the logic is the same)
-  sed -e 's/input  \[95:0\] rdata_x);/input  [95:0] rdata_x,\n  output [2:0] dbg_st, output dbg_we, output dbg_bad, output dbg_fast, output [1:0] dbg_k, output [7:0] dbg_left);/' \
+  sed -e 's/input  \[95:0\] i_rdata_x);/input  [95:0] i_rdata_x,\n  output [2:0] dbg_st, output dbg_we, output dbg_bad, output dbg_fast, output [1:0] dbg_k, output [7:0] dbg_left);/' \
       -e 's/^endmodule/  assign dbg_st = st;\n  assign dbg_we = we_l;\n  assign dbg_bad = bad_l;\n  assign dbg_fast = fast_l;\n  assign dbg_k = k;\n  assign dbg_left = left_l;\nendmodule/' \
       "$2.v" > "$2_dbg.v"
   grep -q dbg_st "$2_dbg.v" || { echo "the netlist has no register named st: the exposure did not apply"; exit 1; }
@@ -57,11 +57,11 @@ mutant() {  # <name> <sed expression>
   netlist "$out/mut_$1.vhd" "mut_$1"
   expect "mutant $1 is caught" FAIL "$(prove "mut_$1_dbg.v" bmc 30 '' "mut_$1")"
 }
-mutant read_over_write "s/ and s_awvalid = '0' else '0';/ else '0';/"
+mutant read_over_write "s/ and i_s_awvalid = '0' else '0';/ else '0';/"
 mutant aw_twice       "s/awr <= '1' when st = ST_IDLE else '0';/awr <= '1';/"
 mutant rlast_early    "s/(fast_l = '1' and k = 3) or (fast_l = '0' and left_l = 0)) else '0'/(fast_l = '1' and k = 2) or (fast_l = '0' and left_l = 0)) else '0'/"
 mutant serves_unaligned "s/ or a(1 downto 0) \\/= \"00\" then/ then/"
-mutant no_wait_resp   "s/            if s_bready = '1' then/            if true then/"
-mutant advance_early  "s/if ready = '1' then/if true then/"
+mutant no_wait_resp   "s/            if i_s_bready = '1' then/            if true then/"
+mutant advance_early  "s/if i_ready = '1' then/if true then/"
 
 [ "$fail" -eq 0 ] && echo "formal axi: all expectations met" || { echo "formal axi: FAILED (logs in build/formal_axi_slave)"; exit 1; }

@@ -20,35 +20,35 @@ BASE = 0x40000000
 
 async def setup(dut):
     for sig in ("awvalid", "wvalid", "arvalid", "bready", "rready"):
-        getattr(dut, f"s_{sig}").value = 0
+        getattr(dut, f"i_s_{sig}").value = 0
     for ch in ("aw", "ar"):
-        getattr(dut, f"s_{ch}len").value = 0
-        getattr(dut, f"s_{ch}size").value = 2
-        getattr(dut, f"s_{ch}burst").value = 1
-    dut.s_wlast.value = 1
-    dut.dbg_word_addr.value = 0
-    dut.rst.value = 1
-    dut.rst_mem.value = 1
-    cocotb.start_soon(Clock(dut.clk_mem, MEM_NS, unit="ns").start())
-    cocotb.start_soon(Clock(dut.clk, CPU_NS, unit="ns").start())
+        getattr(dut, f"i_s_{ch}len").value = 0
+        getattr(dut, f"i_s_{ch}size").value = 2
+        getattr(dut, f"i_s_{ch}burst").value = 1
+    dut.i_s_wlast.value = 1
+    dut.i_dbg_word_addr.value = 0
+    dut.i_rst.value = 1
+    dut.i_rst_mem.value = 1
+    cocotb.start_soon(Clock(dut.i_clk_mem, MEM_NS, unit="ns").start())
+    cocotb.start_soon(Clock(dut.i_clk, CPU_NS, unit="ns").start())
     for _ in range(6):
-        await RisingEdge(dut.clk)
-    dut.rst.value = 0
-    dut.rst_mem.value = 0
+        await RisingEdge(dut.i_clk)
+    dut.i_rst.value = 0
+    dut.i_rst_mem.value = 0
     for _ in range(int(2 * 200_000 / CPU_NS)):
-        await RisingEdge(dut.clk)
+        await RisingEdge(dut.i_clk)
         await Timer(1, unit="ns")
-        if int(dut.init_done.value) and int(dut.dbg_init_ok.value):
+        if int(dut.o_init_done.value) and int(dut.o_dbg_init_ok.value):
             return
     raise AssertionError("the controller never finished its power-up sequence")
 
 
 async def chip_word(dut, word):
-    dut.dbg_word_addr.value = word
+    dut.i_dbg_word_addr.value = word
     for _ in range(3):
-        await RisingEdge(dut.clk_mem)
+        await RisingEdge(dut.i_clk_mem)
     await Timer(1, unit="ns")
-    return int(dut.dbg_word_data.value)
+    return int(dut.o_dbg_word_data.value)
 
 
 def word_of(addr):
@@ -129,7 +129,7 @@ async def test_a_line_read_is_faster_than_four_single_reads(dut):
 
         async def count():
             while True:
-                await RisingEdge(dut.clk)
+                await RisingEdge(dut.i_clk)
                 t[0] += 1
 
         c = cocotb.start_soon(count())
