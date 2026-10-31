@@ -8,7 +8,7 @@
 --   bit 31 = 0   o espaço da SDRAM: pela cache de dados, em linhas de quatro
 --                palavras, exceto os últimos 4 KB (0x43FFF000 a 0x43FFFFFF), que
 --                não passam pela cache: as palavras que o hospedeiro compartilha
---                com o programa (mailbox, tohost, fromhost, bandeira de partida,
+--                com o programa (tohost, fromhost,
 --                stdout) moram ali, e o hospedeiro as lê e escreve pela porta de
 --                debug da SDRAM
 --   bit 31 = 1   uma janela de periféricos (bits 30:28 o periférico, 9:2 a
@@ -304,7 +304,7 @@ begin
   c_wren <= i_wren and not mmio;
 
   u_cache : entity work.dcache
-    generic map (base => base, write_through => write_through)
+    generic map (base_sdram => base, write_through => write_through)
     port map (
       i_clk => i_clk, i_rst => i_rst,
       i_addr => i_addr, i_wdata => i_wdata, i_byteena => i_byteena, i_rden => c_rden, i_wren => c_wren,

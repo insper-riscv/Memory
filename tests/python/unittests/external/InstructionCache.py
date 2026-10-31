@@ -166,3 +166,80 @@ async def test_address_change_during_a_fill(dut):
     data, waited = await fetch(dut, a)                # and the line of a ended up in the cache
     assert data == word(a)
     assert waited <= 1
+
+
+FLASH = 0x20000000
+
+
+@cocotb.test()
+async def test_regions_do_not_alias(dut):
+    mem = await start(dut)
+    # same index and same bits 25:12, different region
+    s, f = BASE + 0x1230, FLASH + 0x1230
+    for addr in (s, f):
+        data, waited = await fetch(dut, addr)
+        assert data == word(addr)
+        assert waited > LAT, f"{addr:#x} must be a miss of its own"
+    assert mem.requests == [s & ~0xF, f & ~0xF]
+    # the FLASH line replaced the SDRAM one, so the SDRAM line misses again
+    data, waited = await fetch(dut, s)
+    assert data == word(s) and waited > LAT
+    assert mem.requests[-1] == s & ~0xF
+
+
+@cocotb.test()
+async def test_fill_addresses_carry_the_region_base(dut):
+    mem = await start(dut)
+    for addr in (FLASH + 0x40, BASE + 0x40, FLASH + 0x7FFF0, BASE + 0x3FFFFF0):
+        await fetch(dut, addr)
+    assert [a >> 28 for a in mem.requests] == [0x2, 0x4, 0x2, 0x4]
+    assert mem.requests == [(FLASH + 0x40) & ~0xF, (BASE + 0x40) & ~0xF,
+                            (FLASH + 0x7FFF0) & ~0xF, (BASE + 0x3FFFFF0) & ~0xF]
+
+
+@cocotb.test()
+async def test_flash_line_hits_in_the_line(dut):
+    mem = await start(dut)
+    base = FLASH + 0x2230
+    await fetch(dut, base)
+    for i in range(1, 4):
+        data, waited = await fetch(dut, base + 4 * i)
+        assert data == word(base + 4 * i) and waited <= 1
+    assert mem.requests == [base]
+
+
+@cocotb.test()
+async def test_invalidate_drops_the_lines_of_both_regions(dut):
+    mem = await start(dut)
+    addrs = [FLASH + 0x100, BASE + 0x2F0]
+    for a in addrs:
+        await fetch(dut, a)
+    mem.version = 1
+    dut.i_invalidate.value = 1
+    await RisingEdge(dut.i_clk)
+    dut.i_invalidate.value = 0
+    del mem.requests[:]
+    for a in addrs:
+        data, _ = await fetch(dut, a)
+        assert data == word(a, 1)
+    assert len(mem.requests) == 2
+
+
+async def count_misses(dut, cycles):
+    """Number of clocks with o_miss high over `cycles` clocks."""
+    seen = 0
+    for _ in range(cycles):
+        await RisingEdge(dut.i_clk)
+        await Timer(1, unit="ns")
+        seen += int(dut.o_miss.value)
+    return seen
+
+
+@cocotb.test()
+async def test_one_miss_pulse_per_filled_line(dut):
+    await start(dut)
+    monitor = cocotb.start_soon(count_misses(dut, 1200))
+    for base in (BASE + 0x100, BASE + 0x200, BASE + 0x100, FLASH + 0x100):
+        await fetch(dut, base)
+        await fetch(dut, base + 4)                       # same line: a hit
+    assert await monitor == 3, "three lines filled, the repeated one is a hit"

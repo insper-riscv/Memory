@@ -2,8 +2,10 @@
 -- Cache de instruções do core
 --
 -- 4 KB, mapeamento direto, linhas de 16 bytes (quatro palavras), somente leitura.
--- Fica no caminho de busca dos endereços da SDRAM; a BOOT_ROM e a FLASH não
--- passam por ela.
+-- Fica no caminho de busca dos endereços da SDRAM (0x40000000) e da FLASH
+-- (0x20000000); a BOOT_ROM não passa por ela. A tag leva o bit 29 do endereço,
+-- que distingue as duas regiões: sem ele, uma linha da FLASH e uma da SDRAM com os
+-- mesmos bits 25:12 se confundiriam.
 --
 -- Lado do core: addr é o endereço de busca (o PC) e sel diz que é um endereço da
 -- SDRAM. As RAMs têm leitura registrada, como as RAMs de bloco da FPGA, então a
@@ -28,9 +30,9 @@
 -- stores do core, que a cache não observa: só um fence.i os torna visíveis à
 -- busca.
 --
--- Divisão do endereço do espaço da SDRAM (64 MB): bits 25:12 tag, 11:4 linha,
--- 3:2 palavra. Os bits acima de 25 não são guardados; o lado da memória
--- acrescenta base neles.
+-- Divisão do endereço (64 MB por região): bit 29 região (1 = FLASH), bits 25:12
+-- tag, 11:4 linha, 3:2 palavra. Os demais bits acima de 25 não são guardados; o
+-- lado da memória acrescenta a base da região neles (base_flash ou base_sdram).
 -- =============================================================================
 
 library ieee;
@@ -40,7 +42,9 @@ use ieee.numeric_std.all;
 entity icache is
   generic (
     -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória.
-    base : std_logic_vector(5 downto 0) := "010000"
+    base_sdram : std_logic_vector(5 downto 0) := "010000";
+    -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
+    base_flash : std_logic_vector(5 downto 0) := "001000"
   );
   port (
     -- Clock do módulo.
@@ -50,7 +54,7 @@ entity icache is
 
     -- Endereço de busca (o PC).
     i_addr       : in  std_logic_vector(31 downto 0);
-    -- O endereço de busca pertence à SDRAM ('1').
+    -- O endereço de busca pertence à FLASH ou à SDRAM ('1').
     i_sel        : in  std_logic;
     -- A instrução em o_data é a do endereço atual ('1').
     o_ready      : out std_logic;
@@ -58,6 +62,8 @@ entity icache is
     o_data       : out std_logic_vector(31 downto 0);
     -- Pulso que derruba todas as linhas da cache.
     i_invalidate : in  std_logic := '0';
+    -- Pulso de um ciclo no início de cada preenchimento de linha (uma falha da cache).
+    o_miss       : out std_logic;
 
     -- Lado da memória: endereço do acesso.
     o_d_addr     : out std_logic_vector(31 downto 0);
@@ -85,8 +91,8 @@ architecture rtl of icache is
 
   -- Memória de dados: 1024 palavras, quatro por linha.
   type data_t is array (0 to 1023) of std_logic_vector(31 downto 0);
-  -- Memória de tags: uma tag de 14 bits por linha.
-  type tag_t  is array (0 to 255) of std_logic_vector(13 downto 0);
+  -- Memória de tags: uma tag de 15 bits por linha (região e bits 25:12).
+  type tag_t  is array (0 to 255) of std_logic_vector(14 downto 0);
   -- Palavras das 256 linhas.
   signal data_ram : data_t := (others => (others => '0'));
   -- Tag de cada linha.
@@ -97,7 +103,7 @@ architecture rtl of icache is
   -- Palavra lida da memória de dados (leitura registrada).
   signal ram_rd   : std_logic_vector(31 downto 0) := (others => '0');
   -- Tag lida da memória de tags (leitura registrada).
-  signal tag_rd   : std_logic_vector(13 downto 0) := (others => '0');
+  signal tag_rd   : std_logic_vector(14 downto 0) := (others => '0');
   -- Validade da linha lida (registrada).
   signal valid_rd : std_logic := '0';
   -- Endereço que estava em addr na última borda.
@@ -111,7 +117,7 @@ architecture rtl of icache is
   signal hit       : std_logic;
 
   -- Tag da linha em preenchimento.
-  signal fill_tag : std_logic_vector(13 downto 0);
+  signal fill_tag : std_logic_vector(14 downto 0);
   -- Índice da linha em preenchimento.
   signal fill_idx : std_logic_vector(7 downto 0);
   -- Palavra da linha em preenchimento.
@@ -135,7 +141,7 @@ architecture rtl of icache is
 
 begin
 
-  tag_match <= '1' when tag_rd = addr_q(25 downto 12) else '0';
+  tag_match <= '1' when tag_rd = (addr_q(29) & addr_q(25 downto 12)) else '0';
   hit       <= sel_q and valid_rd and tag_match;
   o_ready     <= hit when addr_q = i_addr else '0';
   o_data      <= ram_rd;
@@ -165,6 +171,8 @@ begin
     end if;
   end process;
 
+  o_miss      <= '1' when st = S_FILL_REQ else '0';
+
   o_d_addr    <= d_addr_i;
   o_d_rden    <= d_rden_i;
   o_d_line    <= d_line_i;
@@ -193,13 +201,17 @@ begin
             drop <= '0';
             -- uma falha do endereço que ainda está em addr: traz a sua linha
             if sel_q = '1' and hit = '0' and addr_q = i_addr and i_invalidate = '0' then
-              fill_tag <= addr_q(25 downto 12);
+              fill_tag <= addr_q(29) & addr_q(25 downto 12);
               fill_idx <= addr_q(11 downto 4);
               st       <= S_FILL_REQ;
             end if;
 
           when S_FILL_REQ =>
-            d_addr_i <= base & fill_tag & fill_idx & "0000";
+            if fill_tag(14) = '1' then
+              d_addr_i <= base_flash & fill_tag(13 downto 0) & fill_idx & "0000";
+            else
+              d_addr_i <= base_sdram & fill_tag(13 downto 0) & fill_idx & "0000";
+            end if;
             d_line_i <= '1';
             d_rden_i <= '1';
             st       <= S_FILL_WAIT;

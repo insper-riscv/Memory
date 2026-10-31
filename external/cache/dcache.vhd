@@ -36,9 +36,14 @@
 -- ainda podem estar mais velhas que a memória quando o hospedeiro a escreve; um
 -- invalidate (veja flush) antes de o hospedeiro carregar algo novo as derruba.
 --
--- Divisão do endereço do espaço da SDRAM (64 MB): bits 25:12 tag, 11:4 linha,
--- 3:2 palavra. Os bits acima de 25 não são guardados; o lado da memória
--- acrescenta base neles.
+-- Divisão do endereço (64 MB por região): bit 29 região (1 = FLASH), bits 25:12
+-- tag, 11:4 linha, 3:2 palavra. Os demais bits acima de 25 não são guardados; o
+-- lado da memória acrescenta a base da região neles (base_flash ou base_sdram).
+--
+-- FLASH: os loads trazem e guardam a linha como na SDRAM. Um store à FLASH nunca
+-- altera a cache, nem num acerto nem numa falha, e só é repassado à memória, onde o
+-- roteador de região o conclui sem efeito: a FLASH ignora escritas, e uma linha
+-- atualizada mostraria um dado que o chip não tem.
 -- =============================================================================
 
 library ieee;
@@ -48,7 +53,9 @@ use ieee.numeric_std.all;
 entity dcache is
   generic (
     -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória.
-    base          : std_logic_vector(5 downto 0) := "010000";
+    base_sdram    : std_logic_vector(5 downto 0) := "010000";
+    -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
+    base_flash    : std_logic_vector(5 downto 0) := "001000";
     -- Verdadeiro: todo store vai também à memória e a falha de store não traz a linha (nenhuma linha fica suja).
     write_through : boolean := false
   );
@@ -79,6 +86,12 @@ entity dcache is
     i_flush       : in  std_logic;
     -- Invalida todas as linhas da cache ('1').
     i_invalidate  : in  std_logic := '0';
+    -- Pulso de um ciclo no início de cada preenchimento de linha (uma falha de leitura da cache).
+    o_miss        : out std_logic;
+    -- O acesso em andamento não passa pela cache ('1'): um load vai à memória como palavra, sem consultar nem
+    -- trazer linha, e um store só é repassado, sem atualizar a cache. Vale para as palavras que o hospedeiro
+    -- escreve por trás da cache (por exemplo o fromhost), que a cache não poderia manter atualizadas.
+    i_bypass      : in  std_logic := '0';
     -- A escrita das linhas sujas terminou ('1').
     o_flush_done  : out std_logic;
     -- O módulo está ocupado ('1').
@@ -117,16 +130,16 @@ architecture rtl of dcache is
     S_WB_RD, S_WB_CAP, S_WB_REQ, S_WB_WAIT,
     S_FILL_REQ, S_FILL_WAIT, S_FILL_GET,
     S_FL_TAG, S_FL_CHK, S_FL_NEXT,
-    S_WT_REQ, S_WT_WAIT);
+    S_WT_REQ, S_WT_WAIT,
+    S_BY_REQ, S_BY_WAIT, S_BY_GET);
   -- Estado atual da cache.
   signal st : state_t := S_IDLE;
 
   -- Memória de dados: 1024 palavras, quatro por linha.
-  type data_t is array (0 to 1023) of std_logic_vector(31 downto 0);
+  type lane_t is array (0 to 1023) of std_logic_vector(7 downto 0);
   -- Memória de tags: uma tag de 14 bits por linha.
-  type tag_t  is array (0 to 255) of std_logic_vector(13 downto 0);
+  type tag_t  is array (0 to 255) of std_logic_vector(14 downto 0);
   -- Palavras das 256 linhas.
-  signal data_ram : data_t := (others => (others => '0'));
   -- Tag de cada linha.
   signal tag_ram  : tag_t  := (others => (others => '0'));
   -- Bit de validade de cada linha.
@@ -151,14 +164,14 @@ architecture rtl of dcache is
   -- Endereço de escrita da memória de tags.
   signal tag_wa : std_logic_vector(7 downto 0);
   -- Tag lida da memória de tags (leitura registrada).
-  signal tag_rd : std_logic_vector(13 downto 0);
+  signal tag_rd : std_logic_vector(14 downto 0);
   -- Tag a escrever.
-  signal tag_wd : std_logic_vector(13 downto 0);
+  signal tag_wd : std_logic_vector(14 downto 0);
   -- Habilita de escrita da memória de tags.
   signal tag_we         : std_logic;
 
   -- Tag do endereço do acesso.
-  signal req_tag  : std_logic_vector(13 downto 0);
+  signal req_tag  : std_logic_vector(14 downto 0);
   -- Índice da linha do endereço do acesso.
   signal req_idx  : std_logic_vector(7 downto 0);
   -- Linha em processamento.
@@ -203,7 +216,7 @@ architecture rtl of dcache is
 
 begin
 
-  req_tag <= i_addr(25 downto 12);
+  req_tag <= i_addr(29) & i_addr(25 downto 12);
   req_idx <= i_addr(11 downto 4);
   cur_idx <= std_logic_vector(f_idx) when flushing = '1' else req_idx;
   hit     <= valid(to_integer(unsigned(cur_idx))) when tag_rd = req_tag else '0';
@@ -213,7 +226,7 @@ begin
   tag_ra <= cur_idx;
 
   -- porta de escrita: um acerto escreve a palavra, um preenchimento escreve a palavra que chegou
-  ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1') or st = S_FILL_GET else '0';
+  ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1' and i_addr(29) = '0' and i_bypass = '0') or st = S_FILL_GET else '0';
   ram_wa <= i_addr(11 downto 2) when st = S_LOOK else req_idx & std_logic_vector(cnt);
   fill_w <= i_d_rdata when cnt = "00" else
             i_d_rdata_x(31 downto 0)  when cnt = "01" else
@@ -228,14 +241,6 @@ begin
   process (i_clk)
   begin
     if rising_edge(i_clk) then
-      ram_rd <= data_ram(to_integer(unsigned(ram_ra)));
-      if ram_we = '1' then
-        for b in 0 to 3 loop
-          if ram_be(b) = '1' then
-            data_ram(to_integer(unsigned(ram_wa)))(8 * b + 7 downto 8 * b) <= ram_wd(8 * b + 7 downto 8 * b);
-          end if;
-        end loop;
-      end if;
       tag_rd <= tag_ram(to_integer(unsigned(tag_ra)));
       if tag_we = '1' then
         tag_ram(to_integer(unsigned(tag_wa))) <= tag_wd;
@@ -243,6 +248,24 @@ begin
     end if;
   end process;
 
+  -- Uma RAM por byte do dado, cada uma com a sua habilitação de escrita: é o que a síntese reconhece como bloco de
+  -- RAM (uma RAM de 32 bits escrita byte a byte num laço viraria um vetor de registradores).
+  gen_lane : for b in 0 to 3 generate
+    -- Os bytes de uma posição da RAM de dados, a faixa b da palavra.
+    signal lane : lane_t := (others => (others => '0'));
+  begin
+    process (i_clk)
+    begin
+      if rising_edge(i_clk) then
+        ram_rd(8 * b + 7 downto 8 * b) <= lane(to_integer(unsigned(ram_ra)));
+        if ram_we = '1' and ram_be(b) = '1' then
+          lane(to_integer(unsigned(ram_wa))) <= ram_wd(8 * b + 7 downto 8 * b);
+        end if;
+      end if;
+    end process;
+  end generate;
+
+  o_miss       <= '1' when st = S_FILL_REQ else '0';
   o_ready      <= '1' when st = S_DONE else '0';
   o_rdata      <= rdata_q;
   o_busy       <= flush_pend or flushing;
@@ -294,8 +317,12 @@ begin
             end if;
 
           when S_LOOK =>
-            if write_through and i_wren = '1' then
-              -- a RAM da cache recebe a palavra num acerto (ram_we); a memória a recebe nos dois casos
+            if i_bypass = '1' and i_wren = '0' then
+              -- load sem cache: uma palavra da memória
+              st <= S_BY_REQ;
+            elsif (write_through or i_addr(29) = '1' or i_bypass = '1') and i_wren = '1' then
+              -- a RAM da cache recebe a palavra num acerto (ram_we); a memória a recebe nos dois casos.
+              -- Um store à FLASH nunca atualiza a cache, porque a FLASH ignora o store: só passa adiante
               st <= S_WT_REQ;
             elsif hit = '1' then
               if i_wren = '1' then
@@ -323,7 +350,11 @@ begin
 
           -- escrita direta: a palavra do store vai à memória
           when S_WT_REQ =>
-            d_addr_i  <= base & i_addr(25 downto 2) & "00";
+            if i_addr(29) = '1' then
+              d_addr_i <= base_flash & i_addr(25 downto 2) & "00";
+            else
+              d_addr_i <= base_sdram & i_addr(25 downto 2) & "00";
+            end if;
             d_wdata_i <= i_wdata;
             d_be_i    <= i_byteena;
             d_wren_i  <= '1';
@@ -335,6 +366,27 @@ begin
               d_be_i   <= "1111";
               st       <= S_DONE;
             end if;
+
+          -- load sem cache: o pedido de uma palavra e a espera da resposta
+          when S_BY_REQ =>
+            if i_addr(29) = '1' then
+              d_addr_i <= base_flash & i_addr(25 downto 2) & "00";
+            else
+              d_addr_i <= base_sdram & i_addr(25 downto 2) & "00";
+            end if;
+            d_rden_i <= '1';
+            st       <= S_BY_WAIT;
+
+          when S_BY_WAIT =>
+            if i_d_ready = '1' then
+              d_rden_i <= '0';
+              st       <= S_BY_GET;
+            end if;
+
+          -- o dado lido só muda na borda em que a memória avança, então é lido um clock depois do ready
+          when S_BY_GET =>
+            pend <= i_d_rdata;
+            st   <= S_DONE;
 
           -- escreve a linha suja de volta: lê as quatro palavras da RAM e faz um pedido de linha
           when S_WB_RD =>
@@ -350,7 +402,11 @@ begin
             end if;
 
           when S_WB_REQ =>
-            d_addr_i  <= base & tag_rd & cur_idx & "0000";
+            if tag_rd(14) = '1' then
+              d_addr_i <= base_flash & tag_rd(13 downto 0) & cur_idx & "0000";
+            else
+              d_addr_i <= base_sdram & tag_rd(13 downto 0) & cur_idx & "0000";
+            end if;
             d_wdata_i <= wb_q(31 downto 0);
             d_line_i  <= '1';
             d_wren_i  <= '1';
@@ -371,7 +427,11 @@ begin
 
           -- traz a linha: um pedido de linha e depois as palavras para a RAM
           when S_FILL_REQ =>
-            d_addr_i <= base & req_tag & req_idx & "0000";
+            if req_tag(14) = '1' then
+              d_addr_i <= base_flash & req_tag(13 downto 0) & req_idx & "0000";
+            else
+              d_addr_i <= base_sdram & req_tag(13 downto 0) & req_idx & "0000";
+            end if;
             d_line_i <= '1';
             d_rden_i <= '1';
             st       <= S_FILL_WAIT;
