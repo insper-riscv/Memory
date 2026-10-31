@@ -12,7 +12,7 @@ WDIR  := build/ghdl
 # synchronizer comes from the Common-Components repository, next to this one.
 check:
 	@mkdir -p $(WDIR)
-	@$(GHDL) -a $(STD) --work=work --workdir=$(WDIR) $$(uv run riscv-tools vhdl-sort ../Common-Components/src/synchronizer.vhd sim/*.vhd external/sdram/*.vhd external/sdram/sim/*.vhd external/axi/*.vhd external/cache/*.vhd external/cache/sim/*.vhd external/axi/sim/*.vhd external/bus/*.vhd external/bus/sim/*.vhd)
+	@$(GHDL) -a $(STD) --work=work --workdir=$(WDIR) $$(riscv-tools vhdl-sort ../Common-Components/src/synchronizer.vhd sim/*.vhd external/sdram/*.vhd external/sdram/sim/*.vhd external/axi/*.vhd external/cache/*.vhd external/cache/sim/*.vhd external/axi/sim/*.vhd external/bus/*.vhd external/bus/sim/*.vhd)
 	@echo "VHDL syntax check passed"
 
 # Per-entity cocotb tests; `make test TEST=RAM` for one entry of tests/python/tests.json.
@@ -30,7 +30,7 @@ formal-axi:
 
 # Every path the configuration lists exists.
 paths:
-	uv run riscv-tools --root . check-paths --manifest paths.yaml
+	riscv-tools --root . check-paths --manifest paths.yaml
 
 clean:
 	rm -rf build
