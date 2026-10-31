@@ -1,12 +1,17 @@
 library IEEE;
 use IEEE.std_logic_1164.all;
 use ieee.numeric_std.all;
+use ieee.std_logic_textio.all;
+use std.textio.all;
 
 entity RAM_simulation is
   generic (
     dataWidth: natural := 32;
     addrWidth: natural := 30;
-    memoryAddrWidth: natural := 9   -- 0 - 511 posicoes de 32 bits cada
+    memoryAddrWidth: natural := 9;  -- 0 - 511 posicoes de 32 bits cada
+    -- Initial contents, one 32-bit word per line in hexadecimal (the format of
+    -- ROM_simulation's ROM_FILE). Empty: the RAM starts at zero.
+    RAM_FILE: string := ""
   );
   port (
     clk      : in  std_logic;
@@ -37,9 +42,34 @@ begin
   -- reachable, no matter how large memoryAddrWidth/mem itself was set.
   widx <= addr(memoryAddrWidth - 1 downto 0);
 
-  process(clk)
+  -- The same process loads the initial image and writes the array afterwards, so
+  -- the array keeps a single driver. The image goes through the signal, not
+  -- through a function result, because GHDL allocates a function's array on the
+  -- stack and a RAM of 2**16 words or more exceeds its limit.
+  process
+    file f      : text;
+    variable l  : line;
+    variable w  : std_logic_vector(31 downto 0);
+    variable ok : boolean;
+    variable idx : natural := 0;
   begin
-    if rising_edge(clk) then
+    if RAM_FILE'length > 0 then
+      file_open(f, RAM_FILE, read_mode);
+      while not endfile(f) loop
+        readline(f, l);
+        if l'length >= 8 then
+          hread(l, w, ok);
+          if ok and idx <= mem'high then
+            mem(idx) <= w;
+          end if;
+          idx := idx + 1;
+        end if;
+      end loop;
+      file_close(f);
+    end if;
+
+    loop
+      wait until rising_edge(clk);
       if (weRAM = '1' and eRAM = '1') then
         -- update selected bytes inside the 32-bit word
         if mask(0) = '1' then
@@ -55,7 +85,7 @@ begin
           mem(to_integer(unsigned(widx)))(31 downto 24) <= data_in(31 downto 24);
         end if;
       end if;
-    end if;
+    end loop;
   end process;
 
   -- leitura síncrona: captura mem(...) na subida do clock se eRAM='1' e reRAM='1'

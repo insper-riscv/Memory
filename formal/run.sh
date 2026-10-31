@@ -23,8 +23,8 @@ netlist() {
   local work="$out/work_$2"; mkdir -p "$work"
   ghdl -a --std=08 --workdir="$work" "$1"
   ghdl --synth --std=08 --workdir="$work" --out=verilog sdram_arbiter > "$2.v"
-  sed -e 's/input  \[95:0\] c_rdata_x);/input  [95:0] c_rdata_x,\n  output dbg_st, output dbg_grant_b, output dbg_last_b, output dbg_a_tog_l, output [1:0] dbg_a_s);/' \
-      -e 's/^endmodule/  assign dbg_st = st;\n  assign dbg_grant_b = grant_b;\n  assign dbg_last_b = last_b;\n  assign dbg_a_tog_l = a_tog_l;\n  assign dbg_a_s = a_s;\nendmodule/' \
+  sed -e 's/input  \[95:0\] c_rdata_x);/input  [95:0] c_rdata_x,\n  output dbg_st, output dbg_grant_b, output dbg_last_b, output dbg_a_tog_l, output [1:0] dbg_a_s, output dbg_grant_i, output dbg_last_i, output dbg_i_tog_l, output [1:0] dbg_i_s);/' \
+      -e 's/^endmodule/  assign dbg_st = st;\n  assign dbg_grant_b = grant_b;\n  assign dbg_last_b = last_b;\n  assign dbg_a_tog_l = a_tog_l;\n  assign dbg_a_s = a_s;\n  assign dbg_grant_i = grant_i;\n  assign dbg_last_i = last_i;\n  assign dbg_i_tog_l = i_tog_l;\n  assign dbg_i_s = i_s;\nendmodule/' \
       "$2.v" > "$2_dbg.v"
   grep -q dbg_st "$2_dbg.v" || { echo "the netlist has no register named st: the exposure did not apply"; exit 1; }
 }
@@ -51,8 +51,8 @@ echo "sdram_arbiter"
 netlist "$src" arb
 expect "safety, unbounded (k-induction)"                    PASS "$(prove arb_dbg.v prove 30 ''             safety)"
 expect "cover: every situation is reachable"                 PASS "$(prove arb_dbg.v cover 40 '-DCOVER'       cover)"
-expect "a request is answered within 14 clocks (depth 45)"   PASS "$(prove arb_dbg.v bmc   45 '-DFAIRNESS -DW=14' wait14)"
-expect "13 clocks are not enough (the bound is tight)"       FAIL "$(prove arb_dbg.v bmc   45 '-DFAIRNESS -DW=13' wait13)"
+expect "a request is answered within 20 clocks (depth 60)"   PASS "$(prove arb_dbg.v bmc   60 '-DFAIRNESS -DW=20' wait20)"
+expect "19 clocks are not enough (the bound is tight)"       FAIL "$(prove arb_dbg.v bmc   60 '-DFAIRNESS -DW=19' wait19)"
 
 # Mutants of the VHDL: each defect must make the safety proof fail.
 mutant() {  # <name> <sed expression>
@@ -63,5 +63,6 @@ mutant() {  # <name> <sed expression>
 }
 mutant rdata_swap   "s/a_rdata_i <= c_rdata;/a_rdata_i <= b_rdata_i;/"
 mutant no_wait_ctrl "s/if c_ack_tog = c_req_i then/if true then/"
+mutant rdata_swap_i   "s/i_rdata_i <= c_rdata;/i_rdata_i <= b_rdata_i;/"
 
 [ "$fail" -eq 0 ] && echo "formal: all expectations met" || { echo "formal: FAILED (logs in build/formal)"; exit 1; }
