@@ -1,13 +1,18 @@
 """The SDRAM self test on the controller and the chip model.
 
-The chip model fails the simulation on any broken chip rule, so a passing run also
-proves the controller obeys the chip. The control test flips a stored bit and the
-self test has to find it.
+The chip model fails the simulation on any broken chip rule, so a
+passing run also proves the controller obeys the chip. The control test
+flips a stored bit and the self test has to find it.
+
 """
 
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
+
+from tests.python.unittests.checks import check_equal, check_true
+
+READ_PHASE = 2  # phase of the self test that reads back
 
 WINDOW = 1 << 8
 SWEEP = 1 << 10
@@ -15,6 +20,7 @@ RANDOM = 1 << 8
 
 
 async def start(dut):
+    """Start the clock and reset the DUT."""
     dut.i_rst.value = 1
     dut.i_start.value = 0
     dut.i_mode.value = 0
@@ -26,18 +32,24 @@ async def start(dut):
     for _ in range(6):
         await RisingEdge(dut.i_clk)
     dut.i_rst.value = 0
-    for _ in range(40_000):                        # 200 us of power-up wait
+    for _ in range(40_000):  # 200 us of power-up wait
         await RisingEdge(dut.i_clk)
         if int(dut.o_init_done.value):
             break
     else:
-        raise AssertionError("the controller never finished its power-up sequence")
+        raise AssertionError(
+            "the controller never finished its power-up sequence"
+        )
     for _ in range(4):
         await RisingEdge(dut.i_clk)
 
 
 async def run(dut, mode, on_phase=None, limit=2_000_000):
-    """Start a run and wait for it to finish; on_phase(phase) is called at each clock."""
+    """Start a run and wait for it to finish.
+
+    On_phase(phase) is called at each clock.
+
+    """
     dut.i_mode.value = mode
     dut.i_start.value = 1
     for _ in range(3):
@@ -54,6 +66,7 @@ async def run(dut, mode, on_phase=None, limit=2_000_000):
 
 
 def result(dut):
+    """Return the result of the built-in self test."""
     return {
         "fail": int(dut.o_fail.value),
         "timeout": int(dut.o_timeout.value),
@@ -66,8 +79,8 @@ async def _passes(dut, mode, ops):
     await start(dut)
     await run(dut, mode)
     r = result(dut)
-    assert r["fail"] == 0 and r["errors"] == 0 and r["timeout"] == 0, r
-    assert r["ops"] == ops, f"{r['ops']} words moved, expected {ops}"
+    check_true(r["fail"] == 0 and r["errors"] == 0 and r["timeout"] == 0, r)
+    check_equal(r["ops"], ops, f"{r['ops']} words moved, expected {ops}")
 
 
 @cocotb.test()
@@ -96,14 +109,20 @@ async def test_random_addresses(dut):
 
 @cocotb.test()
 async def test_a_flipped_bit_is_found(dut):
-    """Control: a bit flipped in the chip between the write and the read is reported
-    with its address and the exact bit."""
+    """Control.
+
+    A bit flipped in the chip between the write and the read is reported
+    with its address and the exact bit.
+
+    """
     await start(dut)
     flipped = False
 
     async def on_phase(phase):
         nonlocal flipped
-        if phase == 2 and not flipped:             # the first read pass, right at its start
+        if (
+            phase == READ_PHASE and not flipped
+        ):  # the first read pass, right at its start
             flipped = True
             dut.i_dbg_flip_addr.value = 0x23
             dut.i_dbg_flip_bit.value = 5
@@ -113,7 +132,11 @@ async def test_a_flipped_bit_is_found(dut):
 
     await run(dut, 0, on_phase)
     r = result(dut)
-    assert flipped and r["fail"] == 1, r
-    assert r["errors"] >= 1, r
-    assert int(dut.o_first_addr.value) == 0x23, hex(int(dut.o_first_addr.value))
-    assert int(dut.o_first_exp.value) ^ int(dut.o_first_got.value) == 1 << 5
+    check_true(flipped and r["fail"] == 1, r)
+    check_true(r["errors"] >= 1, r)
+    check_equal(
+        int(dut.o_first_addr.value), 0x23, hex(int(dut.o_first_addr.value))
+    )
+    check_equal(
+        int(dut.o_first_exp.value) ^ int(dut.o_first_got.value), 1 << 5
+    )

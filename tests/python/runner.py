@@ -1,8 +1,11 @@
+"""Cocotb tests for runner."""
+
+import argparse
+import json
 import os
 import sys
-import json
-import argparse
 from pathlib import Path
+
 # cocotb 2.0 split the Python test-runner API out of the main cocotb
 # package into cocotb-tools, imported as cocotb_tools.runner — this
 # repo's requirements.txt pulls unpinned cocotb, which now resolves to
@@ -10,17 +13,26 @@ from pathlib import Path
 # own sim_runner module for the same migration.
 from cocotb_tools.runner import get_results, get_runner
 
-def run_cocotb_test(toplevel: str, sources: list, test_module: str, parameters: dict = None,
-                    build_args: list = None, test_args: list = None):
-    tests_root = Path(__file__).resolve().parents[1]
-    repo_root  = Path(__file__).resolve().parents[2] 
-    sys.path.append(str(repo_root))
 
-    sim = os.getenv("SIM", "ghdl")
-    vhdl_sources = [repo_root / src for src in sources]
+def _resolve_parameter(value, repo_root: Path) -> str:
+    """Return a generic of the design as the simulator expects it.
 
-    runner = get_runner(sim)
+    Booleans become VHDL literals, integers become decimal text, and a
+    path is made absolute, from the current directory or, failing that,
+    from the repository root. Anything else is kept as it is.
+    """
+    if isinstance(value, bool):
+        return "true" if value else "false"
+    if isinstance(value, int):
+        return str(value)
+    for candidate in (Path(value), repo_root / value):
+        if candidate.exists():
+            return str(candidate.resolve())
+    return str(value)
 
+
+def _build_dir(tests_root: Path, test_module: str, toplevel: str) -> Path:
+    """Return the build directory of a test, one per group of tests."""
     if ".entities." in test_module:
         group = "entities"
     elif ".instructions." in test_module:
@@ -28,34 +40,39 @@ def run_cocotb_test(toplevel: str, sources: list, test_module: str, parameters: 
     else:
         group = "misc"
 
-    if group == "instructions":
-        test_name = test_module.split(".")[-1]
-        build_dir = tests_root / "python/sim_build" / group / test_name
-    else:
-        build_dir = tests_root / "python/sim_build" / group / toplevel
+    name = (
+        test_module.rsplit(".", maxsplit=1)[-1]
+        if group == "instructions"
+        else toplevel
+    )
+    return tests_root / "python/sim_build" / group / name
+
+
+def run_cocotb_test(  # noqa: PLR0913, PLR0917
+    toplevel: str,
+    sources: list,
+    test_module: str,
+    parameters: dict | None = None,
+    build_args: list | None = None,
+    test_args: list | None = None,
+):
+    """Build the design and run one cocotb test module."""
+    tests_root = Path(__file__).resolve().parents[1]
+    repo_root = Path(__file__).resolve().parents[2]
+    sys.path.append(str(repo_root))
+
+    sim = os.getenv("SIM", "ghdl")
+    vhdl_sources = [repo_root / src for src in sources]
+
+    runner = get_runner(sim)
+
+    build_dir = _build_dir(tests_root, test_module, toplevel)
     build_dir.mkdir(parents=True, exist_ok=True)
 
-    if parameters:
-        abs_params = {}
-        for k, v in parameters.items():
-            if isinstance(v, bool):
-                abs_params[k] = "true" if v else "false"
-            elif isinstance(v, int):
-                abs_params[k] = str(v)
-            else:
-                # tenta resolver como caminho absoluto relativo ao ambiente atual
-                vpath = Path(v)
-                if vpath.exists():
-                    abs_params[k] = str(vpath.resolve())
-                else:
-                    # se não existe no cwd atual, tente relative ao repo_root
-                    candidate = repo_root / v
-                    if candidate.exists():
-                        abs_params[k] = str(candidate.resolve())
-                    else:
-                        # fallback: mantenha o original (para flags não-caminho)
-                        abs_params[k] = str(v)
-        parameters = abs_params
+    parameters = {
+        k: _resolve_parameter(v, repo_root)
+        for k, v in (parameters or {}).items()
+    }
 
     runner.build(
         vhdl_sources=vhdl_sources,
@@ -80,17 +97,19 @@ def run_cocotb_test(toplevel: str, sources: list, test_module: str, parameters: 
 
     print(f"Waves: {wave_file} (gerado)")
 
-    # runner.test() returns normally when a cocotb test fails; the failures are only in results.xml
+    # runner.test() returns normally when a cocotb test fails; the
+    # failures are only in results.xml
     total, failed = get_results(results_xml)
     if failed:
         raise RuntimeError(f"{failed} of {total} cocotb tests failed")
 
+
 if __name__ == "__main__":
     tests_root = Path(__file__).resolve().parents[1]
-    json_path  = tests_root / "python/tests.json"
+    json_path = tests_root / "python/tests.json"
 
     try:
-        with open(json_path, "r") as f:
+        with json_path.open() as f:
             TEST_CONFIGS = json.load(f)
     except FileNotFoundError:
         print(f"Erro: Arquivo de configuração '{json_path}' não encontrado.")
@@ -99,12 +118,16 @@ if __name__ == "__main__":
         print(f"Erro: O arquivo JSON '{json_path}' está mal formatado.")
         sys.exit(1)
 
-    parser = argparse.ArgumentParser(description="Runner de Testes Cocotb para o projeto RV32I")
+    parser = argparse.ArgumentParser(
+        description="Runner de Testes Cocotb para o projeto RV32I"
+    )
     parser.add_argument(
         "test_name",
         nargs="?",
         default="all",
-        help=f"Nome do teste a ser executado. Opções: {list(TEST_CONFIGS.keys()) + ['all']}"
+        help=(
+            f"Nome do teste a ser executado. Opções: {[*TEST_CONFIGS, 'all']}"
+        ),
     )
     args = parser.parse_args()
 
@@ -122,28 +145,50 @@ if __name__ == "__main__":
             # it, e.g. to check whether a fix actually resolved it.
             if config.get("skip"):
                 reason = config.get("skip_reason", "no reason given")
-                print(f"\n{'='*20} PULANDO TESTE: {name.upper()} {'='*20}")
+                print(f"\n{'=' * 20} PULANDO TESTE: {name.upper()} {'=' * 20}")
                 print(f"[SKIP] {reason}")
                 continue
-            print(f"\n{'='*20} INICIANDO TESTE: {name.upper()} {'='*20}")
+            print(f"\n{'=' * 20} INICIANDO TESTE: {name.upper()} {'=' * 20}")
             try:
-                run_cocotb_test(**{k: v for k, v in config.items() if k not in ("skip", "skip_reason")})
-                print(f"{'-'*20} TESTE {name.upper()} FINALIZADO COM SUCESSO {'-'*20}")
-            except Exception as e:
+                run_cocotb_test(
+                    **{
+                        k: v
+                        for k, v in config.items()
+                        if k not in ("skip", "skip_reason")
+                    }
+                )
+                print(
+                    f"{'-' * 20} TESTE {name.upper()} FINALIZADO COM SUCESSO "
+                    f"{'-' * 20}"
+                )
+            except Exception as e:  # noqa: BLE001
                 failures.append(name)
                 print(f"[ERRO] O teste '{name}' falhou: {e}")
         print("\nTodos os testes foram executados.")
         if failures:
-            print(f"[ERRO] {len(failures)} teste(s) falharam: {', '.join(failures)}")
+            print(
+                f"[ERRO] {len(failures)} teste(s) falharam: "
+                f"{', '.join(failures)}"
+            )
             sys.exit(1)
     elif args.test_name in TEST_CONFIGS:
         print(f"Executando teste específico: {args.test_name}")
         config = TEST_CONFIGS[args.test_name]
         if config.get("skip"):
-            print(f"[AVISO] '{args.test_name}' está marcado como skip ({config.get('skip_reason', 'no reason given')}) -- rodando mesmo assim, por ter sido pedido explicitamente.")
-        run_cocotb_test(**{k: v for k, v in config.items() if k not in ("skip", "skip_reason")})
+            print(
+                f"[AVISO] '{args.test_name}' está marcado como skip "
+                f"({config.get('skip_reason', 'no reason given')}) -- "
+                "rodando mesmo assim, por ter sido pedido explicitamente."
+            )
+        run_cocotb_test(
+            **{
+                k: v
+                for k, v in config.items()
+                if k not in ("skip", "skip_reason")
+            }
+        )
         print(f"\nTeste {args.test_name} finalizado.")
     else:
         print(f"Erro: Teste '{args.test_name}' não encontrado em tests.json.")
-        print(f"Opções disponíveis: {list(TEST_CONFIGS.keys()) + ['all']}")
+        print(f"Opções disponíveis: {[*list(TEST_CONFIGS.keys()), 'all']}")
         sys.exit(1)

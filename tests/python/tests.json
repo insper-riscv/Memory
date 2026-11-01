@@ -4,7 +4,7 @@
         "sources": [
             "sim/ram_simulation.vhd"
         ],
-        "test_module": "tests.python.unittests.sim.RAM",
+        "test_module": "tests.python.unittests.sim.ram",
         "build_args": [
             "--std=08",
             "-fsynopsys"
@@ -19,7 +19,7 @@
         "sources": [
             "sim/rom_simulation.vhd"
         ],
-        "test_module": "tests.python.unittests.sim.ROM",
+        "test_module": "tests.python.unittests.sim.rom",
         "parameters": {
             "ROM_FILE": "tests/python/unittests/sim/data/testROM.hex"
         },
@@ -45,7 +45,7 @@
             "external/sdram/sim/sdram_model.vhd",
             "external/sdram/sim/sdram_system.vhd"
         ],
-        "test_module": "tests.python.unittests.external.SdramSystem",
+        "test_module": "tests.python.unittests.external.sdram_system",
         "build_args": [
             "--std=08"
         ],
@@ -63,7 +63,7 @@
             "external/sdram/sim/sdram_model.vhd",
             "external/sdram/sim/sdram_bist_system.vhd"
         ],
-        "test_module": "tests.python.unittests.external.SdramBist",
+        "test_module": "tests.python.unittests.external.sdram_bist",
         "parameters": {
             "CAPTURE_EXTRA": 0
         },
@@ -84,7 +84,7 @@
             "external/sdram/sim/sdram_model.vhd",
             "external/sdram/sim/sdram_bist_system.vhd"
         ],
-        "test_module": "tests.python.unittests.external.SdramBist",
+        "test_module": "tests.python.unittests.external.sdram_bist",
         "parameters": {
             "CAPTURE_EXTRA": 1
         },
@@ -108,7 +108,7 @@
             "external/sdram/sim/sdram_model.vhd",
             "external/sdram/sim/sdram_system.vhd"
         ],
-        "test_module": "tests.python.unittests.external.SdramDebugPort",
+        "test_module": "tests.python.unittests.external.sdram_debug_port",
         "build_args": [
             "--std=08"
         ],
@@ -123,7 +123,7 @@
             "external/bus/ext_interconnect.vhd",
             "external/bus/sim/ext_bus_system.vhd"
         ],
-        "test_module": "tests.python.unittests.external.ExtBus",
+        "test_module": "tests.python.unittests.external.ext_bus",
         "build_args": [
             "--std=08"
         ],
@@ -148,7 +148,7 @@
             "external/cache/dcache.vhd",
             "external/cache/sim/sdram_dcache_system.vhd"
         ],
-        "test_module": "tests.python.unittests.external.DataCache",
+        "test_module": "tests.python.unittests.external.data_cache",
         "build_args": [
             "--std=08"
         ],
@@ -168,7 +168,7 @@
             "external/axi/ext_axi_interconnect.vhd",
             "external/axi/sim/ext_axi_bus_system.vhd"
         ],
-        "test_module": "tests.python.unittests.external.ExtBus",
+        "test_module": "tests.python.unittests.external.ext_bus",
         "build_args": [
             "--std=08"
         ],
@@ -181,7 +181,7 @@
         "sources": [
             "external/axi/axi_router.vhd"
         ],
-        "test_module": "tests.python.unittests.external.AxiRouter",
+        "test_module": "tests.python.unittests.external.axi_router",
         "build_args": [
             "--std=08"
         ],
@@ -201,7 +201,7 @@
             "external/axi/ext_axi_interconnect.vhd",
             "external/axi/sim/ext_axi_bus_system.vhd"
         ],
-        "test_module": "tests.python.unittests.external.ExtAxiCache",
+        "test_module": "tests.python.unittests.external.ext_axi_cache",
         "build_args": [
             "--std=08"
         ],
@@ -226,7 +226,7 @@
             "external/cache/dcache.vhd",
             "external/cache/sim/sdram_dcache_system.vhd"
         ],
-        "test_module": "tests.python.unittests.external.DataCacheWriteThrough",
+        "test_module": "tests.python.unittests.external.data_cache_write_through",
         "build_args": [
             "--std=08"
         ],
@@ -252,7 +252,7 @@
             "external/axi/axi_slave_word_bridge.vhd",
             "external/axi/sim/axi_sdram_slave_system.vhd"
         ],
-        "test_module": "tests.python.unittests.external.AxiSdramSlave",
+        "test_module": "tests.python.unittests.external.axi_sdram_slave",
         "build_args": [
             "--std=08"
         ],
@@ -265,7 +265,7 @@
         "sources": [
             "external/cache/icache.vhd"
         ],
-        "test_module": "tests.python.unittests.external.InstructionCache",
+        "test_module": "tests.python.unittests.external.instruction_cache",
         "build_args": [
             "--std=08"
         ],
@@ -278,7 +278,7 @@
         "sources": [
             "external/cache/flash_chip.vhd"
         ],
-        "test_module": "tests.python.unittests.external.FlashChip",
+        "test_module": "tests.python.unittests.external.flash_chip",
         "build_args": [
             "--std=08"
         ],
@@ -291,7 +291,7 @@
         "sources": [
             "external/cache/mem_region_router.vhd"
         ],
-        "test_module": "tests.python.unittests.external.MemRegionRouter",
+        "test_module": "tests.python.unittests.external.mem_region_router",
         "build_args": [
             "--std=08"
         ],
@@ -304,7 +304,7 @@
         "sources": [
             "external/cache/flash_arbiter.vhd"
         ],
-        "test_module": "tests.python.unittests.external.FlashArbiter",
+        "test_module": "tests.python.unittests.external.flash_arbiter",
         "build_args": [
             "--std=08"
         ],
@@ -321,7 +321,7 @@
             "external/cache/flash_arbiter.vhd",
             "external/cache/sim/flash_path_system.vhd"
         ],
-        "test_module": "tests.python.unittests.external.FlashPath",
+        "test_module": "tests.python.unittests.external.flash_path",
         "build_args": [
             "--std=08"
         ],
@@ -334,7 +334,7 @@
         "sources": [
             "external/cache/dcache.vhd"
         ],
-        "test_module": "tests.python.unittests.external.DataCacheFlash",
+        "test_module": "tests.python.unittests.external.data_cache_flash",
         "build_args": [
             "--std=08"
         ],
@@ -352,7 +352,7 @@
             "Common-Components/src/synchronizer.vhd",
             "external/bus/seg_display.vhd"
         ],
-        "test_module": "tests.python.unittests.external.SegDisplay",
+        "test_module": "tests.python.unittests.external.seg_display",
         "build_args": [
             "--std=08"
         ],

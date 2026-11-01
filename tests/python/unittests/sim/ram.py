@@ -1,16 +1,28 @@
+"""Cocotb tests for ram."""
+
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
+from tests.python.unittests.checks import check_equal, check_true
+
 # Máscaras de exemplo
 MASKS = [
-    0b0001, 0b0010, 0b0100, 0b1000,   # 1 byte
-    0b0011, 0b1100, 0b0110,           # 2 bytes
-    0b1110, 0b0111,                   # 3 bytes
-    0b1111                            # 4 bytes
+    0b0001,
+    0b0010,
+    0b0100,
+    0b1000,  # 1 byte
+    0b0011,
+    0b1100,
+    0b0110,  # 2 bytes
+    0b1110,
+    0b0111,  # 3 bytes
+    0b1111,  # 4 bytes
 ]
 
+
 async def init_dut(dut):
+    """Start the clock and reset the memory."""
     dut.i_addr.value = 0
     dut.i_data_in.value = 0
     dut.i_mask.value = 0
@@ -19,7 +31,9 @@ async def init_dut(dut):
     dut.i_en_ram.value = 0
     await Timer(1, units="ns")
 
+
 async def write_word(dut, addr, data, mask):
+    """Write one word with a byte mask."""
     dut.i_addr.value = addr
     dut.i_data_in.value = data
     dut.i_mask.value = mask
@@ -29,11 +43,15 @@ async def write_word(dut, addr, data, mask):
     dut.i_we_ram.value = 0
     dut.i_en_ram.value = 0
 
+
 async def read_word(dut, addr, expect_z=False):
-    """
-    Leitura síncrona: coloca endereço, habilita i_en_ram/i_re_ram, espera a subida do clock
-    e captura o valor logo após a borda. Se expect_z=True, tenta verificar Z (raro
-    em leitura síncrona; mantive o parâmetro por compatibilidade).
+    """Leitura síncrona.
+
+    coloca endereço, habilita i_en_ram/i_re_ram, espera a subida do
+    clock e captura o valor logo após a borda. Se expect_z=True, tenta
+    verificar Z (raro em leitura síncrona; mantive o parâmetro por
+    compatibilidade).
+
     """
     dut.i_addr.value = addr
     dut.i_en_ram.value = 1
@@ -48,12 +66,15 @@ async def read_word(dut, addr, expect_z=False):
     dut.i_en_ram.value = 0
 
     if expect_z:
-        # leitura síncrona normalmente não retorna Z; mantemos a verificação caso alguém
-        # explicitamente peça por isso.
-        assert str(val).lower().count("z") > 0, f"Esperado Z, obtido {val}"
+        # leitura síncrona normalmente não retorna Z; mantemos a
+        # verificação caso alguém explicitamente peça por isso.
+        check_true(
+            str(val).lower().count("z") > 0, f"Esperado Z, obtido {val}"
+        )
         return None
 
     return int(val)
+
 
 @cocotb.test()
 async def sw_fullword(dut):
@@ -64,7 +85,10 @@ async def sw_fullword(dut):
     data = 0xDEADBEEF
     await write_word(dut, 0, data, 0b1111)
     got = await read_word(dut, 0)
-    assert got == data, f"SW falhou: esperado {data:#010x}, obtido {got:#010x}"
+    check_equal(
+        got, data, f"SW falhou: esperado {data:#010x}, obtido {got:#010x}"
+    )
+
 
 @cocotb.test()
 async def all_masks(dut):
@@ -87,15 +111,25 @@ async def all_masks(dut):
         expected = 0
         for i in range(4):
             if (mask >> i) & 1:
-                expected |= ((newval >> (8*i)) & 0xFF) << (8*i)
+                expected |= ((newval >> (8 * i)) & 0xFF) << (8 * i)
             else:
-                expected |= ((base >> (8*i)) & 0xFF) << (8*i)
+                expected |= ((base >> (8 * i)) & 0xFF) << (8 * i)
 
-        assert got == expected, f"Mask {mask:04b} falhou: esperado {expected:#010x}, obtido {got:#010x}"
+        check_equal(
+            got,
+            expected,
+            f"Mask {mask:04b} falhou: esperado {expected:#010x}, "
+            f"obtido {got:#010x}",
+        )
+
 
 @cocotb.test()
 async def disable_read(dut):
-    """Verifica comportamento quando reRAM=0 ou eRAM=0 para leitura síncrona."""
+    """Verifica comportamento quando reRAM=0 ou eRAM=0 para leitura.
+
+    Síncrona.
+
+    """
     cocotb.start_soon(Clock(dut.i_clk, 10, "ns").start())
     await init_dut(dut)
 
@@ -109,24 +143,39 @@ async def disable_read(dut):
     await RisingEdge(dut.i_clk)
     await Timer(1, "ns")
     last_val = int(dut.o_data_out.value)
-    # desabilita leitura (reRAM=0) e aplica outra borda: a saída deve manter last_val
+    # desabilita leitura (reRAM=0) e aplica outra borda: a saída deve
+    # manter last_val
     dut.i_re_ram.value = 0
     dut.i_en_ram.value = 1
     await RisingEdge(dut.i_clk)
     await Timer(1, "ns")
-    assert int(dut.o_data_out.value) == last_val, "Esperado manter último valor quando reRAM=0"
+    check_equal(
+        int(dut.o_data_out.value),
+        last_val,
+        "Esperado manter último valor quando reRAM=0",
+    )
 
-    # agora testar eRAM=0: com re=1 mas eRAM=0 a leitura síncrona não deve atualizar o registrador,
-    # então a saída deve continuar sendo last_val
+    # agora testar eRAM=0: com re=1 mas eRAM=0 a leitura síncrona não
+    # deve atualizar o registrador, então a saída deve continuar sendo
+    # last_val
     dut.i_re_ram.value = 1
     dut.i_en_ram.value = 0
     await RisingEdge(dut.i_clk)
     await Timer(1, "ns")
-    assert int(dut.o_data_out.value) == last_val, "Esperado manter último valor quando eRAM=0"
+    check_equal(
+        int(dut.o_data_out.value),
+        last_val,
+        "Esperado manter último valor quando eRAM=0",
+    )
+
 
 @cocotb.test()
 async def multi_positions(dut):
-    """Escreve em posições diferentes e confere leituras independentes."""
+    """Escreve em posições diferentes e confere leituras.
+
+    Independentes.
+
+    """
     cocotb.start_soon(Clock(dut.i_clk, 10, "ns").start())
     await init_dut(dut)
 
@@ -140,9 +189,10 @@ async def multi_positions(dut):
     got1 = await read_word(dut, 4)
     got2 = await read_word(dut, 8)
 
-    assert got0 == data0
-    assert got1 == data1
-    assert got2 == data2
+    check_equal(got0, data0)
+    check_equal(got1, data1)
+    check_equal(got2, data2)
+
 
 @cocotb.test()
 async def overwrite(dut):
@@ -154,8 +204,8 @@ async def overwrite(dut):
 
     await write_word(dut, 0, first, 0b1111)
     got1 = await read_word(dut, 0)
-    assert got1 == first
+    check_equal(got1, first)
 
     await write_word(dut, 0, second, 0b1111)
     got2 = await read_word(dut, 0)
-    assert got2 == second
+    check_equal(got2, second)
