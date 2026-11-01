@@ -16,6 +16,14 @@
 -- segura o endereço e a cache traz a linha. Nada aqui depende da fase do clock
 -- do core além dessa ordem.
 --
+-- Dois clocks: a leitura das RAMs e os registradores de endereço ficam no clock
+-- das memórias de instrução (i_clk); a máquina de estados, o vetor de validade e
+-- o preenchimento ficam no clock do core (i_clk_cpu). O que cruza de um para o
+-- outro é o endereço e a seleção (do core para as RAMs), os controles de escrita
+-- das RAMs, que a máquina de estados mantém estáveis por um clock inteiro do core,
+-- e o que as RAMs leram. Com os dois clocks iguais o comportamento é o de um
+-- clock só.
+--
 -- Lado da memória: o mesmo contrato da dcache. Um pedido de linha (quatro
 -- palavras, d_line alto, as três últimas em d_rdata_x) fica em d_addr e d_rden
 -- até d_ready; d_advance o responde.
@@ -47,8 +55,11 @@ entity icache is
     base_flash : std_logic_vector(5 downto 0) := "001000"
   );
   port (
-    -- Clock do módulo.
+    -- Clock das memórias de instrução: lê as RAMs e registra o endereço de busca.
     i_clk        : in  std_logic;
+    -- Clock da máquina de estados, do vetor de validade e da escrita de preenchimento: o clock do core.
+    -- As RAMs são lidas no clock das memórias de instrução (i_clk), adiantado em relação a este.
+    i_clk_cpu    : in  std_logic;
     -- Reset, ativo em '1'.
     i_rst        : in  std_logic;
 
@@ -178,9 +189,9 @@ begin
   o_d_line    <= d_line_i;
   o_d_advance <= i_d_ready;
 
-  process (i_clk)
+  process (i_clk_cpu)
   begin
-    if rising_edge(i_clk) then
+    if rising_edge(i_clk_cpu) then
       if i_rst = '1' then
         st       <= S_IDLE;
         valid    <= (others => '0');

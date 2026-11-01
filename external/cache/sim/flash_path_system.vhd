@@ -102,7 +102,7 @@ begin
 
   ICACHE : entity work.icache
     port map (
-      i_clk => i_clk, i_rst => i_rst,
+      i_clk => i_clk, i_clk_cpu => i_clk, i_rst => i_rst,
       i_addr => i_addr, i_sel => i_sel, o_ready => o_ready, o_data => o_data,
       i_invalidate => i_invalidate,
       o_d_addr => ic_addr, o_d_rden => ic_rden, o_d_advance => ic_adv, i_d_ready => ic_ready,

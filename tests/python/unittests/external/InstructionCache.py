@@ -42,6 +42,8 @@ class Memory:
 
 async def start(dut):
     cocotb.start_soon(Clock(dut.i_clk, 10, unit="ns").start())
+    # O mesmo clock nas duas entradas: o comportamento é o de um clock só.
+    cocotb.start_soon(Clock(dut.i_clk_cpu, 10, unit="ns").start())
     dut.i_rst.value = 1
     dut.i_addr.value = BASE
     dut.i_sel.value = 1
