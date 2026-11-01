@@ -1,8 +1,12 @@
-"""The data cache in front of the SDRAM, through the AXI4-Lite bridges, as a core would use it.
+"""The data cache in front of the SDRAM, through the AXI4-Lite.
 
-Every test compares what the core reads with a Python copy of the memory, and what reaches the chip
-model with that copy once the cache has been flushed. The chip model fails the simulation on any
-broken chip rule, as in the SDRAM system tests.
+Bridges, as a core would use it.
+
+Every test compares what the core reads with a Python copy of the
+memory, and what reaches the chip model with that copy once the cache
+has been flushed. The chip model fails the simulation on any broken chip
+rule, as in the SDRAM system tests.
+
 """
 
 import random
@@ -26,6 +30,7 @@ SAME_INDEX = (
 
 
 async def begin(dut):
+    """Start the clock and reset the DUT."""
     dut.i_flush.value = 0
     await start(dut)
 
@@ -48,23 +53,31 @@ async def flush(dut):
 
 
 class Mirror:
-    """The expected content of the memory, filled from the chip the first time a word is touched."""
+    """The expected content of the memory.
+
+    It is filled from the chip the first time a word is touched.
+
+    """
 
     def __init__(self, dut):
+        """Bind the model to the DUT."""
         self.dut = dut
         self.mem = {}
 
     async def word(self, w):
+        """Return the data word the models hold at an address."""
         if w not in self.mem:
             self.mem[w] = await model_word(self.dut, w)
         return self.mem[w]
 
     async def write(self, w, data, be=0xF):
+        """Write one word."""
         old = await self.word(w)
         self.mem[w] = merge(old, data, be)
         return await access(self.dut, True, w, data, be)
 
     async def read(self, w, hold=0):
+        """Read one word and return it."""
         want = await self.word(w)
         got, cycles = await access(self.dut, False, w, hold=hold)
         assert got == want, (
@@ -73,16 +86,22 @@ class Mirror:
         return cycles
 
     async def check_chip(self):
+        """Check the chip against the Python copy of the memory."""
         for w, v in self.mem.items():
             got = await model_word(self.dut, w)
             assert got == v, (
-                f"word 0x{w:06X}: the chip holds 0x{got:08X}, expected 0x{v:08X}"
+                f"word 0x{w:06X}: the chip holds 0x{got:08X}, "
+                f"expected 0x{v:08X}"
             )
 
 
 @cocotb.test()
 async def test_write_then_read(dut):
-    """A word written and read back through the cache, and the chip only sees it after the flush."""
+    """A word written and read back through the cache, and the chip.
+
+    Only sees it after the flush.
+
+    """
     await begin(dut)
     m = Mirror(dut)
     old = await m.word(0x123456)
@@ -97,7 +116,11 @@ async def test_write_then_read(dut):
 
 @cocotb.test()
 async def test_hit_is_fast_and_miss_is_not(dut):
-    """A hit is ready in two clocks, a miss takes the line fill, and a dirty miss takes more."""
+    """A hit is ready in two clocks, a miss takes the line fill.
+
+    And a dirty miss takes more.
+
+    """
     await begin(dut)
     m = Mirror(dut)
     miss = await m.read(0x000100)
@@ -118,7 +141,11 @@ async def test_hit_is_fast_and_miss_is_not(dut):
 
 @cocotb.test()
 async def test_byte_enables(dut):
-    """Every byte-enable mask writes exactly the enabled bytes, in the cache and in the chip."""
+    """Every byte-enable mask writes exactly the enabled bytes.
+
+    This holds in the cache and in the chip.
+
+    """
     await begin(dut)
     m = Mirror(dut)
     for be in range(16):
@@ -132,7 +159,11 @@ async def test_byte_enables(dut):
 
 @cocotb.test()
 async def test_hold_keeps_ready_and_data(dut):
-    """While the pipeline stays stopped after ready, ready stays high and the read data does not move."""
+    """While the pipeline stays stopped after ready, ready stays.
+
+    High and the read data does not move.
+
+    """
     await begin(dut)
     m = Mirror(dut)
     await m.write(0x000300, 0xDEADBEEF)
@@ -143,7 +174,11 @@ async def test_hold_keeps_ready_and_data(dut):
 
 @cocotb.test()
 async def test_eviction_writes_back(dut):
-    """Words that map to the same line replace each other, and each one keeps its own content."""
+    """Words that map to the same line replace each other, and each.
+
+    One keeps its own content.
+
+    """
     await begin(dut)
     m = Mirror(dut)
     ws = [0x000040 + k * SAME_INDEX for k in range(6)]
@@ -151,7 +186,8 @@ async def test_eviction_writes_back(dut):
         await m.write(w, 0x1000 + i)
     for w in ws:
         await m.read(w)
-    # the first ones were written back by the evictions, before any flush
+    # the first ones were written back by the evictions, before any
+    # flush
     first = await model_word(dut, ws[0])
     assert first == m.mem[ws[0]], (
         f"0x{first:08X} reached the chip, expected 0x{m.mem[ws[0]]:08X}"
@@ -162,10 +198,14 @@ async def test_eviction_writes_back(dut):
 
 @cocotb.test()
 async def test_random_traffic(dut):
-    """Random reads and writes over a few conflicting lines, against the Python copy."""
+    """Random reads and writes over a few conflicting lines.
+
+    Against the Python copy.
+
+    """
     await begin(dut)
     m = Mirror(dut)
-    rng = random.Random(7)
+    rng = random.Random(7)  # noqa: S311
     base = [
         0x000010,
         0x000011,
@@ -191,14 +231,19 @@ async def test_random_traffic(dut):
             await m.read(w, hold=rng.choice([0, 0, 0, 2]))
     await flush(dut)
     await m.check_chip()
-    # after the flush the lines are clean: the same traffic reads the same values
+    # after the flush the lines are clean: the same traffic reads the
+    # same values
     for w in words:
         await m.read(w)
 
 
 @cocotb.test()
 async def test_flush_keeps_lines_valid(dut):
-    """A flush leaves the lines in the cache, so the next read of a flushed word is a hit."""
+    """A flush leaves the lines in the cache.
+
+    The next read of a flushed word is a hit.
+
+    """
     await begin(dut)
     m = Mirror(dut)
     await m.write(0x000500, 0xAB)

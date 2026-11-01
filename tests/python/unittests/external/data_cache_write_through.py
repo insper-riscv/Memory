@@ -1,15 +1,19 @@
-"""The data cache in write-through mode, behind the AXI4-Lite bridges and the SDRAM.
+"""The data cache in write-through mode, behind the AXI4-Lite.
 
-Every store reaches the chip before it completes, with no flush, and a store that misses does not
-bring the line in. The tests compare what the core reads with a Python copy of the memory, and the
-chip with the same copy after every group of accesses.
+Bridges and the SDRAM.
+
+Every store reaches the chip before it completes, with no flush, and a
+store that misses does not bring the line in. The tests compare what the
+core reads with a Python copy of the memory, and the chip with the same
+copy after every group of accesses.
+
 """
 
 import random
 
 import cocotb
 
-from tests.python.unittests.external.DataCache import (
+from tests.python.unittests.external.data_cache import (
     SAME_INDEX,
     Mirror,
     begin,
@@ -19,6 +23,7 @@ from tests.python.unittests.external.sdram_helpers import model_word
 
 @cocotb.test()
 async def test_a_store_reaches_the_chip_at_once(dut):
+    """Check that a store reaches the chip at once."""
     await begin(dut)
     m = Mirror(dut)
     await m.write(0x123456, 0xCAFEBABE)
@@ -32,6 +37,7 @@ async def test_a_store_reaches_the_chip_at_once(dut):
 
 @cocotb.test()
 async def test_a_store_that_misses_does_not_bring_the_line_in(dut):
+    """Check that a store that misses does not bring the line in."""
     await begin(dut)
     m = Mirror(dut)
     await m.write(0x000100, 0xAA)
@@ -40,12 +46,14 @@ async def test_a_store_that_misses_does_not_bring_the_line_in(dut):
     )  # first read: the line was not brought in
     again = await m.read(0x000100)
     assert hit_read > 4 * again, (
-        f"the read after a missing store was a hit ({hit_read} against {again} clocks)"
+        f"the read after a missing store was a hit "
+        f"({hit_read} against {again} clocks)"
     )
 
 
 @cocotb.test()
 async def test_a_store_that_hits_updates_the_line_and_the_chip(dut):
+    """Check that a store that hits updates the line and the chip."""
     await begin(dut)
     m = Mirror(dut)
     await m.read(0x000200)  # the line is in
@@ -58,9 +66,10 @@ async def test_a_store_that_hits_updates_the_line_and_the_chip(dut):
 
 @cocotb.test()
 async def test_random_traffic_keeps_the_chip_current(dut):
+    """Check that random traffic keeps the chip current."""
     await begin(dut)
     m = Mirror(dut)
-    rng = random.Random(11)
+    rng = random.Random(11)  # noqa: S311
     base = [
         0x000010,
         0x000011,

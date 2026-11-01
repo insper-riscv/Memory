@@ -1,9 +1,13 @@
-"""The SDRAM bridge, controller and chip model together, as a core would use them.
+"""The SDRAM bridge, controller and chip model together, as a core.
 
-The chip model fails the simulation on any broken chip rule (timings, command
-order, power-up sequence, refresh interval), so a passing run also proves the
-controller obeys the chip. The tests compare what a core reads with a Python
-copy of the memory and, independently, with the content stored in the model.
+Would use them.
+
+The chip model fails the simulation on any broken chip rule (timings,
+command order, power-up sequence, refresh interval), so a passing run
+also proves the controller obeys the chip. The tests compare what a core
+reads with a Python copy of the memory and, independently, with the
+content stored in the model.
+
 """
 
 import random
@@ -25,7 +29,11 @@ from tests.python.unittests.external.sdram_helpers import (
 
 @cocotb.test()
 async def test_power_up_and_first_access(dut):
-    """The power-up sequence completes, and a write followed by a read returns the word."""
+    """The power-up sequence completes.
+
+    A write followed by a read returns the word.
+
+    """
     await start(dut)
     assert int(dut.o_dbg_init_ok.value) == 1
     assert int(dut.o_dbg_refreshes.value) >= 8
@@ -53,9 +61,13 @@ async def test_byte_enables(dut):
 
 @cocotb.test()
 async def test_address_decode(dut):
-    """Distinct word addresses keep distinct values: banks, rows, columns, the first and last word."""
+    """Distinct word addresses keep distinct values.
+
+    Banks, rows, columns, the first and last word.
+
+    """
     await start(dut)
-    rng = random.Random(1)
+    rng = random.Random(1)  # noqa: S311
     words = [
         0,
         1,
@@ -91,9 +103,13 @@ async def test_address_decode(dut):
 
 @cocotb.test()
 async def test_random_traffic(dut):
-    """Random reads and writes, random byte masks, random gaps and random pipeline holds."""
+    """Random reads and writes with random byte masks.
+
+    Gaps between accesses and pipeline holds are random too.
+
+    """
     await start(dut)
-    rng = random.Random(7)
+    rng = random.Random(7)  # noqa: S311
     pool = [rng.randrange(1 << 24) for _ in range(48)]
     ref = {}
     for _ in range(500):
@@ -124,8 +140,11 @@ async def test_random_traffic(dut):
 
 @cocotb.test()
 async def test_refresh_keeps_running(dut):
-    """With the bus idle for several refresh periods the controller keeps refreshing
-    (the chip model fails the simulation if two refreshes are more than 7.8 us apart).
+    """With the bus idle for several refresh periods the controller.
+
+    Keeps refreshing (the chip model fails the simulation if two
+    refreshes are more than 7.8 us apart).
+
     """
     await start(dut)
     before = int(dut.o_dbg_refreshes.value)
@@ -140,7 +159,11 @@ async def test_refresh_keeps_running(dut):
 
 @cocotb.test()
 async def test_read_data_changes_only_when_the_pipeline_advances(dut):
-    """A second read held in the stopped pipeline keeps the first read data visible."""
+    """A second read held in the stopped pipeline keeps the first.
+
+    Read data visible.
+
+    """
     await start(dut)
     await access(dut, True, 0x10, 0x11111111)
     await access(dut, True, 0x20, 0x22222222)
@@ -154,7 +177,7 @@ async def test_read_data_changes_only_when_the_pipeline_advances(dut):
 
 async def _ratio(dut, cpu_ns, offset):
     await start(dut, cpu_ns, offset)
-    rng = random.Random(cpu_ns)
+    rng = random.Random(cpu_ns)  # noqa: S311
     ref = {}
     for _ in range(60):
         w = rng.randrange(1 << 24)
@@ -176,7 +199,11 @@ async def test_core_clock_twice_the_memory_clock_period(dut):
 
 @cocotb.test()
 async def test_core_clock_unrelated_and_shifted(dut):
-    """Core clock at 53 ns, shifted by 3 ns: no fixed relation to the memory clock."""
+    """Core clock at 53 ns, shifted by 3 ns.
+
+    No fixed relation to the memory clock.
+
+    """
     await _ratio(dut, 53, 3)
 
 
@@ -188,7 +215,11 @@ async def test_core_clock_slow_and_shifted(dut):
 
 @cocotb.test()
 async def test_a_corrupted_chip_is_noticed(dut):
-    """Control for the checks above: flipping one stored bit changes exactly that bit of the read."""
+    """Control for the checks above.
+
+    Flipping one stored bit changes exactly that bit of the read.
+
+    """
     await start(dut)
     await access(dut, True, 0x777, 0x00FF00FF)
     for bit in (0, 7, 16, 31):
@@ -208,19 +239,28 @@ async def test_a_corrupted_chip_is_noticed(dut):
 
 @cocotb.test()
 async def test_latency(dut):
-    """The stall a core sees, in core cycles (logged, and bounded to catch a regression)."""
+    """The stall a core sees, in core cycles (logged, and bounded.
+
+    To catch a regression).
+
+    """
     await start(dut)
     _, w = await access(dut, True, 0x5, 1)
     _, r = await access(dut, False, 0x5)
     dut._log.info(
-        f"stall: write {w} core cycles, read {r} core cycles (core clock {CPU_NS} ns)"
+        f"stall: write {w} core cycles, read {r} core cycles "
+        f"(core clock {CPU_NS} ns)"
     )
     assert w <= 8 and r <= 10, f"write {w}, read {r}"
 
 
 @cocotb.test()
 async def test_line_write_then_word_reads(dut):
-    """A line written in one request holds its four words, read back one by one and from the chip."""
+    """A line written in one request holds its four words, read.
+
+    Back one by one and from the chip.
+
+    """
     await start(dut)
     base = 0x00ABC0
     words = [0x11111111, 0x22222222, 0x33333333, 0x44444444]
@@ -233,7 +273,11 @@ async def test_line_write_then_word_reads(dut):
 
 @cocotb.test()
 async def test_line_read_of_words_written_one_by_one(dut):
-    """A line read returns the four words that were written one at a time, in order."""
+    """A line read returns the four words written one at a time.
+
+    They come in order.
+
+    """
     await start(dut)
     base = 0x7FFFF0
     words = [0xA0000001 + i * 0x01010101 for i in range(4)]
@@ -254,13 +298,17 @@ async def test_line_byte_enables(dut):
     bes = [0x3, 0xC, 0x5, 0xA]
     await line_access(dut, True, base, new, bes)
     got, _ = await line_access(dut, False, base)
-    want = [merge(o, n, b) for o, n, b in zip(old, new, bes)]
+    want = [merge(o, n, b) for o, n, b in zip(old, new, bes, strict=True)]
     assert got == want, [hex(g) for g in got]
 
 
 @cocotb.test()
 async def test_line_is_faster_than_four_words(dut):
-    """One line request costs less than four word requests (one handshake, one row opening)."""
+    """One line request costs less than four word requests (one.
+
+    Handshake, one row opening).
+
+    """
     await start(dut)
     base = 0x000200
     _, line_cycles = await line_access(dut, False, base)
@@ -276,11 +324,37 @@ async def test_line_is_faster_than_four_words(dut):
     )
 
 
+async def mixed_line_write(dut, rng, base, mem):
+    """Write a random line with random byte enables; update the copy."""
+    words = [rng.getrandbits(32) for _ in range(4)]
+    bes = [rng.choice([0xF, 0xF, 0x3, 0xC, 0x1]) for _ in range(4)]
+    await line_access(dut, True, base, words, bes)
+    for i in range(4):
+        if base + i in mem:
+            old = mem[base + i]
+        else:
+            old = await model_word(dut, base + i)
+        mem[base + i] = merge(old, words[i], bes[i])
+
+
+async def mixed_line_read(dut, base, mem):
+    """Read a line and compare the words the copy already knows."""
+    got, _ = await line_access(dut, False, base)
+    for i in range(4):
+        if base + i in mem:
+            assert got[i] == mem[base + i], (
+                f"line 0x{base:06X} word {i}: 0x{got[i]:08X}"
+            )
+
+
 @cocotb.test()
 async def test_lines_and_words_mixed(dut):
-    """Random lines and words over rows, banks and the ends of the memory, against a Python copy."""
+    """Random lines and words over rows, banks and the ends of memory.
+
+    The result is compared against a Python copy.
+    """
     await start(dut)
-    rng = random.Random(5)
+    rng = random.Random(5)  # noqa: S311
     lines = [
         0,
         4,
@@ -299,27 +373,9 @@ async def test_lines_and_words_mixed(dut):
         base = rng.choice(lines)
         kind = rng.random()
         if kind < 0.35:
-            words = [rng.getrandbits(32) for _ in range(4)]
-            bes = [rng.choice([0xF, 0xF, 0x3, 0xC, 0x1]) for _ in range(4)]
-            await line_access(dut, True, base, words, bes)
-            for i in range(4):
-                mem[base + i] = merge(
-                    mem.get(
-                        base + i,
-                        await model_word(dut, base + i)
-                        if base + i not in mem
-                        else 0,
-                    ),
-                    words[i],
-                    bes[i],
-                )
+            await mixed_line_write(dut, rng, base, mem)
         elif kind < 0.7:
-            got, _ = await line_access(dut, False, base)
-            for i in range(4):
-                if base + i in mem:
-                    assert got[i] == mem[base + i], (
-                        f"line 0x{base:06X} word {i}: 0x{got[i]:08X}"
-                    )
+            await mixed_line_read(dut, base, mem)
         else:
             w = base + rng.randrange(4)
             v = rng.getrandbits(32)

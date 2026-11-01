@@ -1,4 +1,9 @@
-"""icache: the instruction cache alone, against a memory model with a variable latency."""
+"""icache.
+
+The instruction cache alone, against a memory model with a variable
+latency.
+
+"""
 
 import cocotb
 from cocotb.clock import Clock
@@ -9,7 +14,7 @@ LAT = 5
 
 
 def word(addr, version=0):
-    """The content of the memory model at a word address."""
+    """Return the content of the memory model at a word address."""
     return ((addr * 2654435761) ^ (0xA5A50000 + version)) & 0xFFFFFFFF
 
 
@@ -17,12 +22,14 @@ class Memory:
     """Answers each line request after a latency, and counts them."""
 
     def __init__(self, dut, latency=LAT):
+        """Bind the model to the DUT."""
         self.dut = dut
         self.latency = latency
         self.version = 0
         self.requests = []
 
     async def run(self):
+        """Drive the slave side of the port, clock by clock."""
         dut = self.dut
         dut.i_d_ready.value = 0
         while True:
@@ -43,8 +50,10 @@ class Memory:
 
 
 async def start(dut):
+    """Start the clock and reset the DUT."""
     cocotb.start_soon(Clock(dut.i_clk, 10, unit="ns").start())
-    # O mesmo clock nas duas entradas: o comportamento é o de um clock só.
+    # O mesmo clock nas duas entradas: o comportamento é o de um clock
+    # só.
     cocotb.start_soon(Clock(dut.i_clk_cpu, 10, unit="ns").start())
     dut.i_rst.value = 1
     dut.i_addr.value = BASE
@@ -61,7 +70,11 @@ async def start(dut):
 
 
 async def fetch(dut, addr, timeout=200):
-    """Hold addr until ready, the way the core does; returns (data, clocks waited)."""
+    """Hold addr until ready, the way the core does.
+
+    Returns (data, clocks waited).
+
+    """
     dut.i_addr.value = addr
     dut.i_sel.value = 1
     for n in range(timeout):
@@ -74,6 +87,7 @@ async def fetch(dut, addr, timeout=200):
 
 @cocotb.test()
 async def test_miss_then_hits_in_the_line(dut):
+    """Check that miss then hits in the line."""
     mem = await start(dut)
     base = BASE + 0x1230
     data, waited = await fetch(dut, base)
@@ -89,6 +103,7 @@ async def test_miss_then_hits_in_the_line(dut):
 
 @cocotb.test()
 async def test_sequential_code_across_lines(dut):
+    """Check that sequential code across lines."""
     mem = await start(dut)
     for i in range(64):
         a = BASE + 4 * i
@@ -100,6 +115,7 @@ async def test_sequential_code_across_lines(dut):
 
 @cocotb.test()
 async def test_conflict_evicts_the_line(dut):
+    """Check that conflict evicts the line."""
     mem = await start(dut)
     a, b = BASE + 0x040, BASE + 0x040 + 0x1000  # same index, different tag
     for addr in (a, b, a):
@@ -110,6 +126,7 @@ async def test_conflict_evicts_the_line(dut):
 
 @cocotb.test()
 async def test_not_selected_never_hits_or_fills(dut):
+    """Check that not selected never hits or fills."""
     mem = await start(dut)
     dut.i_addr.value = 0x00000100
     dut.i_sel.value = 0
@@ -122,6 +139,7 @@ async def test_not_selected_never_hits_or_fills(dut):
 
 @cocotb.test()
 async def test_invalidate_drops_every_line(dut):
+    """Check that invalidate drops every line."""
     mem = await start(dut)
     addrs = [BASE + 0x100, BASE + 0x2F0, BASE + 0x1008]
     for a in addrs:
@@ -142,6 +160,7 @@ async def test_invalidate_drops_every_line(dut):
 
 @cocotb.test()
 async def test_invalidate_during_a_fill_drops_that_line(dut):
+    """Check that invalidate during a fill drops that line."""
     mem = await start(dut)
     a = BASE + 0x300
     dut.i_addr.value = a
@@ -162,7 +181,8 @@ async def test_invalidate_during_a_fill_drops_that_line(dut):
 
 @cocotb.test()
 async def test_address_change_during_a_fill(dut):
-    mem = await start(dut)
+    """Check that address change during a fill."""
+    await start(dut)
     a, b = BASE + 0x500, BASE + 0x900
     dut.i_addr.value = a
     for _ in range(4):
@@ -183,6 +203,7 @@ FLASH = 0x20000000
 
 @cocotb.test()
 async def test_regions_do_not_alias(dut):
+    """Check that regions do not alias."""
     mem = await start(dut)
     # same index and same bits 25:12, different region
     s, f = BASE + 0x1230, FLASH + 0x1230
@@ -191,7 +212,8 @@ async def test_regions_do_not_alias(dut):
         assert data == word(addr)
         assert waited > LAT, f"{addr:#x} must be a miss of its own"
     assert mem.requests == [s & ~0xF, f & ~0xF]
-    # the FLASH line replaced the SDRAM one, so the SDRAM line misses again
+    # the FLASH line replaced the SDRAM one, so the SDRAM line misses
+    # again
     data, waited = await fetch(dut, s)
     assert data == word(s) and waited > LAT
     assert mem.requests[-1] == s & ~0xF
@@ -199,6 +221,7 @@ async def test_regions_do_not_alias(dut):
 
 @cocotb.test()
 async def test_fill_addresses_carry_the_region_base(dut):
+    """Check that fill addresses carry the region base."""
     mem = await start(dut)
     for addr in (FLASH + 0x40, BASE + 0x40, FLASH + 0x7FFF0, BASE + 0x3FFFFF0):
         await fetch(dut, addr)
@@ -213,6 +236,7 @@ async def test_fill_addresses_carry_the_region_base(dut):
 
 @cocotb.test()
 async def test_flash_line_hits_in_the_line(dut):
+    """Check that flash line hits in the line."""
     mem = await start(dut)
     base = FLASH + 0x2230
     await fetch(dut, base)
@@ -224,6 +248,7 @@ async def test_flash_line_hits_in_the_line(dut):
 
 @cocotb.test()
 async def test_invalidate_drops_the_lines_of_both_regions(dut):
+    """Check that invalidate drops the lines of both regions."""
     mem = await start(dut)
     addrs = [FLASH + 0x100, BASE + 0x2F0]
     for a in addrs:
@@ -240,7 +265,7 @@ async def test_invalidate_drops_the_lines_of_both_regions(dut):
 
 
 async def count_misses(dut, cycles):
-    """Number of clocks with o_miss high over `cycles` clocks."""
+    """Count the clocks with o_miss high over `cycles` clocks."""
     seen = 0
     for _ in range(cycles):
         await RisingEdge(dut.i_clk)
@@ -251,6 +276,7 @@ async def count_misses(dut, cycles):
 
 @cocotb.test()
 async def test_one_miss_pulse_per_filled_line(dut):
+    """Check that one miss pulse per filled line."""
     await start(dut)
     monitor = cocotb.start_soon(count_misses(dut, 1200))
     for base in (BASE + 0x100, BASE + 0x200, BASE + 0x100, FLASH + 0x100):

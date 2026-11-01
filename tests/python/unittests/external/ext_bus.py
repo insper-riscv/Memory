@@ -1,9 +1,13 @@
-"""The external bus: the interconnect behind the core's external port, and the JTAG UART in
+"""The external bus.
+
+The interconnect behind the core's external port, and the JTAG UART in
 peripheral slot 4 (0xC0000000).
 
-The testbench plays the core (one access on the port, held until ready, then mem_advance), the
-memory behind the interconnect, and the Virtual JTAG instance of the UART (a 48-bit register
-selected by instruction 1, see jtag_uart).
+The testbench plays the core (one access on the port, held until ready,
+then mem_advance), the memory behind the interconnect, and the Virtual
+JTAG instance of the UART (a 48-bit register selected by instruction 1,
+see jtag_uart).
+
 """
 
 import cocotb
@@ -19,16 +23,22 @@ DEPTH = 64
 
 
 async def post_edge(dut):
+    """Wait for a clock edge and let the signals settle."""
     await RisingEdge(dut.i_clk)
     await Timer(1, unit="ns")
 
 
 def own_memory(dut):
-    """True when the testbench plays the memory (m_* ports); false when the design has its own (the AXI4-Lite one)."""
+    """Tell whether the testbench plays the memory (m_* ports).
+
+    False when the design has its own (the AXI4-Lite one).
+
+    """
     return not hasattr(dut, "u_slave")
 
 
 async def start(dut):
+    """Start the clock and reset the DUT."""
     for sig in (dut.i_rden, dut.i_wren, dut.i_mem_advance):
         sig.value = 0
     if own_memory(dut):
@@ -46,9 +56,24 @@ async def start(dut):
     await load_ir(dut, 1)
 
 
-async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):
-    """One core access; returns (read data, cycles until ready). The port holds until ready, then
-    `hold` more cycles (the pipeline stopped by something else) before mem_advance.
+def drive_memory(dut, addr, cycles, mem_latency):
+    """Answer the memory side of an access, or check it is not used."""
+    if not own_memory(dut):
+        return
+    if addr < 0x80000000 and cycles == mem_latency:
+        dut.i_m_ready.value = 1  # the memory answers, as a level
+    if addr >= 0x80000000:
+        assert int(dut.o_m_rden.value) == 0 and int(dut.o_m_wren.value) == 0, (
+            "a peripheral access reached the memory"
+        )
+
+
+async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):  # noqa: PLR0913, PLR0917
+    """One core access; returns (read data, cycles until ready).
+
+    The port holds until ready, then `hold` more cycles (the pipeline
+    stopped by something else) before mem_advance.
+
     """
     dut.i_addr.value = addr
     dut.i_wdata.value = wdata
@@ -59,12 +84,7 @@ async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):
     while True:
         await post_edge(dut)
         cycles += 1
-        if own_memory(dut) and addr < 0x80000000 and cycles == mem_latency:
-            dut.i_m_ready.value = 1  # the memory answers, as a level
-        if own_memory(dut) and addr >= 0x80000000:
-            assert (
-                int(dut.o_m_rden.value) == 0 and int(dut.o_m_wren.value) == 0
-            ), "a peripheral access reached the memory"
+        drive_memory(dut, addr, cycles, mem_latency)
         if int(dut.o_ready.value):
             break
         assert cycles < 5000, "the access never completed"
@@ -84,6 +104,7 @@ async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):
 
 
 async def tck(dut, **states):
+    """Give one TCK pulse with the given scan states."""
     for name in ("cdr", "sdr", "udr", "uir"):
         getattr(dut, f"i_jtag_state_{name}").value = (
             1 if states.get(name) else 0
@@ -98,13 +119,17 @@ async def tck(dut, **states):
 
 
 async def load_ir(dut, value):
+    """Load a value into the instruction register."""
     dut.i_jtag_ir_in.value = value
     await tck(dut, uir=True)
 
 
 async def scan(dut, push=None):
-    """One scan of the 48-bit register: sends a command (with a byte if `push`), returns the
-    fields of the answer to the previous command.
+    """One scan of the 48-bit register.
+
+    Sends a command (with a byte if `push`), returns the fields of the
+    answer to the previous command.
+
     """
     value = 0 if push is None else (1 << 8) | push
     await tck(dut, cdr=True)
@@ -125,7 +150,11 @@ async def scan(dut, push=None):
 
 
 async def drain(dut):
-    """Scan until the transmit queue is empty and the answers are in; returns all bytes."""
+    """Scan until the transmit queue is empty and the answers are in.
+
+    Returns all bytes.
+
+    """
     got = []
     quiet = 0
     for _ in range(100):
@@ -144,6 +173,7 @@ async def drain(dut):
 
 @cocotb.test()
 async def test_memory_access_passes_through(dut):
+    """Check that memory access passes through."""
     await start(dut)
     value, cycles = await access(dut, MEM)
     assert value == MEM_VALUE
@@ -159,6 +189,7 @@ async def _status(dut):
 
 @cocotb.test()
 async def test_core_to_host_bytes_in_order(dut):
+    """Check that core to host bytes in order."""
     await start(dut)
     for b in b"hello, world":
         await access(dut, TXDATA, we=True, wdata=b)
@@ -170,6 +201,7 @@ async def test_core_to_host_bytes_in_order(dut):
 
 @cocotb.test()
 async def test_an_answer_is_shown_once(dut):
+    """Check that an answer is shown once."""
     await start(dut)
     for b in b"abc":
         await access(dut, TXDATA, we=True, wdata=b)
@@ -187,6 +219,7 @@ async def test_an_answer_is_shown_once(dut):
 
 @cocotb.test()
 async def test_host_to_core_bytes_in_order(dut):
+    """Check that host to core bytes in order."""
     await start(dut)
     for b in b"ping":
         await scan(dut, push=b)
@@ -205,6 +238,7 @@ async def test_host_to_core_bytes_in_order(dut):
 
 @cocotb.test()
 async def test_a_stopped_pipeline_pops_once(dut):
+    """Check that a stopped pipeline pops once."""
     await start(dut)
     for b in b"xy":
         await scan(dut, push=b)
@@ -221,6 +255,7 @@ async def test_a_stopped_pipeline_pops_once(dut):
 
 @cocotb.test()
 async def test_transmit_queue_full_drops_and_flags(dut):
+    """Check that transmit queue full drops and flags."""
     await start(dut)
     for i in range(DEPTH + 3):
         await access(dut, TXDATA, we=True, wdata=i & 0xFF)
@@ -236,8 +271,8 @@ async def test_transmit_queue_full_drops_and_flags(dut):
 
 @cocotb.test()
 async def test_receive_queue_full_is_flagged_to_the_host(dut):
+    """Check that receive queue full is flagged to the host."""
     await start(dut)
-    dropped = 0
     for i in range(DEPTH + 2):
         await scan(dut, push=i & 0xFF)
         await Timer(1, unit="us")
@@ -250,6 +285,7 @@ async def test_receive_queue_full_is_flagged_to_the_host(dut):
 
 @cocotb.test()
 async def test_unmapped_window_reads_zero(dut):
+    """Check that unmapped window reads zero."""
     await start(dut)
     v, _c = await access(dut, 0xA0000000)
     assert v == 0
@@ -260,12 +296,14 @@ async def test_unmapped_window_reads_zero(dut):
 
 @cocotb.test()
 async def test_load_data_stays_while_the_next_access_runs(dut):
+    """Check that load data stays while the next access runs."""
     await start(dut)
     await scan(dut, push=0x5A)
     await Timer(1, unit="us")
     v, _c = await access(dut, RXDATA)
     assert v == 0x15A
-    # a memory load: it is the memory's data, then the peripheral's data does not leak
+    # a memory load: it is the memory's data, then the peripheral's data
+    # does not leak
     v, _c = await access(dut, MEM)
     assert v == MEM_VALUE
     v, _c = await access(dut, MEM)
@@ -274,8 +312,11 @@ async def test_load_data_stays_while_the_next_access_runs(dut):
 
 @cocotb.test()
 async def test_the_load_in_the_last_stage_keeps_its_data(dut):
-    """While load A is in its last stage the next access is already on the port: rdata must
-    still be A's until that next access advances.
+    """While load A is in its last stage the next access is already.
+
+    On the port: rdata must still be A's until that next access
+    advances.
+
     """
     await start(dut)
     for b in b"AB":
@@ -291,7 +332,8 @@ async def test_the_load_in_the_last_stage_keeps_its_data(dut):
     dut.i_mem_advance.value = 1
     await post_edge(dut)
     dut.i_mem_advance.value = 0
-    # B is on the port now: a second peripheral read, still working; A's data is on rdata
+    # B is on the port now: a second peripheral read, still working; A's
+    # data is on rdata
     dut.i_addr.value = RXDATA
     waited = 0
     while waited < 3 or not int(dut.o_ready.value):
@@ -308,6 +350,7 @@ async def test_the_load_in_the_last_stage_keeps_its_data(dut):
 
 @cocotb.test()
 async def test_status_tells_whether_a_host_has_scanned(dut):
+    """Check that status tells whether a host has scanned."""
     await start(dut)
     assert (await _status(dut)) >> 17 & 1 == 0
     await scan(dut)

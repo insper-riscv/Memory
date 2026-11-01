@@ -1,4 +1,8 @@
-"""flash_arbiter: two read masters share one FLASH chip; ties alternate, a grant is never cut."""
+"""flash_arbiter: two read masters share one FLASH chip.
+
+Ties alternate, a grant is never cut.
+
+"""
 
 import cocotb
 from cocotb.clock import Clock
@@ -8,18 +12,25 @@ LAT = 4
 
 
 def word(addr):
+    """Return the data word the models hold at an address."""
     return ((addr * 2654435761) ^ 0x33330000) & 0xFFFFFFFF
 
 
 class Chip:
-    """A chip with a latency; holds ready until advance; logs the requests it served."""
+    """A chip with a latency; holds ready until advance.
+
+    Logs the requests it served.
+
+    """
 
     def __init__(self, dut):
+        """Bind the model to the DUT."""
         self.dut = dut
         self.log = []
         self.busy = False
 
     async def run(self):
+        """Drive the slave side of the port, clock by clock."""
         dut = self.dut
         state, count = "idle", 0
         dut.i_ready.value = 0
@@ -41,6 +52,7 @@ class Chip:
 
 
 async def start(dut):
+    """Start the clock and reset the DUT."""
     cocotb.start_soon(Clock(dut.i_clk, 10, unit="ns").start())
     dut.i_rst.value = 1
     for n in (
@@ -65,8 +77,12 @@ async def start(dut):
     return chip
 
 
-async def master(dut, who, addr, results, start_delay=0, hold_after=0):
-    """A cache-like master: hold the request until ready, advance, drop on the same edge."""
+async def master(dut, who, addr, results, start_delay=0, hold_after=0):  # noqa: PLR0913, PLR0917
+    """Model a cache-like master.
+
+    Hold the request until ready, advance, drop on the same edge.
+
+    """
     for _ in range(start_delay):
         await RisingEdge(dut.i_clk)
     rden = getattr(dut, f"i_{who}_rden")
@@ -94,6 +110,7 @@ async def master(dut, who, addr, results, start_delay=0, hold_after=0):
 
 @cocotb.test()
 async def test_single_requests(dut):
+    """Check that single requests."""
     chip = await start(dut)
     res = []
     await master(dut, "a", 0x20000010, res)
@@ -108,6 +125,7 @@ async def test_single_requests(dut):
 
 @cocotb.test()
 async def test_a_wins_a_tie_then_b_follows(dut):
+    """Check that a wins a tie then b follows."""
     chip = await start(dut)
     res = []
     ta = cocotb.start_soon(master(dut, "a", 0x20000100, res))
@@ -120,6 +138,7 @@ async def test_a_wins_a_tie_then_b_follows(dut):
 
 @cocotb.test()
 async def test_a_grant_is_not_cut(dut):
+    """Check that a grant is not cut."""
     chip = await start(dut)
     res = []
     tb = cocotb.start_soon(master(dut, "b", 0x20000300, res))
@@ -138,7 +157,8 @@ async def test_a_grant_is_not_cut(dut):
 
 @cocotb.test()
 async def test_b_is_not_starved_by_back_to_back_requests_of_a(dut):
-    chip = await start(dut)
+    """Check that b is not starved by back to back requests of a."""
+    await start(dut)
     res = []
 
     async def a_twice():

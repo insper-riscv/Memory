@@ -1,3 +1,5 @@
+"""Cocotb tests for rom."""
+
 from pathlib import Path
 
 import cocotb
@@ -6,8 +8,8 @@ from cocotb.triggers import Timer
 
 # ---------- Helpers ----------
 def parse_hex(hex_path: Path, depth=64):
-    """
-    Lê um arquivo .hex com uma palavra de 32 bits por linha.
+    """Lê um arquivo .hex com uma palavra de 32 bits por linha.
+
     Retorna uma lista de 'depth' palavras (int).
     """
     mem = [0] * depth
@@ -22,14 +24,15 @@ def parse_hex(hex_path: Path, depth=64):
 
 
 async def read_rom_sync(dut, word_addr: int, do_re: bool = True):
-    """
-    ROM síncrona: coloca endereço, seta re conforme do_re,
-    aplica uma subida de clock e lê a saída logo após a subida.
+    """Lê a ROM síncrona: coloca endereço, seta re conforme do_re.
+
+    Aplica uma subida de clock e lê a saída logo após a subida.
     Usa valores inteiros (0/1) para atribuir sinais std_logic.
     """
     # assegurar valores estáveis antes da borda
     dut.i_addr.value = word_addr
-    # **IMPORTANTE**: atribuir inteiros, não strings, para sinais std_logic
+    # **IMPORTANTE**: atribuir inteiros, não strings, para sinais
+    # std_logic
     dut.i_re.value = 1 if do_re else 0
     # garantir clock em '0' antes da subida
     dut.i_clk.value = 0
@@ -55,16 +58,18 @@ async def read_rom_sync(dut, word_addr: int, do_re: bool = True):
 
 @cocotb.test()
 async def rom_leitura_sincrona_basica(dut):
-    """
-    Verifica leituras sincronas de algumas palavras iniciais e zeros no final,
-    comparando com o arquivo HEX. Também verifica comportamento com re = '0'
-    (saída mantém último valor).
+    """Verifica leituras sincronas de algumas palavras iniciais e.
+
+    Zeros no final, comparando com o arquivo HEX. Também verifica
+    comportamento com re = '0' (saída mantém último valor).
+
     """
     here = Path(__file__).resolve()
     hex_path = here.parent / "data" / "testROM.hex"
     exp = parse_hex(hex_path, depth=64)
 
-    # dar um pequeno tempo para a inicialização do processo de leitura do arquivo no VHDL
+    # dar um pequeno tempo para a inicialização do processo de leitura
+    # do arquivo no VHDL
     await Timer(1, units="ns")
 
     # leituras com re = 1 (habilitado) -- checamos várias posições
@@ -92,5 +97,6 @@ async def rom_leitura_sincrona_basica(dut):
     # 3) com re=1 ler o novo endereço e conferir valor esperado
     val_after_re1 = await read_rom_sync(dut, new_idx, do_re=True)
     assert val_after_re1 == exp[new_idx], (
-        f"Após re=1 ROM[{new_idx}] esperado={exp[new_idx]:#010x}, lido={val_after_re1:#010x}"
+        f"Após re=1 ROM[{new_idx}] esperado={exp[new_idx]:#010x}, "
+        f"lido={val_after_re1:#010x}"
     )

@@ -1,16 +1,19 @@
 """The AXI4 slave of the SDRAM, with the SDRAM system behind it.
 
-The testbench plays the AXI4 master. A burst of four beats aligned to 16 bytes is one line access of
-the memory; any other INCR burst is one word access per beat; what the slave does not serve (a size
-other than 4 bytes, a burst type other than INCR, an address not aligned to 4 bytes) is answered
-with SLVERR and never reaches the chip. Every test compares the chip with a Python copy.
+The testbench plays the AXI4 master. A burst of four beats aligned to 16
+bytes is one line access of the memory; any other INCR burst is one word
+access per beat; what the slave does not serve (a size other than 4
+bytes, a burst type other than INCR, an address not aligned to 4 bytes)
+is answered with SLVERR and never reaches the chip. Every test compares
+the chip with a Python copy.
+
 """
 
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
-from tests.python.unittests.external.AxiRouter import (
+from tests.python.unittests.external.axi_router import (
     OKAY,
     read_burst,
     write_burst,
@@ -23,6 +26,7 @@ BASE = 0x40000000
 
 
 async def setup(dut):
+    """Reset the DUT and start its clock and slaves."""
     for sig in ("awvalid", "wvalid", "arvalid", "bready", "rready"):
         getattr(dut, f"i_s_{sig}").value = 0
     for ch in ("aw", "ar"):
@@ -48,6 +52,7 @@ async def setup(dut):
 
 
 async def chip_word(dut, word):
+    """Return a word as the chip model holds it."""
     dut.i_dbg_word_addr.value = word
     for _ in range(3):
         await RisingEdge(dut.i_clk_mem)
@@ -56,11 +61,13 @@ async def chip_word(dut, word):
 
 
 def word_of(addr):
+    """Return the word index of a byte address."""
     return (addr - BASE) >> 2
 
 
 @cocotb.test()
 async def test_a_line_burst_is_written_and_read_whole(dut):
+    """Check that a line burst is written and read whole."""
     await setup(dut)
     addr = BASE + 0x1230
     beats = [(0xA0000000 + i, 0xF) for i in range(4)]
@@ -75,6 +82,7 @@ async def test_a_line_burst_is_written_and_read_whole(dut):
 
 @cocotb.test()
 async def test_byte_strobes_of_a_line_burst(dut):
+    """Check that byte strobes of a line burst."""
     await setup(dut)
     addr = BASE + 0x2000
     assert (
@@ -85,7 +93,8 @@ async def test_byte_strobes_of_a_line_burst(dut):
     )
     new = [0xA1B2C3D4, 0x55667788, 0x99AABBCC, 0x0F1E2D3C]
     strobes = [0x3, 0xC, 0x5, 0xA]
-    assert await write_burst(dut, addr, list(zip(new, strobes))) == OKAY
+    burst = list(zip(new, strobes, strict=True))
+    assert await write_burst(dut, addr, burst) == OKAY
     for i in range(4):
         want = merge(0x11111111 * (i + 1), new[i], strobes[i])
         assert await chip_word(dut, word_of(addr) + i) == want, f"word {i}"
@@ -93,7 +102,11 @@ async def test_byte_strobes_of_a_line_burst(dut):
 
 @cocotb.test()
 async def test_other_lengths_are_one_word_per_beat(dut):
-    """One, two, three, five and eight beats, aligned or not to 16 bytes, one word access per beat."""
+    """One, two, three, five and eight beats, aligned or not to 16.
+
+    Bytes, one word access per beat.
+
+    """
     await setup(dut)
     for n, off in [
         (1, 0x40),
@@ -121,16 +134,21 @@ async def test_other_lengths_are_one_word_per_beat(dut):
 
 @cocotb.test()
 async def test_what_it_does_not_serve_is_slverr_and_touches_nothing(dut):
+    """Check that what it does not serve is slverr and touches.
+
+    Nothing.
+
+    """
     await setup(dut)
     addr = BASE + 0x4000
     assert await write_burst(dut, addr, [(0x77777777, 0xF)]) == OKAY
     before = await chip_word(dut, word_of(addr))
     cases = [
-        ("wrap", dict(burst=WRAP), addr, 4),
-        ("fixed", dict(burst=FIXED), addr, 4),
-        ("half-word size", dict(size=1), addr, 2),
-        ("byte size", dict(size=0), addr, 3),
-        ("8-byte size", dict(size=3), addr, 2),
+        ("wrap", {"burst": WRAP}, addr, 4),
+        ("fixed", {"burst": FIXED}, addr, 4),
+        ("half-word size", {"size": 1}, addr, 2),
+        ("byte size", {"size": 0}, addr, 3),
+        ("8-byte size", {"size": 3}, addr, 2),
         ("unaligned", {}, addr + 2, 1),
     ]
     for name, kw, a, n in cases:
@@ -152,6 +170,7 @@ async def test_what_it_does_not_serve_is_slverr_and_touches_nothing(dut):
 
 @cocotb.test()
 async def test_a_line_read_is_faster_than_four_single_reads(dut):
+    """Check that a line read is faster than four single reads."""
     await setup(dut)
     addr = BASE + 0x5000
 

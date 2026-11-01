@@ -1,4 +1,8 @@
-"""flash_chip: the FLASH chip model, against a storage model with a registered read."""
+"""flash_chip.
+
+The FLASH chip model, against a storage model with a registered read.
+
+"""
 
 import cocotb
 from cocotb.clock import Clock
@@ -9,18 +13,23 @@ NEXT = 4
 
 
 def word(addr):
-    """The content of the storage at a byte address."""
+    """Return the content of the storage at a byte address."""
     return ((addr * 2654435761) ^ 0x5A5A1234) & 0xFFFFFFFF
 
 
 async def storage(dut):
-    """A memory with a registered read: the word of the address before the edge."""
+    """Model a memory with a registered read.
+
+    The word of the address before the edge.
+
+    """
     while True:
         await RisingEdge(dut.i_clk)
         dut.i_mem_data.value = word(int(dut.o_mem_addr.value) & ~3)
 
 
 async def start(dut):
+    """Start the clock and reset the DUT."""
     cocotb.start_soon(Clock(dut.i_clk, 10, unit="ns").start())
     dut.i_rst.value = 1
     dut.i_rden.value = 0
@@ -35,7 +44,11 @@ async def start(dut):
 
 
 async def request(dut, addr, line, timeout=500):
-    """Hold the request until ready, then advance; returns (words, clocks waited)."""
+    """Hold the request until ready, then advance.
+
+    Returns (words, clocks waited).
+
+    """
     dut.i_addr.value = addr
     dut.i_line.value = line
     dut.i_rden.value = 1
@@ -61,8 +74,10 @@ async def request(dut, addr, line, timeout=500):
 
 @cocotb.test()
 async def test_line_comes_whole_and_aligned(dut):
+    """Check that line comes whole and aligned."""
     await start(dut)
-    # an address in the middle of the line still returns the line from its start
+    # an address in the middle of the line still returns the line from
+    # its start
     words, _ = await request(dut, 0x20001238, 1)
     base = 0x20001230
     assert words == [word(base + 4 * i) for i in range(4)]
@@ -70,6 +85,7 @@ async def test_line_comes_whole_and_aligned(dut):
 
 @cocotb.test()
 async def test_a_single_word(dut):
+    """Check that a single word."""
     await start(dut)
     words, _ = await request(dut, 0x20000044, 0)
     assert words == [word(0x20000044)]
@@ -77,16 +93,19 @@ async def test_a_single_word(dut):
 
 @cocotb.test()
 async def test_latency_follows_the_generics(dut):
+    """Check that latency follows the generics."""
     await start(dut)
     _, line_wait = await request(dut, 0x20000100, 1)
     _, word_wait = await request(dut, 0x20000200, 0)
-    # first word after FIRST edges, each of the other three NEXT edges later
+    # first word after FIRST edges, each of the other three NEXT edges
+    # later
     assert line_wait == word_wait + 3 * NEXT, (line_wait, word_wait)
     assert FIRST <= word_wait <= FIRST + 3
 
 
 @cocotb.test()
 async def test_ready_holds_until_advance(dut):
+    """Check that ready holds until advance."""
     await start(dut)
     dut.i_addr.value = 0x20000300
     dut.i_line.value = 1
@@ -105,6 +124,7 @@ async def test_ready_holds_until_advance(dut):
 
 @cocotb.test()
 async def test_back_to_back_requests(dut):
+    """Check that back to back requests."""
     await start(dut)
     for k in range(6):
         addr = 0x20000000 + 0x40 * k
@@ -114,6 +134,7 @@ async def test_back_to_back_requests(dut):
 
 @cocotb.test()
 async def test_a_request_outside_the_window_reads_zero(dut):
+    """Check that a request outside the window reads zero."""
     await start(dut)
     # bits 25:20 set: past the 1 MB window of the chip
     words, _ = await request(dut, 0x20100000, 1)
@@ -127,6 +148,7 @@ async def test_a_request_outside_the_window_reads_zero(dut):
 
 @cocotb.test()
 async def test_busy_covers_the_latency_of_a_request(dut):
+    """Check that busy covers the latency of a request."""
     await start(dut)
     busy = 0
 
@@ -139,5 +161,6 @@ async def test_busy_covers_the_latency_of_a_request(dut):
 
     cocotb.start_soon(watch())
     await request(dut, 0x20000500, 1)
-    # one request of four words waits FIRST + 3 * NEXT clocks in the chip
+    # one request of four words waits FIRST + 3 * NEXT clocks in the
+    # chip
     assert busy == FIRST + 3 * NEXT, busy

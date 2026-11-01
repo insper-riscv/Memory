@@ -1,8 +1,9 @@
 """The SDRAM self test on the controller and the chip model.
 
-The chip model fails the simulation on any broken chip rule, so a passing run also
-proves the controller obeys the chip. The control test flips a stored bit and the
-self test has to find it.
+The chip model fails the simulation on any broken chip rule, so a
+passing run also proves the controller obeys the chip. The control test
+flips a stored bit and the self test has to find it.
+
 """
 
 import cocotb
@@ -15,6 +16,7 @@ RANDOM = 1 << 8
 
 
 async def start(dut):
+    """Start the clock and reset the DUT."""
     dut.i_rst.value = 1
     dut.i_start.value = 0
     dut.i_mode.value = 0
@@ -39,7 +41,11 @@ async def start(dut):
 
 
 async def run(dut, mode, on_phase=None, limit=2_000_000):
-    """Start a run and wait for it to finish; on_phase(phase) is called at each clock."""
+    """Start a run and wait for it to finish.
+
+    On_phase(phase) is called at each clock.
+
+    """
     dut.i_mode.value = mode
     dut.i_start.value = 1
     for _ in range(3):
@@ -56,6 +62,7 @@ async def run(dut, mode, on_phase=None, limit=2_000_000):
 
 
 def result(dut):
+    """Return the result of the built-in self test."""
     return {
         "fail": int(dut.o_fail.value),
         "timeout": int(dut.o_timeout.value),
@@ -98,8 +105,11 @@ async def test_random_addresses(dut):
 
 @cocotb.test()
 async def test_a_flipped_bit_is_found(dut):
-    """Control: a bit flipped in the chip between the write and the read is reported
+    """Control.
+
+    A bit flipped in the chip between the write and the read is reported
     with its address and the exact bit.
+
     """
     await start(dut)
     flipped = False
