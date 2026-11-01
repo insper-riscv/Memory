@@ -63,11 +63,6 @@ extend-select = [
     "D402",  # summary line must not repeat the signature
 ]
 
-ignore = [
-    "S603",
-    "S607",
-]
-
 [tool.ruff.lint.flake8-tidy-imports]
 ban-relative-imports = "all"
 
