@@ -10,11 +10,10 @@ content stored in the model.
 
 """
 
-import random
-
 import cocotb
 from cocotb.triggers import Timer
 
+from tests.python.unittests.checks import Prng, check_equal, check_true
 from tests.python.unittests.external.sdram_helpers import (
     CPU_NS,
     LAST_WORD,
@@ -26,6 +25,14 @@ from tests.python.unittests.external.sdram_helpers import (
     start,
 )
 
+MIN_REFRESHES = 8  # refreshes the chip must have seen
+MIN_REFRESHES_60US = 7  # refreshes in 60 us, at least
+WRITE_STALL = 8  # core cycles a write stalls, at most
+READ_STALL = 10  # core cycles a read stalls, at most
+HALF = 0.5  # probability of the random choices
+LINE_WRITE = 0.35  # share of line writes in the mixed test
+LINE_READ = 0.7  # share of line writes and reads together
+
 
 @cocotb.test()
 async def test_power_up_and_first_access(dut):
@@ -35,12 +42,12 @@ async def test_power_up_and_first_access(dut):
 
     """
     await start(dut)
-    assert int(dut.o_dbg_init_ok.value) == 1
-    assert int(dut.o_dbg_refreshes.value) >= 8
+    check_equal(int(dut.o_dbg_init_ok.value), 1)
+    check_true(int(dut.o_dbg_refreshes.value) >= MIN_REFRESHES)
     _, _ = await access(dut, True, 0x123456, 0xCAFEBABE)
     got, _ = await access(dut, False, 0x123456)
-    assert got == 0xCAFEBABE, f"read 0x{got:08X}"
-    assert await model_word(dut, 0x123456) == 0xCAFEBABE
+    check_equal(got, 0xCAFEBABE, f"read 0x{got:08X}")
+    check_equal(await model_word(dut, 0x123456), 0xCAFEBABE)
 
 
 @cocotb.test()
@@ -54,8 +61,8 @@ async def test_byte_enables(dut):
         await access(dut, True, word, 0xA5B6C7D8, be)
         got, _ = await access(dut, False, word)
         want = merge(base, 0xA5B6C7D8, be)
-        assert got == want, (
-            f"be={be:04b}: read 0x{got:08X}, expected 0x{want:08X}"
+        check_equal(
+            got, want, f"be={be:04b}: read 0x{got:08X}, expected 0x{want:08X}"
         )
 
 
@@ -67,7 +74,7 @@ async def test_address_decode(dut):
 
     """
     await start(dut)
-    rng = random.Random(1)  # noqa: S311
+    rng = Prng(1)
     words = [
         0,
         1,
@@ -93,11 +100,13 @@ async def test_address_decode(dut):
         await access(dut, True, w, v)
     for w, v in want.items():
         got, _ = await access(dut, False, w)
-        assert got == v, (
-            f"word 0x{w:06X}: read 0x{got:08X}, expected 0x{v:08X}"
+        check_equal(
+            got, v, f"word 0x{w:06X}: read 0x{got:08X}, expected 0x{v:08X}"
         )
-        assert await model_word(dut, w) == v, (
-            f"word 0x{w:06X}: the chip holds something else"
+        check_equal(
+            await model_word(dut, w),
+            v,
+            f"word 0x{w:06X}: the chip holds something else",
         )
 
 
@@ -109,7 +118,7 @@ async def test_random_traffic(dut):
 
     """
     await start(dut)
-    rng = random.Random(7)  # noqa: S311
+    rng = Prng(7)
     pool = [rng.randrange(1 << 24) for _ in range(48)]
     ref = {}
     for _ in range(500):
@@ -119,7 +128,7 @@ async def test_random_traffic(dut):
             v = rng.getrandbits(32)
             await access(dut, True, w, v, 0xF, hold)
             ref[w] = v
-        elif rng.random() < 0.5:
+        elif rng.random() < HALF:
             v, be = (
                 rng.getrandbits(32),
                 rng.choice([0xF, 0xF, 0x3, 0xC, 0x1, 0x8, 0x6]),
@@ -128,14 +137,16 @@ async def test_random_traffic(dut):
             ref[w] = merge(ref[w], v, be)
         else:
             got, _ = await access(dut, False, w, hold=hold)
-            assert got == ref[w], (
-                f"word 0x{w:06X}: read 0x{got:08X}, expected 0x{ref[w]:08X}"
+            check_equal(
+                got,
+                ref[w],
+                f"word 0x{w:06X}: read 0x{got:08X}, expected 0x{ref[w]:08X}",
             )
         for _ in range(rng.choice([0, 0, 1, 5, 20])):
             await _post_edge(dut)
     for w, v in ref.items():
         got, _ = await access(dut, False, w)
-        assert got == v
+        check_equal(got, v)
 
 
 @cocotb.test()
@@ -151,10 +162,13 @@ async def test_refresh_keeps_running(dut):
     for _ in range(int(60_000 / CPU_NS)):  # 60 us
         await _post_edge(dut)
     after = int(dut.o_dbg_refreshes.value)
-    assert after - before >= 7, f"only {after - before} refreshes in 60 us"
+    check_true(
+        after - before >= MIN_REFRESHES_60US,
+        f"only {after - before} refreshes in 60 us",
+    )
     await access(dut, True, 0x42, 0x0BADF00D)
     got, _ = await access(dut, False, 0x42)
-    assert got == 0x0BADF00D
+    check_equal(got, 0x0BADF00D)
 
 
 @cocotb.test()
@@ -168,16 +182,16 @@ async def test_read_data_changes_only_when_the_pipeline_advances(dut):
     await access(dut, True, 0x10, 0x11111111)
     await access(dut, True, 0x20, 0x22222222)
     first, _ = await access(dut, False, 0x10)
-    assert first == 0x11111111
+    check_equal(first, 0x11111111)
     second, _ = await access(
         dut, False, 0x20, hold=6
     )  # asserts rdata == first while holding
-    assert second == 0x22222222
+    check_equal(second, 0x22222222)
 
 
 async def _ratio(dut, cpu_ns, offset):
     await start(dut, cpu_ns, offset)
-    rng = random.Random(cpu_ns)  # noqa: S311
+    rng = Prng(cpu_ns)
     ref = {}
     for _ in range(60):
         w = rng.randrange(1 << 24)
@@ -186,8 +200,11 @@ async def _ratio(dut, cpu_ns, offset):
         ref[w] = v
     for w, v in ref.items():
         got, _ = await access(dut, False, w)
-        assert got == v, (
-            f"{cpu_ns} ns: word 0x{w:06X} read 0x{got:08X}, expected 0x{v:08X}"
+        check_equal(
+            got,
+            v,
+            f"{cpu_ns} ns: word 0x{w:06X} read 0x{got:08X}, "
+            f"expected 0x{v:08X}",
         )
 
 
@@ -230,7 +247,9 @@ async def test_a_corrupted_chip_is_noticed(dut):
         dut.i_dbg_flip.value = 0
         await Timer(5, unit="ns")
         got, _ = await access(dut, False, 0x777)
-        assert got == 0x00FF00FF ^ (1 << bit), f"bit {bit}: read 0x{got:08X}"
+        check_equal(
+            got, 0x00FF00FF ^ (1 << bit), f"bit {bit}: read 0x{got:08X}"
+        )
         dut.i_dbg_flip.value = 1  # put it back
         await Timer(5, unit="ns")
         dut.i_dbg_flip.value = 0
@@ -251,7 +270,7 @@ async def test_latency(dut):
         f"stall: write {w} core cycles, read {r} core cycles "
         f"(core clock {CPU_NS} ns)"
     )
-    assert w <= 8 and r <= 10, f"write {w}, read {r}"
+    check_true(w <= WRITE_STALL and r <= READ_STALL, f"write {w}, read {r}")
 
 
 @cocotb.test()
@@ -267,8 +286,8 @@ async def test_line_write_then_word_reads(dut):
     await line_access(dut, True, base, words)
     for i, w in enumerate(words):
         got, _ = await access(dut, False, base + i)
-        assert got == w, f"word {i}: read 0x{got:08X}"
-        assert await model_word(dut, base + i) == w
+        check_equal(got, w, f"word {i}: read 0x{got:08X}")
+        check_equal(await model_word(dut, base + i), w)
 
 
 @cocotb.test()
@@ -284,7 +303,7 @@ async def test_line_read_of_words_written_one_by_one(dut):
     for i, w in enumerate(words):
         await access(dut, True, base + i, w)
     got, _ = await line_access(dut, False, base)
-    assert got == words, [hex(g) for g in got]
+    check_equal(got, words, [hex(g) for g in got])
 
 
 @cocotb.test()
@@ -299,7 +318,7 @@ async def test_line_byte_enables(dut):
     await line_access(dut, True, base, new, bes)
     got, _ = await line_access(dut, False, base)
     want = [merge(o, n, b) for o, n, b in zip(old, new, bes, strict=True)]
-    assert got == want, [hex(g) for g in got]
+    check_equal(got, want, [hex(g) for g in got])
 
 
 @cocotb.test()
@@ -319,8 +338,8 @@ async def test_line_is_faster_than_four_words(dut):
     dut._log.info(
         f"line read {line_cycles} cycles, four words {word_cycles} cycles"
     )
-    assert line_cycles < word_cycles - 4, (
-        f"{line_cycles} against {word_cycles}"
+    check_true(
+        line_cycles < word_cycles - 4, f"{line_cycles} against {word_cycles}"
     )
 
 
@@ -342,8 +361,10 @@ async def mixed_line_read(dut, base, mem):
     got, _ = await line_access(dut, False, base)
     for i in range(4):
         if base + i in mem:
-            assert got[i] == mem[base + i], (
-                f"line 0x{base:06X} word {i}: 0x{got[i]:08X}"
+            check_equal(
+                got[i],
+                mem[base + i],
+                f"line 0x{base:06X} word {i}: 0x{got[i]:08X}",
             )
 
 
@@ -354,7 +375,7 @@ async def test_lines_and_words_mixed(dut):
     The result is compared against a Python copy.
     """
     await start(dut)
-    rng = random.Random(5)  # noqa: S311
+    rng = Prng(5)
     lines = [
         0,
         4,
@@ -372,9 +393,9 @@ async def test_lines_and_words_mixed(dut):
     for _ in range(80):
         base = rng.choice(lines)
         kind = rng.random()
-        if kind < 0.35:
+        if kind < LINE_WRITE:
             await mixed_line_write(dut, rng, base, mem)
-        elif kind < 0.7:
+        elif kind < LINE_READ:
             await mixed_line_read(dut, base, mem)
         else:
             w = base + rng.randrange(4)
@@ -382,4 +403,4 @@ async def test_lines_and_words_mixed(dut):
             await access(dut, True, w, v)
             mem[w] = v
     for w, v in mem.items():
-        assert await model_word(dut, w) == v, f"word 0x{w:06X}"
+        check_equal(await model_word(dut, w), v, f"word 0x{w:06X}")

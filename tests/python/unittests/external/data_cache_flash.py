@@ -8,6 +8,11 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
+from tests.python.unittests.checks import check_equal, check_true
+
+HIT_CLOCKS = 3  # clocks of a cache hit, at most
+STORED = 0xCAFE0001  # word the test stores
+
 FLASH = 0x20000000
 SDRAM = 0x40000000
 LAT = 4
@@ -126,11 +131,11 @@ async def test_a_flash_load_is_cached(dut):
     mem = await start(dut)
     a = FLASH + 0x1230
     v, miss = await access(dut, a)
-    assert v == word(a) and miss > LAT
-    assert mem.reads == [(a & ~0xF, 1)]
+    check_true(v == word(a) and miss > LAT)
+    check_equal(mem.reads, [(a & ~0xF, 1)])
     v, hit = await access(dut, a + 4)
-    assert v == word(a + 4) and hit <= 3
-    assert len(mem.reads) == 1
+    check_true(v == word(a + 4) and hit <= HIT_CLOCKS)
+    check_equal(len(mem.reads), 1)
 
 
 @cocotb.test()
@@ -147,11 +152,13 @@ async def test_a_store_that_hits_the_flash_line_does_not_change_it(dut):
         dut, a, wr=0xDEADBEEF
     )  # the chip ignores it, so must the cache
     v, hit = await access(dut, a)
-    assert v == word(a), f"the cache shows {v:#x}, the chip has {word(a):#x}"
-    assert hit <= 3
+    check_equal(
+        v, word(a), f"the cache shows {v:#x}, the chip has {word(a):#x}"
+    )
+    check_true(hit <= HIT_CLOCKS)
     # the store was passed on, with the FLASH base, for the region
     # router to absorb
-    assert mem.writes == [(a, 0xDEADBEEF)]
+    check_equal(mem.writes, [(a, 0xDEADBEEF)])
 
 
 @cocotb.test()
@@ -160,9 +167,9 @@ async def test_a_store_that_misses_the_flash_does_not_bring_the_line(dut):
     mem = await start(dut)
     a = FLASH + 0x3000
     await access(dut, a, wr=0x1234)
-    assert mem.writes == [(a, 0x1234)] and mem.reads == []
+    check_true(mem.writes == [(a, 0x1234)] and mem.reads == [])
     v, waited = await access(dut, a)
-    assert v == word(a) and waited > LAT
+    check_true(v == word(a) and waited > LAT)
 
 
 @cocotb.test()
@@ -172,10 +179,10 @@ async def test_regions_do_not_alias(dut):
     f, s = FLASH + 0x1230, SDRAM + 0x1230
     for a in (f, s):
         v, waited = await access(dut, a)
-        assert v == word(a) and waited > LAT
-    assert [x >> 28 for x, _ in mem.reads] == [0x2, 0x4]
+        check_true(v == word(a) and waited > LAT)
+    check_equal([x >> 28 for x, _ in mem.reads], [0x2, 0x4])
     v, waited = await access(dut, f)  # the SDRAM line took the slot
-    assert v == word(f) and waited > LAT
+    check_true(v == word(f) and waited > LAT)
 
 
 @cocotb.test()
@@ -186,8 +193,8 @@ async def test_a_sdram_store_still_updates_the_line(dut):
     await access(dut, a)
     await access(dut, a, wr=0xCAFE0001)
     v, hit = await access(dut, a)
-    assert v == 0xCAFE0001 and hit <= 3
-    assert mem.writes == [(a, 0xCAFE0001)]
+    check_true(v == STORED and hit <= HIT_CLOCKS)
+    check_equal(mem.writes, [(a, 0xCAFE0001)])
 
 
 @cocotb.test()
@@ -198,13 +205,14 @@ async def test_a_bypassed_load_goes_to_memory_every_time(dut):
     dut.i_bypass.value = 1
     for _ in range(2):
         v, _ = await access(dut, a)
-        assert v == word(a)
+        check_equal(v, word(a))
     # a word read per access, never a line, and nothing was kept
-    assert mem.reads == [(a, 0), (a, 0)]
+    check_equal(mem.reads, [(a, 0), (a, 0)])
     dut.i_bypass.value = 0
     v, waited = await access(dut, a)
-    assert v == word(a) and waited > LAT, (
-        "the bypassed loads must not have filled the line"
+    check_true(
+        v == word(a) and waited > LAT,
+        "the bypassed loads must not have filled the line",
     )
 
 
@@ -220,8 +228,8 @@ async def test_a_bypassed_store_does_not_update_the_line(dut):
     )  # the host owns this word: only passed on
     dut.i_bypass.value = 0
     v, hit = await access(dut, a)
-    assert v == word(a) and hit <= 3
-    assert mem.writes == [(a, 0x0BADF00D)]
+    check_true(v == word(a) and hit <= HIT_CLOCKS)
+    check_equal(mem.writes, [(a, 0x0BADF00D)])
 
 
 async def count_misses(dut, cycles):
@@ -243,4 +251,4 @@ async def test_one_miss_pulse_per_filled_line(dut):
     await access(dut, FLASH + 0x104)  # same line
     await access(dut, SDRAM + 0x100)
     await access(dut, SDRAM + 0x100, wr=7)  # a store: no fill
-    assert await monitor == 2
+    check_equal(await monitor, 2)

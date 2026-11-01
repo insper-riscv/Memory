@@ -8,6 +8,10 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
+from tests.python.unittests.checks import check_equal, check_true
+
+TIMEOUT = 400  # cpu cycles ready may take
+
 MEM_NS = 7  # 142.857 MHz
 CPU_NS = 56  # the core clock: the memory clock divided by 8
 LAST_WORD = (1 << 24) - 1  # 64 MB of 32-bit words
@@ -70,16 +74,20 @@ async def access(dut, we, word, wdata=0, be=0xF, hold=0):  # noqa: PLR0913, PLR0
         cycles += 1
         if int(dut.o_ready.value):
             break
-        assert cycles < 400, "ready never came"
+        check_true(cycles < TIMEOUT, "ready never came")
     for _ in range(hold):
-        assert int(dut.o_ready.value) == 1, (
-            "ready dropped before the pipeline advanced"
+        check_equal(
+            int(dut.o_ready.value),
+            1,
+            "ready dropped before the pipeline advanced",
         )
-        assert int(dut.o_rdata.value) == before, (
-            "read data changed before the pipeline advanced"
+        check_equal(
+            int(dut.o_rdata.value),
+            before,
+            "read data changed before the pipeline advanced",
         )
         await _post_edge(dut)
-    assert int(dut.o_ready.value) == 1
+    check_equal(int(dut.o_ready.value), 1)
     dut.i_mem_advance.value = 1  # the pipeline advances on the next edge
     await _post_edge(dut)
     dut.i_mem_advance.value = 0
@@ -134,13 +142,17 @@ async def line_access(dut, we, word, words=None, bes=None, hold=0):  # noqa: PLR
         cycles += 1
         if int(dut.o_ready.value):
             break
-        assert cycles < 400, "ready never came"
+        check_true(cycles < TIMEOUT, "ready never came")
     for _ in range(hold):
-        assert int(dut.o_ready.value) == 1, (
-            "ready dropped before the pipeline advanced"
+        check_equal(
+            int(dut.o_ready.value),
+            1,
+            "ready dropped before the pipeline advanced",
         )
-        assert (int(dut.o_rdata.value), int(dut.o_rdata_x.value)) == before, (
-            "read data changed before the pipeline advanced"
+        check_equal(
+            (int(dut.o_rdata.value), int(dut.o_rdata_x.value)),
+            before,
+            "read data changed before the pipeline advanced",
         )
         await _post_edge(dut)
     dut.i_mem_advance.value = 1

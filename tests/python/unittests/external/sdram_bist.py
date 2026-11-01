@@ -10,6 +10,10 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
+from tests.python.unittests.checks import check_equal, check_true
+
+READ_PHASE = 2  # phase of the self test that reads back
+
 WINDOW = 1 << 8
 SWEEP = 1 << 10
 RANDOM = 1 << 8
@@ -75,8 +79,8 @@ async def _passes(dut, mode, ops):
     await start(dut)
     await run(dut, mode)
     r = result(dut)
-    assert r["fail"] == 0 and r["errors"] == 0 and r["timeout"] == 0, r
-    assert r["ops"] == ops, f"{r['ops']} words moved, expected {ops}"
+    check_true(r["fail"] == 0 and r["errors"] == 0 and r["timeout"] == 0, r)
+    check_equal(r["ops"], ops, f"{r['ops']} words moved, expected {ops}")
 
 
 @cocotb.test()
@@ -117,7 +121,7 @@ async def test_a_flipped_bit_is_found(dut):
     async def on_phase(phase):
         nonlocal flipped
         if (
-            phase == 2 and not flipped
+            phase == READ_PHASE and not flipped
         ):  # the first read pass, right at its start
             flipped = True
             dut.i_dbg_flip_addr.value = 0x23
@@ -128,9 +132,11 @@ async def test_a_flipped_bit_is_found(dut):
 
     await run(dut, 0, on_phase)
     r = result(dut)
-    assert flipped and r["fail"] == 1, r
-    assert r["errors"] >= 1, r
-    assert int(dut.o_first_addr.value) == 0x23, hex(
-        int(dut.o_first_addr.value)
+    check_true(flipped and r["fail"] == 1, r)
+    check_true(r["errors"] >= 1, r)
+    check_equal(
+        int(dut.o_first_addr.value), 0x23, hex(int(dut.o_first_addr.value))
     )
-    assert int(dut.o_first_exp.value) ^ int(dut.o_first_got.value) == 1 << 5
+    check_equal(
+        int(dut.o_first_exp.value) ^ int(dut.o_first_got.value), 1 << 5
+    )

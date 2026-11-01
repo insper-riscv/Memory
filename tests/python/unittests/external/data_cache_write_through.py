@@ -9,16 +9,19 @@ copy after every group of accesses.
 
 """
 
-import random
-
 import cocotb
 
+from tests.python.unittests.checks import Prng, check_equal, check_true
 from tests.python.unittests.external.data_cache import (
     SAME_INDEX,
     Mirror,
     begin,
 )
 from tests.python.unittests.external.sdram_helpers import model_word
+
+HIT_CLOCKS = 3  # clocks of a cache hit, at most
+HALF = 0.5  # probability of the random choices
+FLUSH_EVERY = 25  # accesses between two checks of the chip
 
 
 @cocotb.test()
@@ -27,11 +30,13 @@ async def test_a_store_reaches_the_chip_at_once(dut):
     await begin(dut)
     m = Mirror(dut)
     await m.write(0x123456, 0xCAFEBABE)
-    assert await model_word(dut, 0x123456) == 0xCAFEBABE, (
-        "the store stayed in the cache"
+    check_equal(
+        await model_word(dut, 0x123456),
+        0xCAFEBABE,
+        "the store stayed in the cache",
     )
     await m.write(0x123456, 0x11, 0x1)
-    assert await model_word(dut, 0x123456) == 0xCAFEBA11
+    check_equal(await model_word(dut, 0x123456), 0xCAFEBA11)
     await m.check_chip()
 
 
@@ -45,9 +50,10 @@ async def test_a_store_that_misses_does_not_bring_the_line_in(dut):
         0x000100
     )  # first read: the line was not brought in
     again = await m.read(0x000100)
-    assert hit_read > 4 * again, (
+    check_true(
+        hit_read > 4 * again,
         f"the read after a missing store was a hit "
-        f"({hit_read} against {again} clocks)"
+        f"({hit_read} against {again} clocks)",
     )
 
 
@@ -58,9 +64,12 @@ async def test_a_store_that_hits_updates_the_line_and_the_chip(dut):
     m = Mirror(dut)
     await m.read(0x000200)  # the line is in
     await m.write(0x000201, 0xBEEF)  # same line
-    assert await model_word(dut, 0x000201) == 0xBEEF
+    check_equal(await model_word(dut, 0x000201), 0xBEEF)
     cycles = await m.read(0x000201)
-    assert cycles <= 3, f"the updated word is a hit, it took {cycles} clocks"
+    check_true(
+        cycles <= HIT_CLOCKS,
+        f"the updated word is a hit, it took {cycles} clocks",
+    )
     await m.check_chip()
 
 
@@ -69,7 +78,7 @@ async def test_random_traffic_keeps_the_chip_current(dut):
     """Check that random traffic keeps the chip current."""
     await begin(dut)
     m = Mirror(dut)
-    rng = random.Random(11)  # noqa: S311
+    rng = Prng(11)
     base = [
         0x000010,
         0x000011,
@@ -84,7 +93,7 @@ async def test_random_traffic_keeps_the_chip_current(dut):
         words += [b, b + SAME_INDEX, b + 3 * SAME_INDEX]
     for i in range(300):
         w = rng.choice(words)
-        if rng.random() < 0.5:
+        if rng.random() < HALF:
             await m.write(
                 w,
                 rng.getrandbits(32),
@@ -92,6 +101,6 @@ async def test_random_traffic_keeps_the_chip_current(dut):
             )
         else:
             await m.read(w, hold=rng.choice([0, 0, 2]))
-        if i % 25 == 24:
+        if i % FLUSH_EVERY == FLUSH_EVERY - 1:
             await m.check_chip()  # no flush: the chip is already current
     await m.check_chip()

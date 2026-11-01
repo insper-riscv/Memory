@@ -14,6 +14,13 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
+from tests.python.unittests.checks import check_equal, check_true
+
+PERIPHERALS = 0x80000000  # first address of the peripherals
+TIMEOUT = 5000  # clocks an access may take
+QUIET_SCANS = 4  # empty scans that end a read of the answers
+MIN_WAIT = 3  # clocks to wait before looking at ready
+
 UART = 0xC0000000
 TXDATA, RXDATA, STATUS = UART, UART + 4, UART + 8
 MEM = 0x40000100
@@ -60,11 +67,12 @@ def drive_memory(dut, addr, cycles, mem_latency):
     """Answer the memory side of an access, or check it is not used."""
     if not own_memory(dut):
         return
-    if addr < 0x80000000 and cycles == mem_latency:
+    if addr < PERIPHERALS and cycles == mem_latency:
         dut.i_m_ready.value = 1  # the memory answers, as a level
-    if addr >= 0x80000000:
-        assert int(dut.o_m_rden.value) == 0 and int(dut.o_m_wren.value) == 0, (
-            "a peripheral access reached the memory"
+    if addr >= PERIPHERALS:
+        check_true(
+            int(dut.o_m_rden.value) == 0 and int(dut.o_m_wren.value) == 0,
+            "a peripheral access reached the memory",
         )
 
 
@@ -87,10 +95,11 @@ async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):  # noqa: 
         drive_memory(dut, addr, cycles, mem_latency)
         if int(dut.o_ready.value):
             break
-        assert cycles < 5000, "the access never completed"
+        check_true(cycles < TIMEOUT, "the access never completed")
     for _ in range(hold):
-        assert int(dut.o_ready.value), (
-            "ready dropped before the pipeline advanced"
+        check_true(
+            int(dut.o_ready.value),
+            "ready dropped before the pipeline advanced",
         )
         await post_edge(dut)
     dut.i_mem_advance.value = 1
@@ -166,7 +175,9 @@ async def drain(dut):
             if not a["bytes"] and not a["left"] and not a["overrun"]
             else 0
         )
-        if quiet >= 4:  # an answer is shown two scans after its command
+        if (
+            quiet >= QUIET_SCANS
+        ):  # an answer is shown two scans after its command
             return got
     raise AssertionError("the transmit queue never emptied")
 
@@ -176,9 +187,11 @@ async def test_memory_access_passes_through(dut):
     """Check that memory access passes through."""
     await start(dut)
     value, cycles = await access(dut, MEM)
-    assert value == MEM_VALUE
+    check_equal(value, MEM_VALUE)
     if own_memory(dut):
-        assert cycles == 3, f"the memory's own latency is the core's: {cycles}"
+        check_equal(
+            cycles, 3, f"the memory's own latency is the core's: {cycles}"
+        )
     await access(dut, MEM + 4, we=True, wdata=0xAB)
     await access(dut, TXDATA, we=True, wdata=0x41)
 
@@ -193,10 +206,10 @@ async def test_core_to_host_bytes_in_order(dut):
     await start(dut)
     for b in b"hello, world":
         await access(dut, TXDATA, we=True, wdata=b)
-    assert (await _status(dut)) & 0xFF == DEPTH - 12
+    check_equal((await _status(dut)) & 0xFF, DEPTH - 12)
     got = await drain(dut)
-    assert bytes(got) == b"hello, world", bytes(got)
-    assert (await _status(dut)) & 0xFF == DEPTH
+    check_equal(bytes(got), b"hello, world", bytes(got))
+    check_equal((await _status(dut)) & 0xFF, DEPTH)
 
 
 @cocotb.test()
@@ -208,13 +221,13 @@ async def test_an_answer_is_shown_once(dut):
     await scan(dut)  # takes the bytes
     await Timer(1, unit="us")
     a = await scan(dut)  # the answer reaches the scan logic
-    assert a["bytes"] == [], a
+    check_equal(a["bytes"], [], a)
     b = await scan(dut)  # and is shown
-    assert b["bytes"] == list(b"abc"), b
+    check_equal(b["bytes"], list(b"abc"), b)
     got = []
     for _ in range(4):
         got += (await scan(dut))["bytes"]  # once
-    assert got == []
+    check_equal(got, [])
 
 
 @cocotb.test()
@@ -224,16 +237,16 @@ async def test_host_to_core_bytes_in_order(dut):
     for b in b"ping":
         await scan(dut, push=b)
         await Timer(1, unit="us")
-    assert ((await _status(dut)) >> 8) & 0xFF == 4
+    check_equal(((await _status(dut)) >> 8) & 0xFF, 4)
     got = []
     for _ in range(5):
         v, _c = await access(dut, RXDATA)
         if v & 0x100:
             got.append(v & 0xFF)
         else:
-            assert v == 0
-    assert bytes(got) == b"ping"
-    assert ((await _status(dut)) >> 8) & 0xFF == 0
+            check_equal(v, 0)
+    check_equal(bytes(got), b"ping")
+    check_equal(((await _status(dut)) >> 8) & 0xFF, 0)
 
 
 @cocotb.test()
@@ -244,12 +257,14 @@ async def test_a_stopped_pipeline_pops_once(dut):
         await scan(dut, push=b)
         await Timer(1, unit="us")
     v, _c = await access(dut, RXDATA, hold=6)
-    assert v == 0x178, hex(v)
+    check_equal(v, 0x178, hex(v))
     v, _c = await access(dut, RXDATA, hold=3)
-    assert v == 0x179, hex(v)
+    check_equal(v, 0x179, hex(v))
     await access(dut, TXDATA, we=True, wdata=0x41, hold=5)
-    assert (await _status(dut)) & 0xFF == DEPTH - 1, (
-        "a held write queued the byte once"
+    check_equal(
+        (await _status(dut)) & 0xFF,
+        DEPTH - 1,
+        "a held write queued the byte once",
     )
 
 
@@ -260,12 +275,14 @@ async def test_transmit_queue_full_drops_and_flags(dut):
     for i in range(DEPTH + 3):
         await access(dut, TXDATA, we=True, wdata=i & 0xFF)
     s = await _status(dut)
-    assert s & 0xFF == 0 and (s >> 16) & 1 == 1, hex(s)
+    check_true(s & 0xFF == 0 and (s >> 16) & 1 == 1, hex(s))
     s = await _status(dut)
-    assert (s >> 16) & 1 == 0, "reading the status clears the flag"
+    check_equal((s >> 16) & 1, 0, "reading the status clears the flag")
     got = await drain(dut)
-    assert got == [i & 0xFF for i in range(DEPTH)], (
-        "the first bytes are kept, the late ones dropped"
+    check_equal(
+        got,
+        [i & 0xFF for i in range(DEPTH)],
+        "the first bytes are kept, the late ones dropped",
     )
 
 
@@ -279,8 +296,8 @@ async def test_receive_queue_full_is_flagged_to_the_host(dut):
     a = await scan(dut)
     await Timer(1, unit="us")
     a = await scan(dut)
-    assert a["rx_dropped"] == 0 or True
-    assert ((await _status(dut)) >> 8) & 0xFF == DEPTH
+    check_true(a["rx_dropped"] == 0 or True)
+    check_equal(((await _status(dut)) >> 8) & 0xFF, DEPTH)
 
 
 @cocotb.test()
@@ -288,10 +305,10 @@ async def test_unmapped_window_reads_zero(dut):
     """Check that unmapped window reads zero."""
     await start(dut)
     v, _c = await access(dut, 0xA0000000)
-    assert v == 0
+    check_equal(v, 0)
     await access(dut, 0xA0000000, we=True, wdata=0xFFFFFFFF)
     v, _c = await access(dut, 0xB0000010)
-    assert v == 0
+    check_equal(v, 0)
 
 
 @cocotb.test()
@@ -301,13 +318,13 @@ async def test_load_data_stays_while_the_next_access_runs(dut):
     await scan(dut, push=0x5A)
     await Timer(1, unit="us")
     v, _c = await access(dut, RXDATA)
-    assert v == 0x15A
+    check_equal(v, 0x15A)
     # a memory load: it is the memory's data, then the peripheral's data
     # does not leak
     v, _c = await access(dut, MEM)
-    assert v == MEM_VALUE
+    check_equal(v, MEM_VALUE)
     v, _c = await access(dut, MEM)
-    assert v == MEM_VALUE
+    check_equal(v, MEM_VALUE)
 
 
 @cocotb.test()
@@ -336,15 +353,15 @@ async def test_the_load_in_the_last_stage_keeps_its_data(dut):
     # data is on rdata
     dut.i_addr.value = RXDATA
     waited = 0
-    while waited < 3 or not int(dut.o_ready.value):
-        assert int(dut.o_rdata.value) == 0x141, hex(int(dut.o_rdata.value))
+    while waited < MIN_WAIT or not int(dut.o_ready.value):
+        check_equal(int(dut.o_rdata.value), 0x141, hex(int(dut.o_rdata.value)))
         await post_edge(dut)
         waited += 1
-        assert waited < 5000, "the access never completed"
+        check_true(waited < TIMEOUT, "the access never completed")
     dut.i_mem_advance.value = 1
     await post_edge(dut)
     dut.i_mem_advance.value = 0
-    assert int(dut.o_rdata.value) == 0x142
+    check_equal(int(dut.o_rdata.value), 0x142)
     dut.i_rden.value = 0
 
 
@@ -352,7 +369,7 @@ async def test_the_load_in_the_last_stage_keeps_its_data(dut):
 async def test_status_tells_whether_a_host_has_scanned(dut):
     """Check that status tells whether a host has scanned."""
     await start(dut)
-    assert (await _status(dut)) >> 17 & 1 == 0
+    check_equal((await _status(dut)) >> 17 & 1, 0)
     await scan(dut)
     await Timer(1, unit="us")
-    assert (await _status(dut)) >> 17 & 1 == 1
+    check_equal((await _status(dut)) >> 17 & 1, 1)

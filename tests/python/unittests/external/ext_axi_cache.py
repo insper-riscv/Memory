@@ -13,6 +13,7 @@ its alias there (the cache's tag is 14 bits of address, the memory's is
 
 import cocotb
 
+from tests.python.unittests.checks import check_equal, check_true
 from tests.python.unittests.external.ext_bus import access, post_edge, start
 
 CACHE = 0xF0000000  # peripheral 7: write = flush, read = busy
@@ -43,12 +44,12 @@ async def test_a_cached_write_reaches_the_memory_only_with_the_flush(dut):
     """Check that a cached write reaches the memory with the flush."""
     await start(dut)
     await access(dut, SDRAM + 0x200, we=True, wdata=0xCAFE0001)
-    assert await peek(dut, 0x80) == 0, "a write-back cache wrote through"
+    check_equal(await peek(dut, 0x80), 0, "a write-back cache wrote through")
     v, _c = await access(dut, SDRAM + 0x200)
-    assert v == 0xCAFE0001
+    check_equal(v, 0xCAFE0001)
     await access(dut, CACHE, we=True, wdata=1)
     await wait_idle(dut)
-    assert await peek(dut, 0x80) == 0xCAFE0001
+    check_equal(await peek(dut, 0x80), 0xCAFE0001)
 
 
 @cocotb.test()
@@ -64,8 +65,10 @@ async def test_the_flush_stops_other_accesses_until_it_ends(dut):
         dut, 0xC0000008
     )  # the UART status, an access that does not use the cache
     for i in range(8):
-        assert await peek(dut, 0x100 + 4 * i) == 0x1000 + i, (
-            f"line {i} was not written back before the access"
+        check_equal(
+            await peek(dut, 0x100 + 4 * i),
+            0x1000 + i,
+            f"line {i} was not written back before the access",
         )
 
 
@@ -74,11 +77,13 @@ async def test_the_uncached_window_writes_through(dut):
     """Check that the uncached window writes through."""
     await start(dut)
     await access(dut, UNCACHED + 0x20, we=True, wdata=0x600D)
-    assert await peek(dut, 0xC08) == 0x600D, (
-        "a word of the shared window stayed in the cache"
+    check_equal(
+        await peek(dut, 0xC08),
+        0x600D,
+        "a word of the shared window stayed in the cache",
     )
     v, _c = await access(dut, UNCACHED + 0x20)
-    assert v == 0x600D
+    check_equal(v, 0x600D)
 
 
 @cocotb.test()
@@ -86,7 +91,7 @@ async def test_cache_status_reads_zero_when_idle(dut):
     """Check that cache status reads zero when idle."""
     await start(dut)
     v, _c = await access(dut, CACHE)
-    assert v == 0
+    check_equal(v, 0)
 
 
 @cocotb.test()
@@ -103,11 +108,15 @@ async def test_flush_with_invalidate_drops_the_lines(dut):
     _v, hit = await access(dut, SDRAM + 0x600)
     await access(dut, CACHE, we=True, wdata=2)
     await wait_idle(dut)
-    assert await peek(dut, 0x180) == 0x77, "the invalidate lost the dirty data"
+    check_equal(
+        await peek(dut, 0x180), 0x77, "the invalidate lost the dirty data"
+    )
     v, miss = await access(dut, SDRAM + 0x600)
-    assert v == 0x77
-    assert miss > hit + 4, (
-        f"the read after an invalidate was a hit ({miss} against {hit} clocks)"
+    check_equal(v, 0x77)
+    check_true(
+        miss > hit + 4,
+        f"the read after an invalidate was a hit "
+        f"({miss} against {hit} clocks)",
     )
 
 
@@ -149,4 +158,6 @@ async def test_a_byte_store_at_an_unaligned_address_changes_only_its_byte(dut):
     )  # byte 1 of the word
     await store_bytes(dut, UNCACHED + 0x42, 0x00BB0000, 0x4)  # byte 2
     await store_bytes(dut, UNCACHED + 0x42, 0xCCDD0000, 0xC)  # half-word at +2
-    assert await peek(dut, 0xC10) == 0xCCDDAA44, hex(await peek(dut, 0xC10))
+    check_equal(
+        await peek(dut, 0xC10), 0xCCDDAA44, hex(await peek(dut, 0xC10))
+    )

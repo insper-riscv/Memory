@@ -9,11 +9,10 @@ rule, as in the SDRAM system tests.
 
 """
 
-import random
-
 import cocotb
 from cocotb.triggers import RisingEdge
 
+from tests.python.unittests.checks import Prng, check_equal, check_true
 from tests.python.unittests.external.sdram_helpers import (
     _post_edge,
     access,
@@ -21,6 +20,10 @@ from tests.python.unittests.external.sdram_helpers import (
     model_word,
     start,
 )
+
+FLUSH_LIMIT = 200_000  # clocks a flush may take
+HIT_CLOCKS = 3  # clocks of a cache hit, at most
+HALF = 0.5  # probability of the random choices
 
 LINE_WORDS = 4
 LINES = 256
@@ -46,9 +49,9 @@ async def flush(dut):
         cycles += 1
         if int(dut.o_flush_done.value):
             break
-        assert cycles < 200_000, "flush never finished"
+        check_true(cycles < FLUSH_LIMIT, "flush never finished")
     await _post_edge(dut)
-    assert int(dut.o_busy.value) == 0
+    check_equal(int(dut.o_busy.value), 0)
     return cycles
 
 
@@ -80,8 +83,10 @@ class Mirror:
         """Read one word and return it."""
         want = await self.word(w)
         got, cycles = await access(self.dut, False, w, hold=hold)
-        assert got == want, (
-            f"word 0x{w:06X}: read 0x{got:08X}, expected 0x{want:08X}"
+        check_equal(
+            got,
+            want,
+            f"word 0x{w:06X}: read 0x{got:08X}, expected 0x{want:08X}",
         )
         return cycles
 
@@ -89,9 +94,11 @@ class Mirror:
         """Check the chip against the Python copy of the memory."""
         for w, v in self.mem.items():
             got = await model_word(self.dut, w)
-            assert got == v, (
+            check_equal(
+                got,
+                v,
                 f"word 0x{w:06X}: the chip holds 0x{got:08X}, "
-                f"expected 0x{v:08X}"
+                f"expected 0x{v:08X}",
             )
 
 
@@ -107,11 +114,13 @@ async def test_write_then_read(dut):
     old = await m.word(0x123456)
     await m.write(0x123456, 0xCAFEBABE)
     await m.read(0x123456)
-    assert await model_word(dut, 0x123456) == old, (
-        "a write-back cache wrote through"
+    check_equal(
+        await model_word(dut, 0x123456),
+        old,
+        "a write-back cache wrote through",
     )
     await flush(dut)
-    assert await model_word(dut, 0x123456) == 0xCAFEBABE
+    check_equal(await model_word(dut, 0x123456), 0xCAFEBABE)
 
 
 @cocotb.test()
@@ -126,13 +135,19 @@ async def test_hit_is_fast_and_miss_is_not(dut):
     miss = await m.read(0x000100)
     hit = await m.read(0x000100)
     near = await m.read(0x000101)  # same line, another word
-    assert hit <= 3 and near <= 3, f"hit took {hit} and {near} cycles"
-    assert miss > 4 * hit, f"a miss took {miss} cycles against {hit} of a hit"
+    check_true(
+        hit <= HIT_CLOCKS and near <= HIT_CLOCKS,
+        f"hit took {hit} and {near} cycles",
+    )
+    check_true(
+        miss > 4 * hit, f"a miss took {miss} cycles against {hit} of a hit"
+    )
     await m.write(0x000100, 0x11111111)  # the line is dirty now
     clean = await m.read(0x000100 + SAME_INDEX * 2)  # replaces the dirty line
     dirty = miss
-    assert clean > dirty, (
-        f"a dirty miss ({clean}) should cost more than a clean one ({dirty})"
+    check_true(
+        clean > dirty,
+        f"a dirty miss ({clean}) should cost more than a clean one ({dirty})",
     )
     await m.read(0x000100)  # the line comes back, with the written word
     await flush(dut)
@@ -189,8 +204,10 @@ async def test_eviction_writes_back(dut):
     # the first ones were written back by the evictions, before any
     # flush
     first = await model_word(dut, ws[0])
-    assert first == m.mem[ws[0]], (
-        f"0x{first:08X} reached the chip, expected 0x{m.mem[ws[0]]:08X}"
+    check_equal(
+        first,
+        m.mem[ws[0]],
+        f"0x{first:08X} reached the chip, expected 0x{m.mem[ws[0]]:08X}",
     )
     await flush(dut)
     await m.check_chip()
@@ -205,7 +222,7 @@ async def test_random_traffic(dut):
     """
     await begin(dut)
     m = Mirror(dut)
-    rng = random.Random(7)  # noqa: S311
+    rng = Prng(7)
     base = [
         0x000010,
         0x000011,
@@ -221,7 +238,7 @@ async def test_random_traffic(dut):
         words += [b, b + SAME_INDEX, b + 3 * SAME_INDEX]
     for _ in range(300):
         w = rng.choice(words)
-        if rng.random() < 0.5:
+        if rng.random() < HALF:
             await m.write(
                 w,
                 rng.getrandbits(32),
@@ -248,4 +265,4 @@ async def test_flush_keeps_lines_valid(dut):
     m = Mirror(dut)
     await m.write(0x000500, 0xAB)
     await flush(dut)
-    assert await m.read(0x000500) <= 3
+    check_true(await m.read(0x000500) <= HIT_CLOCKS)

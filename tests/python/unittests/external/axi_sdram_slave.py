@@ -13,12 +13,15 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
+from tests.python.unittests.checks import check_equal, check_true
 from tests.python.unittests.external.axi_router import (
     OKAY,
     read_burst,
     write_burst,
 )
 from tests.python.unittests.external.sdram_helpers import CPU_NS, MEM_NS, merge
+
+LAST_BEAT = 3  # index of the last beat of a four-beat burst
 
 SLVERR = 2
 INCR, FIXED, WRAP = 1, 0, 2
@@ -71,13 +74,15 @@ async def test_a_line_burst_is_written_and_read_whole(dut):
     await setup(dut)
     addr = BASE + 0x1230
     beats = [(0xA0000000 + i, 0xF) for i in range(4)]
-    assert await write_burst(dut, addr, beats) == OKAY
+    check_equal(await write_burst(dut, addr, beats), OKAY)
     for i in range(4):
-        assert await chip_word(dut, word_of(addr) + i) == 0xA0000000 + i
+        check_equal(await chip_word(dut, word_of(addr) + i), 0xA0000000 + i)
     got = await read_burst(dut, addr, 4)
-    assert got == [
-        (0xA0000000 + i, OKAY, 1 if i == 3 else 0) for i in range(4)
-    ], got
+    check_equal(
+        got,
+        [(0xA0000000 + i, OKAY, 1 if i == LAST_BEAT else 0) for i in range(4)],
+        got,
+    )
 
 
 @cocotb.test()
@@ -85,19 +90,19 @@ async def test_byte_strobes_of_a_line_burst(dut):
     """Check that byte strobes of a line burst."""
     await setup(dut)
     addr = BASE + 0x2000
-    assert (
+    check_equal(
         await write_burst(
             dut, addr, [(0x11111111 * (i + 1), 0xF) for i in range(4)]
-        )
-        == OKAY
+        ),
+        OKAY,
     )
     new = [0xA1B2C3D4, 0x55667788, 0x99AABBCC, 0x0F1E2D3C]
     strobes = [0x3, 0xC, 0x5, 0xA]
     burst = list(zip(new, strobes, strict=True))
-    assert await write_burst(dut, addr, burst) == OKAY
+    check_equal(await write_burst(dut, addr, burst), OKAY)
     for i in range(4):
         want = merge(0x11111111 * (i + 1), new[i], strobes[i])
-        assert await chip_word(dut, word_of(addr) + i) == want, f"word {i}"
+        check_equal(await chip_word(dut, word_of(addr) + i), want, f"word {i}")
 
 
 @cocotb.test()
@@ -119,17 +124,23 @@ async def test_other_lengths_are_one_word_per_beat(dut):
     ]:
         addr = BASE + 0x3000 + off
         beats = [(0xC0DE0000 + 16 * n + i, 0xF) for i in range(n)]
-        assert await write_burst(dut, addr, beats) == OKAY, (
-            f"{n} beats at +{off:#x}"
+        check_equal(
+            await write_burst(dut, addr, beats),
+            OKAY,
+            f"{n} beats at +{off:#x}",
         )
         for i in range(n):
-            assert await chip_word(dut, word_of(addr) + i) == beats[i][0], (
-                f"{n} beats at +{off:#x}, word {i}"
+            check_equal(
+                await chip_word(dut, word_of(addr) + i),
+                beats[i][0],
+                f"{n} beats at +{off:#x}, word {i}",
             )
         got = await read_burst(dut, addr, n)
-        assert got == [
-            (beats[i][0], OKAY, 1 if i == n - 1 else 0) for i in range(n)
-        ], f"{n} beats at +{off:#x}: {got}"
+        check_equal(
+            got,
+            [(beats[i][0], OKAY, 1 if i == n - 1 else 0) for i in range(n)],
+            f"{n} beats at +{off:#x}: {got}",
+        )
 
 
 @cocotb.test()
@@ -141,7 +152,7 @@ async def test_what_it_does_not_serve_is_slverr_and_touches_nothing(dut):
     """
     await setup(dut)
     addr = BASE + 0x4000
-    assert await write_burst(dut, addr, [(0x77777777, 0xF)]) == OKAY
+    check_equal(await write_burst(dut, addr, [(0x77777777, 0xF)]), OKAY)
     before = await chip_word(dut, word_of(addr))
     cases = [
         ("wrap", {"burst": WRAP}, addr, 4),
@@ -155,17 +166,21 @@ async def test_what_it_does_not_serve_is_slverr_and_touches_nothing(dut):
         resp = await write_burst(
             dut, a, [(0xBAD00000 + i, 0xF) for i in range(n)], **kw
         )
-        assert resp == SLVERR, f"{name}: write answered {resp}"
+        check_equal(resp, SLVERR, f"{name}: write answered {resp}")
         got = await read_burst(dut, a, n, **kw)
-        assert got == [
-            (0, SLVERR, 1 if i == n - 1 else 0) for i in range(n)
-        ], f"{name}: {got}"
-        assert await chip_word(dut, word_of(addr)) == before, (
-            f"{name} reached the chip"
+        check_equal(
+            got,
+            [(0, SLVERR, 1 if i == n - 1 else 0) for i in range(n)],
+            f"{name}: {got}",
+        )
+        check_equal(
+            await chip_word(dut, word_of(addr)),
+            before,
+            f"{name} reached the chip",
         )
     # and the slave serves a good one after all of them
-    assert await write_burst(dut, addr, [(0x12345678, 0xF)]) == OKAY
-    assert await chip_word(dut, word_of(addr)) == 0x12345678
+    check_equal(await write_burst(dut, addr, [(0x12345678, 0xF)]), OKAY)
+    check_equal(await chip_word(dut, word_of(addr)), 0x12345678)
 
 
 @cocotb.test()
@@ -192,4 +207,4 @@ async def test_a_line_read_is_faster_than_four_single_reads(dut):
     for i in range(4):
         singles += await timed(read_burst(dut, addr + 4 * i, 1))
     dut._log.info(f"a line read took {line} clocks, four word reads {singles}")
-    assert line < singles - 4, f"{line} against {singles}"
+    check_true(line < singles - 4, f"{line} against {singles}")

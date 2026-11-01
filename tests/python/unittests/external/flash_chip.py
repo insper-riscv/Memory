@@ -8,6 +8,8 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
+from tests.python.unittests.checks import check_equal, check_true
+
 FIRST = 24
 NEXT = 4
 
@@ -65,8 +67,10 @@ async def request(dut, addr, line, timeout=500):
             await RisingEdge(dut.i_clk)
             await Timer(1, unit="ns")
             dut.i_advance.value = 0
-            assert int(dut.o_ready.value) == 0, (
-                "ready has to drop once the request advances"
+            check_equal(
+                int(dut.o_ready.value),
+                0,
+                "ready has to drop once the request advances",
             )
             return words, n
     raise AssertionError(f"no ready for {addr:#x} after {timeout} clocks")
@@ -80,7 +84,7 @@ async def test_line_comes_whole_and_aligned(dut):
     # its start
     words, _ = await request(dut, 0x20001238, 1)
     base = 0x20001230
-    assert words == [word(base + 4 * i) for i in range(4)]
+    check_equal(words, [word(base + 4 * i) for i in range(4)])
 
 
 @cocotb.test()
@@ -88,7 +92,7 @@ async def test_a_single_word(dut):
     """Check that a single word."""
     await start(dut)
     words, _ = await request(dut, 0x20000044, 0)
-    assert words == [word(0x20000044)]
+    check_equal(words, [word(0x20000044)])
 
 
 @cocotb.test()
@@ -99,8 +103,8 @@ async def test_latency_follows_the_generics(dut):
     _, word_wait = await request(dut, 0x20000200, 0)
     # first word after FIRST edges, each of the other three NEXT edges
     # later
-    assert line_wait == word_wait + 3 * NEXT, (line_wait, word_wait)
-    assert FIRST <= word_wait <= FIRST + 3
+    check_equal(line_wait, word_wait + 3 * NEXT, (line_wait, word_wait))
+    check_true(FIRST <= word_wait <= FIRST + 3)
 
 
 @cocotb.test()
@@ -113,13 +117,13 @@ async def test_ready_holds_until_advance(dut):
     for _ in range(FIRST + 3 * NEXT + 10):
         await RisingEdge(dut.i_clk)
     await Timer(1, unit="ns")
-    assert int(dut.o_ready.value) == 1
+    check_equal(int(dut.o_ready.value), 1)
     first = int(dut.o_rdata.value)
     for _ in range(5):
         await RisingEdge(dut.i_clk)
         await Timer(1, unit="ns")
-        assert int(dut.o_ready.value) == 1
-        assert int(dut.o_rdata.value) == first
+        check_equal(int(dut.o_ready.value), 1)
+        check_equal(int(dut.o_rdata.value), first)
 
 
 @cocotb.test()
@@ -129,7 +133,7 @@ async def test_back_to_back_requests(dut):
     for k in range(6):
         addr = 0x20000000 + 0x40 * k
         words, _ = await request(dut, addr, 1)
-        assert words == [word(addr + 4 * i) for i in range(4)]
+        check_equal(words, [word(addr + 4 * i) for i in range(4)])
 
 
 @cocotb.test()
@@ -138,12 +142,12 @@ async def test_a_request_outside_the_window_reads_zero(dut):
     await start(dut)
     # bits 25:20 set: past the 1 MB window of the chip
     words, _ = await request(dut, 0x20100000, 1)
-    assert words == [0, 0, 0, 0]
+    check_equal(words, [0, 0, 0, 0])
     words, _ = await request(dut, 0x23F00040, 0)
-    assert words == [0]
+    check_equal(words, [0])
     # the last line inside the window still reads the storage
     words, _ = await request(dut, 0x200FFFF0, 1)
-    assert words == [word(0x200FFFF0 + 4 * i) for i in range(4)]
+    check_equal(words, [word(0x200FFFF0 + 4 * i) for i in range(4)])
 
 
 @cocotb.test()
@@ -163,4 +167,4 @@ async def test_busy_covers_the_latency_of_a_request(dut):
     await request(dut, 0x20000500, 1)
     # one request of four words waits FIRST + 3 * NEXT clocks in the
     # chip
-    assert busy == FIRST + 3 * NEXT, busy
+    check_equal(busy, FIRST + 3 * NEXT, busy)

@@ -14,6 +14,12 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
+from tests.python.unittests.checks import check_equal, check_true
+
+BACK_TO_BACK = 5  # writes sent to each slave by the back-to-back test
+AW_DELAY = 2  # clocks W is offered before AW in a burst
+LAST_BEAT = 3  # index of the last beat of a four-beat burst
+
 OKAY, DECERR = 0, 3
 SLAVE0, SLAVE1 = 0x40000010, 0x80000020
 NOBODY = 0x10000000
@@ -165,7 +171,7 @@ async def write_clock(dut, w_first, cycle):
     aw_hs = int(dut.i_s_awvalid.value) and int(dut.o_s_awready.value)
     w_hs = int(dut.i_s_wvalid.value) and int(dut.o_s_wready.value)
     if w_first and cycle == 0:
-        assert not w_hs, "W was taken before its AW"
+        check_true(not w_hs, "W was taken before its AW")
     await RisingEdge(dut.i_clk)
     await Timer(1, unit="ns")
     if aw_hs:
@@ -197,7 +203,7 @@ async def write(dut, addr, data, strb=0xF, w_first=False):
         w_done = w_done or w_hs
         if aw_done and w_done:
             break
-    assert aw_done and w_done, "the write request was never accepted"
+    check_true(aw_done and w_done, "the write request was never accepted")
     return await write_response(dut, 40)
 
 
@@ -232,45 +238,45 @@ async def read(dut, addr):
 async def test_writes_go_to_the_selected_slave(dut):
     """Check that writes go to the selected slave."""
     s = await setup(dut)
-    assert await write(dut, SLAVE0, 0x11, 0x3) == OKAY
-    assert await write(dut, SLAVE1, 0x22, 0xC) == OKAY
-    assert s[0].writes == [(SLAVE0, 0x11, 0x3)], s[0].writes
-    assert s[1].writes == [(SLAVE1, 0x22, 0xC)], s[1].writes
+    check_equal(await write(dut, SLAVE0, 0x11, 0x3), OKAY)
+    check_equal(await write(dut, SLAVE1, 0x22, 0xC), OKAY)
+    check_equal(s[0].writes, [(SLAVE0, 0x11, 0x3)], s[0].writes)
+    check_equal(s[1].writes, [(SLAVE1, 0x22, 0xC)], s[1].writes)
 
 
 @cocotb.test()
 async def test_reads_come_from_the_selected_slave(dut):
     """Check that reads come from the selected slave."""
     s = await setup(dut)
-    assert await read(dut, SLAVE0) == (SLAVE0 ^ 0xFFFFFFFF, OKAY)
-    assert await read(dut, SLAVE1) == (SLAVE1 ^ 0xFFFFFFFF, OKAY)
-    assert s[0].reads == [(SLAVE0, 0)] and s[1].reads == [(SLAVE1, 0)]
+    check_equal(await read(dut, SLAVE0), (SLAVE0 ^ 0xFFFFFFFF, OKAY))
+    check_equal(await read(dut, SLAVE1), (SLAVE1 ^ 0xFFFFFFFF, OKAY))
+    check_true(s[0].reads == [(SLAVE0, 0)] and s[1].reads == [(SLAVE1, 0)])
 
 
 @cocotb.test()
 async def test_w_before_aw_waits_and_follows_aw(dut):
     """Check that w before aw waits and follows aw."""
     s = await setup(dut)
-    assert await write(dut, SLAVE1, 0xBEEF, w_first=True) == OKAY
-    assert s[1].writes == [(SLAVE1, 0xBEEF, 0xF)] and s[0].writes == []
+    check_equal(await write(dut, SLAVE1, 0xBEEF, w_first=True), OKAY)
+    check_true(s[1].writes == [(SLAVE1, 0xBEEF, 0xF)] and s[0].writes == [])
 
 
 @cocotb.test()
 async def test_no_slave_answers_decerr(dut):
     """Check that no slave answers decerr."""
     s = await setup(dut)
-    assert await write(dut, NOBODY, 0x5) == DECERR
-    assert await read(dut, NOBODY) == (0, DECERR)
-    assert await read(dut, 0x44000000) == (0, DECERR)  # just above the SDRAM
-    assert await read(dut, 0x4C000000) == (
-        0,
-        DECERR,
-    )  # bits 27 and 26 both set
-    assert s[0].writes == s[1].writes == [] and s[0].reads == s[1].reads == []
-    assert (
-        await write(dut, SLAVE0, 0x1) == OKAY
-    )  # and the router is fine after it
-    assert await read(dut, SLAVE1) == (SLAVE1 ^ 0xFFFFFFFF, OKAY)
+    check_equal(await write(dut, NOBODY, 0x5), DECERR)
+    check_equal(await read(dut, NOBODY), (0, DECERR))
+    # just above the SDRAM
+    check_equal(await read(dut, 0x44000000), (0, DECERR))
+    # bits 27 and 26 both set
+    check_equal(await read(dut, 0x4C000000), (0, DECERR))
+    check_true(
+        s[0].writes == s[1].writes == [] and s[0].reads == s[1].reads == []
+    )
+    # and the router is fine after it
+    check_equal(await write(dut, SLAVE0, 0x1), OKAY)
+    check_equal(await read(dut, SLAVE1), (SLAVE1 ^ 0xFFFFFFFF, OKAY))
 
 
 @cocotb.test()
@@ -279,9 +285,11 @@ async def test_back_to_back(dut):
     s = await setup(dut)
     for i in range(10):
         a = SLAVE0 + 4 * i if i % 2 else SLAVE1 + 4 * i
-        assert await write(dut, a, i) == OKAY
-        assert (await read(dut, a))[0] == a ^ 0xFFFFFFFF
-    assert len(s[0].writes) == 5 and len(s[1].writes) == 5
+        check_equal(await write(dut, a, i), OKAY)
+        check_equal((await read(dut, a))[0], a ^ 0xFFFFFFFF)
+    check_true(
+        len(s[0].writes) == BACK_TO_BACK and len(s[1].writes) == BACK_TO_BACK
+    )
 
 
 async def burst_clock(dut, beats, i, w_first, cycle):
@@ -290,7 +298,7 @@ async def burst_clock(dut, beats, i, w_first, cycle):
     dut.i_s_wdata.value = data
     dut.i_s_wstrb.value = strb
     dut.i_s_wlast.value = 1 if i == len(beats) - 1 else 0
-    if w_first and cycle == 2:
+    if w_first and cycle == AW_DELAY:
         dut.i_s_awvalid.value = 1
     await Timer(1, unit="ns")
     aw_hs = int(dut.i_s_awvalid.value) and int(dut.o_s_awready.value)
@@ -381,15 +389,15 @@ async def test_a_write_burst_goes_whole_to_one_slave(dut):
     """Check that a write burst goes whole to one slave."""
     s = await setup(dut)
     beats = [(0x100 + i, 0xF) for i in range(4)]
-    assert await write_burst(dut, SLAVE1, beats) == OKAY
-    assert (
+    check_equal(await write_burst(dut, SLAVE1, beats), OKAY)
+    check_true(
         s[1].bursts == [(SLAVE1, beats)]
         and s[0].bursts == []
         and s[0].writes == []
     )
     beats = [(0x200 + i, 0x3) for i in range(4)]
-    assert await write_burst(dut, SLAVE0, beats, w_first=True) == OKAY
-    assert s[0].bursts == [(SLAVE0, beats)]
+    check_equal(await write_burst(dut, SLAVE0, beats, w_first=True), OKAY)
+    check_equal(s[0].bursts, [(SLAVE0, beats)])
 
 
 @cocotb.test()
@@ -397,11 +405,15 @@ async def test_a_read_burst_comes_whole_from_one_slave(dut):
     """Check that a read burst comes whole from one slave."""
     s = await setup(dut)
     got = await read_burst(dut, SLAVE0, 4)
-    assert got == [
-        ((SLAVE0 + 4 * i) ^ 0xFFFFFFFF, OKAY, 1 if i == 3 else 0)
-        for i in range(4)
-    ], got
-    assert s[0].reads == [(SLAVE0, 3)] and s[1].reads == []
+    check_equal(
+        got,
+        [
+            ((SLAVE0 + 4 * i) ^ 0xFFFFFFFF, OKAY, 1 if i == LAST_BEAT else 0)
+            for i in range(4)
+        ],
+        got,
+    )
+    check_true(s[0].reads == [(SLAVE0, 3)] and s[1].reads == [])
 
 
 @cocotb.test()
@@ -412,16 +424,17 @@ async def test_a_burst_to_no_slave_is_consumed_and_answered_decerr(dut):
 
     """
     s = await setup(dut)
-    assert (
-        await write_burst(dut, NOBODY, [(i, 0xF) for i in range(4)]) == DECERR
+    check_equal(
+        await write_burst(dut, NOBODY, [(i, 0xF) for i in range(4)]), DECERR
     )
     got = await read_burst(dut, NOBODY, 4)
-    assert got == [(0, DECERR, 1 if i == 3 else 0) for i in range(4)], got
-    assert (
+    check_equal(
+        got, [(0, DECERR, 1 if i == LAST_BEAT else 0) for i in range(4)], got
+    )
+    check_true(
         s[0].writes == s[1].writes == []
         and s[0].bursts == s[1].bursts == []
         and s[0].reads == s[1].reads == []
     )
-    assert (
-        await write(dut, SLAVE1, 0x9) == OKAY
-    )  # and the router is fine after it
+    # and the router is fine after it
+    check_equal(await write(dut, SLAVE1, 0x9), OKAY)

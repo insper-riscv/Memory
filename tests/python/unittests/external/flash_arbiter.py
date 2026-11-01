@@ -8,6 +8,8 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
+from tests.python.unittests.checks import check_equal
+
 LAT = 4
 
 
@@ -115,12 +117,17 @@ async def test_single_requests(dut):
     res = []
     await master(dut, "a", 0x20000010, res)
     await master(dut, "b", 0x20000020, res)
-    assert [(w, a) for w, a, _, _ in res] == [
-        ("a", 0x20000010),
-        ("b", 0x20000020),
-    ]
-    assert [d for _, _, d, _ in res] == [word(0x20000010), word(0x20000020)]
-    assert chip.log == [0x20000010, 0x20000020]
+    check_equal(
+        [(w, a) for w, a, _, _ in res],
+        [
+            ("a", 0x20000010),
+            ("b", 0x20000020),
+        ],
+    )
+    check_equal(
+        [d for _, _, d, _ in res], [word(0x20000010), word(0x20000020)]
+    )
+    check_equal(chip.log, [0x20000010, 0x20000020])
 
 
 @cocotb.test()
@@ -132,8 +139,8 @@ async def test_a_wins_a_tie_then_b_follows(dut):
     tb = cocotb.start_soon(master(dut, "b", 0x20000200, res))
     await ta
     await tb
-    assert [w for w, _, _, _ in res] == ["a", "b"]
-    assert chip.log == [0x20000100, 0x20000200]
+    check_equal([w for w, _, _, _ in res], ["a", "b"])
+    check_equal(chip.log, [0x20000100, 0x20000200])
 
 
 @cocotb.test()
@@ -146,13 +153,16 @@ async def test_a_grant_is_not_cut(dut):
     ta = cocotb.start_soon(master(dut, "a", 0x20000400, res, start_delay=2))
     await tb
     await ta
-    assert [w for w, _, _, _ in res] == ["b", "a"]
-    assert chip.log == [0x20000300, 0x20000400]
+    check_equal([w for w, _, _, _ in res], ["b", "a"])
+    check_equal(chip.log, [0x20000300, 0x20000400])
     # each master got its own word
-    assert {a: d for _, a, d, _ in res} == {
-        0x20000300: word(0x20000300),
-        0x20000400: word(0x20000400),
-    }
+    check_equal(
+        {a: d for _, a, d, _ in res},
+        {
+            0x20000300: word(0x20000300),
+            0x20000400: word(0x20000400),
+        },
+    )
 
 
 @cocotb.test()
@@ -170,4 +180,4 @@ async def test_b_is_not_starved_by_back_to_back_requests_of_a(dut):
     await ta
     await tb
     order = [w for w, _, _, _ in res]
-    assert order == ["a", "b", "a"], order
+    check_equal(order, ["a", "b", "a"], order)

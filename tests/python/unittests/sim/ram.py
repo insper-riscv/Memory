@@ -4,6 +4,8 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
+from tests.python.unittests.checks import check_equal, check_true
+
 # Máscaras de exemplo
 MASKS = [
     0b0001,
@@ -66,7 +68,9 @@ async def read_word(dut, addr, expect_z=False):
     if expect_z:
         # leitura síncrona normalmente não retorna Z; mantemos a
         # verificação caso alguém explicitamente peça por isso.
-        assert str(val).lower().count("z") > 0, f"Esperado Z, obtido {val}"
+        check_true(
+            str(val).lower().count("z") > 0, f"Esperado Z, obtido {val}"
+        )
         return None
 
     return int(val)
@@ -81,7 +85,9 @@ async def sw_fullword(dut):
     data = 0xDEADBEEF
     await write_word(dut, 0, data, 0b1111)
     got = await read_word(dut, 0)
-    assert got == data, f"SW falhou: esperado {data:#010x}, obtido {got:#010x}"
+    check_equal(
+        got, data, f"SW falhou: esperado {data:#010x}, obtido {got:#010x}"
+    )
 
 
 @cocotb.test()
@@ -109,9 +115,11 @@ async def all_masks(dut):
             else:
                 expected |= ((base >> (8 * i)) & 0xFF) << (8 * i)
 
-        assert got == expected, (
+        check_equal(
+            got,
+            expected,
             f"Mask {mask:04b} falhou: esperado {expected:#010x}, "
-            f"obtido {got:#010x}"
+            f"obtido {got:#010x}",
         )
 
 
@@ -141,8 +149,10 @@ async def disable_read(dut):
     dut.i_en_ram.value = 1
     await RisingEdge(dut.i_clk)
     await Timer(1, "ns")
-    assert int(dut.o_data_out.value) == last_val, (
-        "Esperado manter último valor quando reRAM=0"
+    check_equal(
+        int(dut.o_data_out.value),
+        last_val,
+        "Esperado manter último valor quando reRAM=0",
     )
 
     # agora testar eRAM=0: com re=1 mas eRAM=0 a leitura síncrona não
@@ -152,8 +162,10 @@ async def disable_read(dut):
     dut.i_en_ram.value = 0
     await RisingEdge(dut.i_clk)
     await Timer(1, "ns")
-    assert int(dut.o_data_out.value) == last_val, (
-        "Esperado manter último valor quando eRAM=0"
+    check_equal(
+        int(dut.o_data_out.value),
+        last_val,
+        "Esperado manter último valor quando eRAM=0",
     )
 
 
@@ -177,9 +189,9 @@ async def multi_positions(dut):
     got1 = await read_word(dut, 4)
     got2 = await read_word(dut, 8)
 
-    assert got0 == data0
-    assert got1 == data1
-    assert got2 == data2
+    check_equal(got0, data0)
+    check_equal(got1, data1)
+    check_equal(got2, data2)
 
 
 @cocotb.test()
@@ -192,8 +204,8 @@ async def overwrite(dut):
 
     await write_word(dut, 0, first, 0b1111)
     got1 = await read_word(dut, 0)
-    assert got1 == first
+    check_equal(got1, first)
 
     await write_word(dut, 0, second, 0b1111)
     got2 = await read_word(dut, 0)
-    assert got2 == second
+    check_equal(got2, second)

@@ -10,17 +10,21 @@ instance does, with a 64-bit DEBUG register selected by instruction 1
 
 """
 
-import random
-
 import cocotb
 from cocotb.triggers import Timer
 
+from tests.python.unittests.checks import Prng, check_equal, check_true
 from tests.python.unittests.external.sdram_helpers import (
     access,
     merge,
     model_word,
     start,
 )
+
+ALL_ONES = 0xFFFFFFFF  # word the fill writes
+SHORT_STALL = 14  # core cycles a stall may take, at most
+FILL_STALL = 12  # core cycles of the stall during a fill, at most
+HALF = 0.5  # probability of the random choices
 
 OP_NOP, OP_READ, OP_WRITE, OP_FILL, OP_COUNT, OP_READ_NEXT, OP_WRITE_NEXT = (
     range(7)
@@ -113,8 +117,10 @@ async def read(dut, addr):
     """Read one word and return it."""
     await debug(dut, OP_READ, addr)
     _status, word, data = await settle(dut)
-    assert word == addr, (
-        f"the word accessed last is 0x{word:06X}, expected 0x{addr:06X}"
+    check_equal(
+        word,
+        addr,
+        f"the word accessed last is 0x{word:06X}, expected 0x{addr:06X}",
     )
     return data
 
@@ -130,8 +136,9 @@ async def start_debug(dut):
     await start(dut)
     await load_ir(dut, 1)
     status, _, _ = await settle(dut)
-    assert status & INIT, (
-        f"the SDRAM is not reported initialized (status {status:#x})"
+    check_true(
+        status & INIT,
+        f"the SDRAM is not reported initialized (status {status:#x})",
     )
 
 
@@ -152,14 +159,14 @@ async def test_write_and_read_back(dut):
     for addr, value in words.items():
         await write(dut, addr, value)
     for addr, value in words.items():
-        assert await read(dut, addr) == value
-        assert await model_word(dut, addr) == value, (
-            "the chip holds something else"
+        check_equal(await read(dut, addr), value)
+        check_equal(
+            await model_word(dut, addr), value, "the chip holds something else"
         )
     await write(dut, 0x123456, 0x12345678, be=0b0101)
     want = merge(0xCAFEBABE, 0x12345678, 0b0101)
-    assert await read(dut, 0x123456) == want, "byte enables"
-    assert await model_word(dut, 0x123456) == want
+    check_equal(await read(dut, 0x123456), want, "byte enables")
+    check_equal(await model_word(dut, 0x123456), want)
 
 
 @cocotb.test()
@@ -167,10 +174,10 @@ async def test_the_core_and_the_host_see_the_same_memory(dut):
     """What the core writes the host reads, and the other way around."""
     await start_debug(dut)
     await access(dut, True, 0x4321, 0xA5A5A5A5)
-    assert await read(dut, 0x4321) == 0xA5A5A5A5
+    check_equal(await read(dut, 0x4321), 0xA5A5A5A5)
     await write(dut, 0x8765, 0x0F0F0F0F)
     got, _ = await access(dut, False, 0x8765)
-    assert got == 0x0F0F0F0F
+    check_equal(got, 0x0F0F0F0F)
 
 
 @cocotb.test()
@@ -187,20 +194,26 @@ async def test_fill(dut):
     await debug(dut, OP_FILL, 0x000100, 0)
     await settle(dut)
     for addr in (0x100, 0x101, 0x120, 0x13F):
-        assert await read(dut, addr) == 0, f"word 0x{addr:X} was not filled"
-    assert await read(dut, 0x100 - 1) == 0x01010101, (
-        "the word before the range changed"
+        check_equal(
+            await read(dut, addr), 0, f"word 0x{addr:X} was not filled"
+        )
+    check_equal(
+        await read(dut, 0x100 - 1),
+        0x01010101,
+        "the word before the range changed",
     )
-    assert await read(dut, 0x100 + 64) == 0x02020202, (
-        "the word after the range changed"
+    check_equal(
+        await read(dut, 0x100 + 64),
+        0x02020202,
+        "the word after the range changed",
     )
     await debug(dut, OP_FILL, 0x000200, 0xFFFFFFFF)
     await settle(dut)
-    assert (
-        await read(dut, 0x200) == 0xFFFFFFFF
-        and await read(dut, 0x23F) == 0xFFFFFFFF
+    check_true(
+        await read(dut, 0x200) == ALL_ONES
+        and await read(dut, 0x23F) == ALL_ONES
     )
-    assert await model_word(dut, 0x220) == 0xFFFFFFFF
+    check_equal(await model_word(dut, 0x220), 0xFFFFFFFF)
 
 
 @cocotb.test()
@@ -213,10 +226,12 @@ async def test_the_fill_count_reaches_the_whole_sdram(dut):
     await start_debug(dut)
     await debug(dut, OP_COUNT, data=1 << 24)
     await settle(dut)
-    assert int(dut.u_dbg.count.value) == 1 << 24, int(dut.u_dbg.count.value)
+    check_equal(
+        int(dut.u_dbg.count.value), 1 << 24, int(dut.u_dbg.count.value)
+    )
     await debug(dut, OP_COUNT, data=(1 << 24) - 1)
     await settle(dut)
-    assert int(dut.u_dbg.count.value) == (1 << 24) - 1
+    check_equal(int(dut.u_dbg.count.value), (1 << 24) - 1)
 
 
 @cocotb.test()
@@ -231,7 +246,7 @@ async def test_next_word_commands(dut):
     for i in range(1, 6):
         await debug(dut, OP_READ_NEXT)
         _, word, data = await settle(dut)
-        assert word == 0x3000 + i and data == 0x1000 + i, (word, data)
+        check_true(word == 0x3000 + i and data == 0x1000 + i, (word, data))
 
 
 @cocotb.test()
@@ -242,7 +257,7 @@ async def test_traffic_from_the_core_and_the_host_together(dut):
 
     """
     await start_debug(dut)
-    rng = random.Random(3)  # noqa: S311
+    rng = Prng(3)
     core_words = {0x500000 + i * 7: rng.getrandbits(32) for i in range(40)}
     host_words = {0x600000 + i * 5: rng.getrandbits(32) for i in range(40)}
 
@@ -250,7 +265,9 @@ async def test_traffic_from_the_core_and_the_host_together(dut):
         for addr, value in host_words.items():
             await write(dut, addr, value)
         for addr, value in host_words.items():
-            assert await read(dut, addr) == value, f"host word 0x{addr:06X}"
+            check_equal(
+                await read(dut, addr), value, f"host word 0x{addr:06X}"
+            )
 
     task = cocotb.start_soon(host())
     stalls = []
@@ -260,11 +277,14 @@ async def test_traffic_from_the_core_and_the_host_together(dut):
     for addr, value in core_words.items():
         got, cycles = await access(dut, False, addr)
         stalls.append(cycles)
-        assert got == value, f"core word 0x{addr:06X}"
+        check_equal(got, value, f"core word 0x{addr:06X}")
     await task
     # the core never waits for more than one debug access on top of its
     # own
-    assert max(stalls) <= 14, f"a core access took {max(stalls)} core cycles"
+    check_true(
+        max(stalls) <= SHORT_STALL,
+        f"a core access took {max(stalls)} core cycles",
+    )
     dut._log.info(
         f"core stall with the host active: max {max(stalls)} core cycles"
     )
@@ -286,13 +306,15 @@ async def test_a_command_while_busy_is_dropped(dut):
     status, _, _ = await debug(
         dut, OP_WRITE, 0x700000, 0xFFFFFFFF
     )  # arrives while busy
-    assert status & BUSY, "the fill should still be running"
+    check_true(status & BUSY, "the fill should still be running")
     status, _, _ = await debug(dut, OP_NOP)
-    assert status & OVERRUN, f"overrun not flagged (status {status:#x})"
+    check_true(status & OVERRUN, f"overrun not flagged (status {status:#x})")
     await settle(dut)
-    assert await read(dut, 0x700000) == 0x13579BDF, "the dropped command ran"
-    assert await read(dut, 0x710000 + 1499) == 0xABABABAB, (
-        "the fill did not finish"
+    check_equal(
+        await read(dut, 0x700000), 0x13579BDF, "the dropped command ran"
+    )
+    check_equal(
+        await read(dut, 0x710000 + 1499), 0xABABABAB, "the fill did not finish"
     )
 
 
@@ -307,9 +329,9 @@ async def test_other_instructions_are_a_bypass(dut):
     await write(dut, 0x800000, 0x5A5A5A5A)
     await load_ir(dut, 0)
     out = await shift_dr(dut, 8, 0b10110011)
-    assert out == (0b10110011 << 1) & 0xFF, f"{out:#x}"
+    check_equal(out, (0b10110011 << 1) & 0xFF, f"{out:#x}")
     await load_ir(dut, 1)
-    assert await read(dut, 0x800000) == 0x5A5A5A5A
+    check_equal(await read(dut, 0x800000), 0x5A5A5A5A)
 
 
 @cocotb.test()
@@ -325,28 +347,30 @@ async def test_the_core_is_not_starved_by_a_long_fill(dut):
     await debug(
         dut, OP_FILL, 0x900000, 0x77777777
     )  # about 3000 words, back to back
-    rng = random.Random(11)  # noqa: S311
+    rng = Prng(11)
     ref, stalls = {}, []
     for _ in range(60):
         addr = 0xA00000 + rng.randrange(256)
-        if addr not in ref or rng.random() < 0.5:
+        if addr not in ref or rng.random() < HALF:
             value = rng.getrandbits(32)
             _, cycles = await access(dut, True, addr, value)
             ref[addr] = value
         else:
             got, cycles = await access(dut, False, addr)
-            assert got == ref[addr], f"core word 0x{addr:06X}"
+            check_equal(got, ref[addr], f"core word 0x{addr:06X}")
         stalls.append(cycles)
     status, _, _ = await debug(dut, OP_NOP)
-    assert status & BUSY, (
-        "the fill ended before the core accesses were done: lengthen it"
+    check_true(
+        status & BUSY,
+        "the fill ended before the core accesses were done: lengthen it",
     )
     await settle(dut)
-    assert await read(dut, 0x900000 + 2999) == 0x77777777
+    check_equal(await read(dut, 0x900000 + 2999), 0x77777777)
     # one debug access in flight and then the core's own: bounded, not
     # starved
-    assert max(stalls) <= 12, (
-        f"a core access took {max(stalls)} core cycles during the fill"
+    check_true(
+        max(stalls) <= FILL_STALL,
+        f"a core access took {max(stalls)} core cycles during the fill",
     )
     dut._log.info(
         f"core stall during a long fill: max {max(stalls)}, "

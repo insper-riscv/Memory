@@ -8,6 +8,10 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
+from tests.python.unittests.checks import check_equal, check_true
+
+FAST_CLOCKS = 2  # clocks an absorbed store waits, at most
+
 SDRAM = 0x40000000
 FLASH = 0x20000000
 LAT = 3
@@ -156,8 +160,8 @@ async def test_line_read_goes_to_the_sdram(dut):
     s, f = await start(dut)
     r, rx, _ = await request(dut, SDRAM + 0x1230, rd=1, line=1)
     got = [r, rx & 0xFFFFFFFF, (rx >> 32) & 0xFFFFFFFF, rx >> 64]
-    assert got == line_words(0x11110000, SDRAM + 0x1230)
-    assert len(s.requests) == 1 and f.requests == []
+    check_equal(got, line_words(0x11110000, SDRAM + 0x1230))
+    check_true(len(s.requests) == 1 and f.requests == [])
 
 
 @cocotb.test()
@@ -166,8 +170,8 @@ async def test_line_read_goes_to_the_flash(dut):
     s, f = await start(dut)
     r, rx, _ = await request(dut, FLASH + 0x400, rd=1, line=1)
     got = [r, rx & 0xFFFFFFFF, (rx >> 32) & 0xFFFFFFFF, rx >> 64]
-    assert got == line_words(0x22220000, FLASH + 0x400)
-    assert len(f.requests) == 1 and s.requests == []
+    check_equal(got, line_words(0x22220000, FLASH + 0x400))
+    check_true(len(f.requests) == 1 and s.requests == [])
 
 
 @cocotb.test()
@@ -175,8 +179,8 @@ async def test_store_to_the_flash_is_absorbed(dut):
     """Check that store to the flash is absorbed."""
     s, f = await start(dut)
     _, _, waited = await request(dut, FLASH + 0x80, wr=1)
-    assert waited <= 2, f"the absorbed store waited {waited}"
-    assert s.requests == [] and f.requests == []
+    check_true(waited <= FAST_CLOCKS, f"the absorbed store waited {waited}")
+    check_true(s.requests == [] and f.requests == [])
 
 
 @cocotb.test()
@@ -184,13 +188,13 @@ async def test_read_outside_the_window_is_zero(dut):
     """Check that read outside the window is zero."""
     s, f = await start(dut)
     r, rx, _ = await request(dut, FLASH + 0x100000, rd=1, line=1)
-    assert r == 0 and rx == 0
+    check_true(r == 0 and rx == 0)
     r, rx, _ = await request(dut, FLASH + 0x3F00000, rd=1)
-    assert r == 0
-    assert s.requests == [] and f.requests == []
+    check_equal(r, 0)
+    check_true(s.requests == [] and f.requests == [])
     # the last line inside the window still reaches the chip
     await request(dut, FLASH + 0xFFFF0, rd=1, line=1)
-    assert len(f.requests) == 1
+    check_equal(len(f.requests), 1)
 
 
 @cocotb.test()
@@ -198,7 +202,7 @@ async def test_store_to_the_sdram_passes_through(dut):
     """Check that store to the sdram passes through."""
     s, f = await start(dut)
     await request(dut, SDRAM + 0x20, wr=1)
-    assert s.requests == [(SDRAM + 0x20, "w", 0)] and f.requests == []
+    check_true(s.requests == [(SDRAM + 0x20, "w", 0)] and f.requests == [])
 
 
 @cocotb.test()
@@ -215,10 +219,13 @@ async def test_mixed_sequence(dut):
     for a in plan:
         r, _, _ = await request(dut, a, rd=1, line=1)
         tag = 0x22220000 if a & FLASH and not a & SDRAM else 0x11110000
-        assert r == word(tag, a & ~0xF)
-    assert [a for a, _, _ in s.requests] == [SDRAM + 0x10, SDRAM + 0x30]
-    assert [a for a, _, _ in f.requests] == [
-        FLASH + 0x10,
-        FLASH + 0x20,
-        FLASH + 0x30,
-    ]
+        check_equal(r, word(tag, a & ~0xF))
+    check_equal([a for a, _, _ in s.requests], [SDRAM + 0x10, SDRAM + 0x30])
+    check_equal(
+        [a for a, _, _ in f.requests],
+        [
+            FLASH + 0x10,
+            FLASH + 0x20,
+            FLASH + 0x30,
+        ],
+    )

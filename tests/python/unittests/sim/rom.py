@@ -5,6 +5,8 @@ from pathlib import Path
 import cocotb
 from cocotb.triggers import Timer
 
+from tests.python.unittests.checks import check_equal
+
 
 # ---------- Helpers ----------
 def parse_hex(hex_path: Path, depth=64):
@@ -75,8 +77,11 @@ async def rom_leitura_sincrona_basica(dut):
     # leituras com re = 1 (habilitado) -- checamos várias posições
     for word_idx in [0, 1, 2, 3, 4, 5, 6, 7, 10, 14, 21, 22, 63]:
         got = await read_rom_sync(dut, word_idx, do_re=True)
-        assert got == exp[word_idx], (
-            f"ROM[{word_idx}] esperado={exp[word_idx]:#010x}, lido={got:#010x}"
+        check_equal(
+            got,
+            exp[word_idx],
+            f"ROM[{word_idx}] esperado={exp[word_idx]:#010x}, "
+            f"lido={got:#010x}",
         )
 
     # teste extra: com re = 0 a saída deve manter o último valor lido
@@ -96,7 +101,9 @@ async def rom_leitura_sincrona_basica(dut):
 
     # 3) com re=1 ler o novo endereço e conferir valor esperado
     val_after_re1 = await read_rom_sync(dut, new_idx, do_re=True)
-    assert val_after_re1 == exp[new_idx], (
+    check_equal(
+        val_after_re1,
+        exp[new_idx],
         f"Após re=1 ROM[{new_idx}] esperado={exp[new_idx]:#010x}, "
-        f"lido={val_after_re1:#010x}"
+        f"lido={val_after_re1:#010x}",
     )

@@ -8,6 +8,11 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
+from tests.python.unittests.checks import check_equal, check_true
+
+SLOW_CLOCKS = 12  # clocks a flash line takes, at least
+FAST_CLOCKS = 2  # clocks a request that skips the chip takes, at most
+
 FLASH = 0x20000000
 SDRAM = 0x40000000
 
@@ -72,13 +77,13 @@ async def test_instruction_fetch_from_the_flash(dut):
     base = FLASH + 0x10230
     for i in range(4):
         data, waited = await fetch(dut, base + 4 * i)
-        assert data == word(base + 4 * i)
+        check_equal(data, word(base + 4 * i))
         if i == 0:
-            assert waited > 12
+            check_true(waited > SLOW_CLOCKS)
         else:
-            assert waited <= 1
-    assert int(dut.o_chip_reqs.value) == 1
-    assert int(dut.o_si_rden.value) == 0
+            check_true(waited <= 1)
+    check_equal(int(dut.o_chip_reqs.value), 1)
+    check_equal(int(dut.o_si_rden.value), 0)
 
 
 @cocotb.test()
@@ -87,8 +92,8 @@ async def test_b_reads_a_line_while_the_icache_is_idle(dut):
     await start(dut)
     r, rx, _ = await b_request(dut, FLASH + 0x400, rd=1, line=1)
     got = [r] + [(rx >> (32 * i)) & 0xFFFFFFFF for i in range(3)]
-    assert got == [word(FLASH + 0x400 + 4 * i) for i in range(4)]
-    assert int(dut.o_chip_reqs.value) == 1
+    check_equal(got, [word(FLASH + 0x400 + 4 * i) for i in range(4)])
+    check_equal(int(dut.o_chip_reqs.value), 1)
 
 
 @cocotb.test()
@@ -98,10 +103,10 @@ async def test_both_masters_at_once_get_their_own_data(dut):
     b = cocotb.start_soon(b_request(dut, FLASH + 0x800, rd=1, line=1))
     data, _ = await fetch(dut, FLASH + 0x100)
     r, rx, _ = await b
-    assert data == word(FLASH + 0x100)
-    assert r == word(FLASH + 0x800)
-    assert (rx & 0xFFFFFFFF) == word(FLASH + 0x804)
-    assert int(dut.o_chip_reqs.value) == 2
+    check_equal(data, word(FLASH + 0x100))
+    check_equal(r, word(FLASH + 0x800))
+    check_equal(rx & 0xFFFFFFFF, word(FLASH + 0x804))
+    check_equal(int(dut.o_chip_reqs.value), 2)
 
 
 @cocotb.test()
@@ -109,9 +114,9 @@ async def test_a_store_to_the_flash_never_reaches_the_chip(dut):
     """Check that a store to the flash never reaches the chip."""
     await start(dut)
     _, _, waited = await b_request(dut, FLASH + 0x900, wr=1)
-    assert waited <= 2
-    assert int(dut.o_chip_reqs.value) == 0
-    assert int(dut.o_sd_wren.value) == 0
+    check_true(waited <= FAST_CLOCKS)
+    check_equal(int(dut.o_chip_reqs.value), 0)
+    check_equal(int(dut.o_sd_wren.value), 0)
 
 
 @cocotb.test()
@@ -119,8 +124,8 @@ async def test_a_read_past_the_window_is_zero_and_skips_the_chip(dut):
     """Check that a read past the window is zero and skips the chip."""
     await start(dut)
     r, rx, _ = await b_request(dut, FLASH + 0x200000, rd=1, line=1)
-    assert r == 0 and rx == 0
-    assert int(dut.o_chip_reqs.value) == 0
+    check_true(r == 0 and rx == 0)
+    check_equal(int(dut.o_chip_reqs.value), 0)
 
 
 @cocotb.test()
@@ -134,5 +139,5 @@ async def test_sdram_requests_do_not_touch_the_flash_path(dut):
         await RisingEdge(dut.i_clk)
         await Timer(1, unit="ns")
         seen |= int(dut.o_si_rden.value)
-    assert seen == 1, "the SDRAM fetch has to be steered to the SDRAM side"
-    assert int(dut.o_chip_reqs.value) == 0
+    check_equal(seen, 1, "the SDRAM fetch has to be steered to the SDRAM side")
+    check_equal(int(dut.o_chip_reqs.value), 0)
