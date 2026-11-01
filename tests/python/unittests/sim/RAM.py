@@ -4,11 +4,18 @@ from cocotb.triggers import RisingEdge, Timer
 
 # Máscaras de exemplo
 MASKS = [
-    0b0001, 0b0010, 0b0100, 0b1000,   # 1 byte
-    0b0011, 0b1100, 0b0110,           # 2 bytes
-    0b1110, 0b0111,                   # 3 bytes
-    0b1111                            # 4 bytes
+    0b0001,
+    0b0010,
+    0b0100,
+    0b1000,  # 1 byte
+    0b0011,
+    0b1100,
+    0b0110,  # 2 bytes
+    0b1110,
+    0b0111,  # 3 bytes
+    0b1111,  # 4 bytes
 ]
+
 
 async def init_dut(dut):
     dut.i_addr.value = 0
@@ -19,6 +26,7 @@ async def init_dut(dut):
     dut.i_en_ram.value = 0
     await Timer(1, units="ns")
 
+
 async def write_word(dut, addr, data, mask):
     dut.i_addr.value = addr
     dut.i_data_in.value = data
@@ -28,6 +36,7 @@ async def write_word(dut, addr, data, mask):
     await RisingEdge(dut.i_clk)
     dut.i_we_ram.value = 0
     dut.i_en_ram.value = 0
+
 
 async def read_word(dut, addr, expect_z=False):
     """
@@ -55,6 +64,7 @@ async def read_word(dut, addr, expect_z=False):
 
     return int(val)
 
+
 @cocotb.test()
 async def sw_fullword(dut):
     """Testa escrita/leitura com mask=1111 (SW)."""
@@ -65,6 +75,7 @@ async def sw_fullword(dut):
     await write_word(dut, 0, data, 0b1111)
     got = await read_word(dut, 0)
     assert got == data, f"SW falhou: esperado {data:#010x}, obtido {got:#010x}"
+
 
 @cocotb.test()
 async def all_masks(dut):
@@ -87,11 +98,14 @@ async def all_masks(dut):
         expected = 0
         for i in range(4):
             if (mask >> i) & 1:
-                expected |= ((newval >> (8*i)) & 0xFF) << (8*i)
+                expected |= ((newval >> (8 * i)) & 0xFF) << (8 * i)
             else:
-                expected |= ((base >> (8*i)) & 0xFF) << (8*i)
+                expected |= ((base >> (8 * i)) & 0xFF) << (8 * i)
 
-        assert got == expected, f"Mask {mask:04b} falhou: esperado {expected:#010x}, obtido {got:#010x}"
+        assert got == expected, (
+            f"Mask {mask:04b} falhou: esperado {expected:#010x}, obtido {got:#010x}"
+        )
+
 
 @cocotb.test()
 async def disable_read(dut):
@@ -114,7 +128,9 @@ async def disable_read(dut):
     dut.i_en_ram.value = 1
     await RisingEdge(dut.i_clk)
     await Timer(1, "ns")
-    assert int(dut.o_data_out.value) == last_val, "Esperado manter último valor quando reRAM=0"
+    assert int(dut.o_data_out.value) == last_val, (
+        "Esperado manter último valor quando reRAM=0"
+    )
 
     # agora testar eRAM=0: com re=1 mas eRAM=0 a leitura síncrona não deve atualizar o registrador,
     # então a saída deve continuar sendo last_val
@@ -122,7 +138,10 @@ async def disable_read(dut):
     dut.i_en_ram.value = 0
     await RisingEdge(dut.i_clk)
     await Timer(1, "ns")
-    assert int(dut.o_data_out.value) == last_val, "Esperado manter último valor quando eRAM=0"
+    assert int(dut.o_data_out.value) == last_val, (
+        "Esperado manter último valor quando eRAM=0"
+    )
+
 
 @cocotb.test()
 async def multi_positions(dut):
@@ -143,6 +162,7 @@ async def multi_positions(dut):
     assert got0 == data0
     assert got1 == data1
     assert got2 == data2
+
 
 @cocotb.test()
 async def overwrite(dut):

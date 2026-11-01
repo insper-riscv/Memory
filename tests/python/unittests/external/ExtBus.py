@@ -48,7 +48,8 @@ async def start(dut):
 
 async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):
     """One core access; returns (read data, cycles until ready). The port holds until ready, then
-    `hold` more cycles (the pipeline stopped by something else) before mem_advance."""
+    `hold` more cycles (the pipeline stopped by something else) before mem_advance.
+    """
     dut.i_addr.value = addr
     dut.i_wdata.value = wdata
     dut.i_byteena.value = 0xF
@@ -59,14 +60,18 @@ async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):
         await post_edge(dut)
         cycles += 1
         if own_memory(dut) and addr < 0x80000000 and cycles == mem_latency:
-            dut.i_m_ready.value = 1     # the memory answers, as a level
+            dut.i_m_ready.value = 1  # the memory answers, as a level
         if own_memory(dut) and addr >= 0x80000000:
-            assert int(dut.o_m_rden.value) == 0 and int(dut.o_m_wren.value) == 0, "a peripheral access reached the memory"
+            assert (
+                int(dut.o_m_rden.value) == 0 and int(dut.o_m_wren.value) == 0
+            ), "a peripheral access reached the memory"
         if int(dut.o_ready.value):
             break
         assert cycles < 5000, "the access never completed"
     for _ in range(hold):
-        assert int(dut.o_ready.value), "ready dropped before the pipeline advanced"
+        assert int(dut.o_ready.value), (
+            "ready dropped before the pipeline advanced"
+        )
         await post_edge(dut)
     dut.i_mem_advance.value = 1
     await post_edge(dut)
@@ -80,7 +85,9 @@ async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):
 
 async def tck(dut, **states):
     for name in ("cdr", "sdr", "udr", "uir"):
-        getattr(dut, f"i_jtag_state_{name}").value = 1 if states.get(name) else 0
+        getattr(dut, f"i_jtag_state_{name}").value = (
+            1 if states.get(name) else 0
+        )
     dut.i_jtag_tck.value = 0
     await Timer(HALF_TCK_NS, unit="ns")
     dut.i_jtag_tck.value = 1
@@ -97,7 +104,8 @@ async def load_ir(dut, value):
 
 async def scan(dut, push=None):
     """One scan of the 48-bit register: sends a command (with a byte if `push`), returns the
-    fields of the answer to the previous command."""
+    fields of the answer to the previous command.
+    """
     value = 0 if push is None else (1 << 8) | push
     await tck(dut, cdr=True)
     out = 0
@@ -124,8 +132,12 @@ async def drain(dut):
         await Timer(1, unit="us")
         a = await scan(dut)
         got += a["bytes"]
-        quiet = quiet + 1 if not a["bytes"] and not a["left"] and not a["overrun"] else 0
-        if quiet >= 4:      # an answer is shown two scans after its command
+        quiet = (
+            quiet + 1
+            if not a["bytes"] and not a["left"] and not a["overrun"]
+            else 0
+        )
+        if quiet >= 4:  # an answer is shown two scans after its command
             return got
     raise AssertionError("the transmit queue never emptied")
 
@@ -161,15 +173,15 @@ async def test_an_answer_is_shown_once(dut):
     await start(dut)
     for b in b"abc":
         await access(dut, TXDATA, we=True, wdata=b)
-    await scan(dut)                         # takes the bytes
+    await scan(dut)  # takes the bytes
     await Timer(1, unit="us")
-    a = await scan(dut)                     # the answer reaches the scan logic
+    a = await scan(dut)  # the answer reaches the scan logic
     assert a["bytes"] == [], a
-    b = await scan(dut)                     # and is shown
+    b = await scan(dut)  # and is shown
     assert b["bytes"] == list(b"abc"), b
     got = []
     for _ in range(4):
-        got += (await scan(dut))["bytes"]   # once
+        got += (await scan(dut))["bytes"]  # once
     assert got == []
 
 
@@ -202,7 +214,9 @@ async def test_a_stopped_pipeline_pops_once(dut):
     v, _c = await access(dut, RXDATA, hold=3)
     assert v == 0x179, hex(v)
     await access(dut, TXDATA, we=True, wdata=0x41, hold=5)
-    assert (await _status(dut)) & 0xFF == DEPTH - 1, "a held write queued the byte once"
+    assert (await _status(dut)) & 0xFF == DEPTH - 1, (
+        "a held write queued the byte once"
+    )
 
 
 @cocotb.test()
@@ -215,7 +229,9 @@ async def test_transmit_queue_full_drops_and_flags(dut):
     s = await _status(dut)
     assert (s >> 16) & 1 == 0, "reading the status clears the flag"
     got = await drain(dut)
-    assert got == [i & 0xFF for i in range(DEPTH)], "the first bytes are kept, the late ones dropped"
+    assert got == [i & 0xFF for i in range(DEPTH)], (
+        "the first bytes are kept, the late ones dropped"
+    )
 
 
 @cocotb.test()
@@ -259,7 +275,8 @@ async def test_load_data_stays_while_the_next_access_runs(dut):
 @cocotb.test()
 async def test_the_load_in_the_last_stage_keeps_its_data(dut):
     """While load A is in its last stage the next access is already on the port: rdata must
-    still be A's until that next access advances."""
+    still be A's until that next access advances.
+    """
     await start(dut)
     for b in b"AB":
         await scan(dut, push=b)

@@ -9,10 +9,17 @@ copy of the memory and, independently, with the content stored in the model.
 import random
 
 import cocotb
-from cocotb.triggers import RisingEdge, Timer
+from cocotb.triggers import Timer
 
 from tests.python.unittests.external.sdram_helpers import (
-    CPU_NS, LAST_WORD, MEM_NS, _post_edge, access, line_access, merge, model_word, start,
+    CPU_NS,
+    LAST_WORD,
+    _post_edge,
+    access,
+    line_access,
+    merge,
+    model_word,
+    start,
 )
 
 
@@ -39,7 +46,9 @@ async def test_byte_enables(dut):
         await access(dut, True, word, 0xA5B6C7D8, be)
         got, _ = await access(dut, False, word)
         want = merge(base, 0xA5B6C7D8, be)
-        assert got == want, f"be={be:04b}: read 0x{got:08X}, expected 0x{want:08X}"
+        assert got == want, (
+            f"be={be:04b}: read 0x{got:08X}, expected 0x{want:08X}"
+        )
 
 
 @cocotb.test()
@@ -47,17 +56,37 @@ async def test_address_decode(dut):
     """Distinct word addresses keep distinct values: banks, rows, columns, the first and last word."""
     await start(dut)
     rng = random.Random(1)
-    words = [0, 1, 0x0FF, 0x1FF, 0x200, 0x400, 0x600, 0x7FF, 0x800, 0x1000, 0x7FFFF,
-             0x800000, 0xFFFFFE, LAST_WORD]
+    words = [
+        0,
+        1,
+        0x0FF,
+        0x1FF,
+        0x200,
+        0x400,
+        0x600,
+        0x7FF,
+        0x800,
+        0x1000,
+        0x7FFFF,
+        0x800000,
+        0xFFFFFE,
+        LAST_WORD,
+    ]
     words += [rng.randrange(1 << 24) for _ in range(40)]
     words = sorted(set(words))
-    want = {w: (0x9E3779B1 * (i + 1)) & 0xFFFFFFFF for i, w in enumerate(words)}
+    want = {
+        w: (0x9E3779B1 * (i + 1)) & 0xFFFFFFFF for i, w in enumerate(words)
+    }
     for w, v in want.items():
         await access(dut, True, w, v)
     for w, v in want.items():
         got, _ = await access(dut, False, w)
-        assert got == v, f"word 0x{w:06X}: read 0x{got:08X}, expected 0x{v:08X}"
-        assert await model_word(dut, w) == v, f"word 0x{w:06X}: the chip holds something else"
+        assert got == v, (
+            f"word 0x{w:06X}: read 0x{got:08X}, expected 0x{v:08X}"
+        )
+        assert await model_word(dut, w) == v, (
+            f"word 0x{w:06X}: the chip holds something else"
+        )
 
 
 @cocotb.test()
@@ -70,17 +99,22 @@ async def test_random_traffic(dut):
     for _ in range(500):
         w = rng.choice(pool)
         hold = rng.choice([0, 0, 0, 1, 3])
-        if w not in ref:                       # the first write of a word is a full word
+        if w not in ref:  # the first write of a word is a full word
             v = rng.getrandbits(32)
             await access(dut, True, w, v, 0xF, hold)
             ref[w] = v
         elif rng.random() < 0.5:
-            v, be = rng.getrandbits(32), rng.choice([0xF, 0xF, 0x3, 0xC, 0x1, 0x8, 0x6])
+            v, be = (
+                rng.getrandbits(32),
+                rng.choice([0xF, 0xF, 0x3, 0xC, 0x1, 0x8, 0x6]),
+            )
             await access(dut, True, w, v, be, hold)
             ref[w] = merge(ref[w], v, be)
         else:
             got, _ = await access(dut, False, w, hold=hold)
-            assert got == ref[w], f"word 0x{w:06X}: read 0x{got:08X}, expected 0x{ref[w]:08X}"
+            assert got == ref[w], (
+                f"word 0x{w:06X}: read 0x{got:08X}, expected 0x{ref[w]:08X}"
+            )
         for _ in range(rng.choice([0, 0, 1, 5, 20])):
             await _post_edge(dut)
     for w, v in ref.items():
@@ -91,10 +125,11 @@ async def test_random_traffic(dut):
 @cocotb.test()
 async def test_refresh_keeps_running(dut):
     """With the bus idle for several refresh periods the controller keeps refreshing
-    (the chip model fails the simulation if two refreshes are more than 7.8 us apart)."""
+    (the chip model fails the simulation if two refreshes are more than 7.8 us apart).
+    """
     await start(dut)
     before = int(dut.o_dbg_refreshes.value)
-    for _ in range(int(60_000 / CPU_NS)):        # 60 us
+    for _ in range(int(60_000 / CPU_NS)):  # 60 us
         await _post_edge(dut)
     after = int(dut.o_dbg_refreshes.value)
     assert after - before >= 7, f"only {after - before} refreshes in 60 us"
@@ -111,7 +146,9 @@ async def test_read_data_changes_only_when_the_pipeline_advances(dut):
     await access(dut, True, 0x20, 0x22222222)
     first, _ = await access(dut, False, 0x10)
     assert first == 0x11111111
-    second, _ = await access(dut, False, 0x20, hold=6)   # asserts rdata == first while holding
+    second, _ = await access(
+        dut, False, 0x20, hold=6
+    )  # asserts rdata == first while holding
     assert second == 0x22222222
 
 
@@ -126,7 +163,9 @@ async def _ratio(dut, cpu_ns, offset):
         ref[w] = v
     for w, v in ref.items():
         got, _ = await access(dut, False, w)
-        assert got == v, f"{cpu_ns} ns: word 0x{w:06X} read 0x{got:08X}, expected 0x{v:08X}"
+        assert got == v, (
+            f"{cpu_ns} ns: word 0x{w:06X} read 0x{got:08X}, expected 0x{v:08X}"
+        )
 
 
 @cocotb.test()
@@ -161,7 +200,7 @@ async def test_a_corrupted_chip_is_noticed(dut):
         await Timer(5, unit="ns")
         got, _ = await access(dut, False, 0x777)
         assert got == 0x00FF00FF ^ (1 << bit), f"bit {bit}: read 0x{got:08X}"
-        dut.i_dbg_flip.value = 1                      # put it back
+        dut.i_dbg_flip.value = 1  # put it back
         await Timer(5, unit="ns")
         dut.i_dbg_flip.value = 0
         await Timer(5, unit="ns")
@@ -173,7 +212,9 @@ async def test_latency(dut):
     await start(dut)
     _, w = await access(dut, True, 0x5, 1)
     _, r = await access(dut, False, 0x5)
-    dut._log.info(f"stall: write {w} core cycles, read {r} core cycles (core clock {CPU_NS} ns)")
+    dut._log.info(
+        f"stall: write {w} core cycles, read {r} core cycles (core clock {CPU_NS} ns)"
+    )
     assert w <= 8 and r <= 10, f"write {w}, read {r}"
 
 
@@ -227,8 +268,12 @@ async def test_line_is_faster_than_four_words(dut):
     for i in range(4):
         _, c = await access(dut, False, base + i)
         word_cycles += c
-    dut._log.info(f"line read {line_cycles} cycles, four words {word_cycles} cycles")
-    assert line_cycles < word_cycles - 4, f"{line_cycles} against {word_cycles}"
+    dut._log.info(
+        f"line read {line_cycles} cycles, four words {word_cycles} cycles"
+    )
+    assert line_cycles < word_cycles - 4, (
+        f"{line_cycles} against {word_cycles}"
+    )
 
 
 @cocotb.test()
@@ -236,7 +281,18 @@ async def test_lines_and_words_mixed(dut):
     """Random lines and words over rows, banks and the ends of the memory, against a Python copy."""
     await start(dut)
     rng = random.Random(5)
-    lines = [0, 4, 0x1FC, 0x200, 0x7FC, 0x800, 0x1000, 0x7FFFC, 0x800000, LAST_WORD & ~3]
+    lines = [
+        0,
+        4,
+        0x1FC,
+        0x200,
+        0x7FC,
+        0x800,
+        0x1000,
+        0x7FFFC,
+        0x800000,
+        LAST_WORD & ~3,
+    ]
     lines += [rng.randrange(1 << 22) << 2 for _ in range(12)]
     mem = {}
     for _ in range(80):
@@ -247,12 +303,23 @@ async def test_lines_and_words_mixed(dut):
             bes = [rng.choice([0xF, 0xF, 0x3, 0xC, 0x1]) for _ in range(4)]
             await line_access(dut, True, base, words, bes)
             for i in range(4):
-                mem[base + i] = merge(mem.get(base + i, await model_word(dut, base + i) if base + i not in mem else 0), words[i], bes[i])
+                mem[base + i] = merge(
+                    mem.get(
+                        base + i,
+                        await model_word(dut, base + i)
+                        if base + i not in mem
+                        else 0,
+                    ),
+                    words[i],
+                    bes[i],
+                )
         elif kind < 0.7:
             got, _ = await line_access(dut, False, base)
             for i in range(4):
                 if base + i in mem:
-                    assert got[i] == mem[base + i], f"line 0x{base:06X} word {i}: 0x{got[i]:08X}"
+                    assert got[i] == mem[base + i], (
+                        f"line 0x{base:06X} word {i}: 0x{got[i]:08X}"
+                    )
         else:
             w = base + rng.randrange(4)
             v = rng.getrandbits(32)

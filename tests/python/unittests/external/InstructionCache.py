@@ -34,7 +34,9 @@ class Memory:
                     await RisingEdge(dut.i_clk)
                 words = [word(addr + 4 * i, self.version) for i in range(4)]
                 dut.i_d_rdata.value = words[0]
-                dut.i_d_rdata_x.value = words[1] | (words[2] << 32) | (words[3] << 64)
+                dut.i_d_rdata_x.value = (
+                    words[1] | (words[2] << 32) | (words[3] << 64)
+                )
                 dut.i_d_ready.value = 1
                 await RisingEdge(dut.i_clk)
                 dut.i_d_ready.value = 0
@@ -99,7 +101,7 @@ async def test_sequential_code_across_lines(dut):
 @cocotb.test()
 async def test_conflict_evicts_the_line(dut):
     mem = await start(dut)
-    a, b = BASE + 0x040, BASE + 0x040 + 0x1000     # same index, different tag
+    a, b = BASE + 0x040, BASE + 0x040 + 0x1000  # same index, different tag
     for addr in (a, b, a):
         data, _ = await fetch(dut, addr)
         assert data == word(addr)
@@ -124,8 +126,8 @@ async def test_invalidate_drops_every_line(dut):
     addrs = [BASE + 0x100, BASE + 0x2F0, BASE + 0x1008]
     for a in addrs:
         await fetch(dut, a)
-    mem.version = 1                                   # the program stored new code behind the cache
-    for a in addrs:                                   # lines still hold the old words
+    mem.version = 1  # the program stored new code behind the cache
+    for a in addrs:  # lines still hold the old words
         data, _ = await fetch(dut, a)
         assert data == word(a, 0)
     dut.i_invalidate.value = 1
@@ -144,14 +146,16 @@ async def test_invalidate_during_a_fill_drops_that_line(dut):
     a = BASE + 0x300
     dut.i_addr.value = a
     dut.i_sel.value = 1
-    for _ in range(6):                                # the fill is under way
+    for _ in range(6):  # the fill is under way
         await RisingEdge(dut.i_clk)
     assert len(mem.requests) == 1
     mem.version = 1
     dut.i_invalidate.value = 1
     await RisingEdge(dut.i_clk)
     dut.i_invalidate.value = 0
-    data, _ = await fetch(dut, a)                     # the line from before the invalidate must not stay
+    data, _ = await fetch(
+        dut, a
+    )  # the line from before the invalidate must not stay
     assert data == word(a, 1)
     assert len(mem.requests) == 2
 
@@ -163,9 +167,13 @@ async def test_address_change_during_a_fill(dut):
     dut.i_addr.value = a
     for _ in range(4):
         await RisingEdge(dut.i_clk)
-    data, _ = await fetch(dut, b)                     # a branch moved the PC while the line of a came in
+    data, _ = await fetch(
+        dut, b
+    )  # a branch moved the PC while the line of a came in
     assert data == word(b)
-    data, waited = await fetch(dut, a)                # and the line of a ended up in the cache
+    data, waited = await fetch(
+        dut, a
+    )  # and the line of a ended up in the cache
     assert data == word(a)
     assert waited <= 1
 
@@ -195,8 +203,12 @@ async def test_fill_addresses_carry_the_region_base(dut):
     for addr in (FLASH + 0x40, BASE + 0x40, FLASH + 0x7FFF0, BASE + 0x3FFFFF0):
         await fetch(dut, addr)
     assert [a >> 28 for a in mem.requests] == [0x2, 0x4, 0x2, 0x4]
-    assert mem.requests == [(FLASH + 0x40) & ~0xF, (BASE + 0x40) & ~0xF,
-                            (FLASH + 0x7FFF0) & ~0xF, (BASE + 0x3FFFFF0) & ~0xF]
+    assert mem.requests == [
+        (FLASH + 0x40) & ~0xF,
+        (BASE + 0x40) & ~0xF,
+        (FLASH + 0x7FFF0) & ~0xF,
+        (BASE + 0x3FFFFF0) & ~0xF,
+    ]
 
 
 @cocotb.test()
@@ -243,5 +255,5 @@ async def test_one_miss_pulse_per_filled_line(dut):
     monitor = cocotb.start_soon(count_misses(dut, 1200))
     for base in (BASE + 0x100, BASE + 0x200, BASE + 0x100, FLASH + 0x100):
         await fetch(dut, base)
-        await fetch(dut, base + 4)                       # same line: a hit
+        await fetch(dut, base + 4)  # same line: a hit
     assert await monitor == 3, "three lines filled, the repeated one is a hit"

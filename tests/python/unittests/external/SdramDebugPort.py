@@ -12,10 +12,15 @@ import cocotb
 from cocotb.triggers import Timer
 
 from tests.python.unittests.external.sdram_helpers import (
-    CPU_NS, _post_edge, access, merge, model_word, start,
+    access,
+    merge,
+    model_word,
+    start,
 )
 
-OP_NOP, OP_READ, OP_WRITE, OP_FILL, OP_COUNT, OP_READ_NEXT, OP_WRITE_NEXT = range(7)
+OP_NOP, OP_READ, OP_WRITE, OP_FILL, OP_COUNT, OP_READ_NEXT, OP_WRITE_NEXT = (
+    range(7)
+)
 BUSY, ERROR, INIT, OVERRUN = 1, 2, 4, 8
 HALF_TCK_NS = 40
 
@@ -23,7 +28,9 @@ HALF_TCK_NS = 40
 async def tck(dut, **states):
     """One JTAG clock with the given state flags (cdr, sdr, udr, uir) high."""
     for name in ("cdr", "sdr", "udr", "uir"):
-        getattr(dut, f"i_jtag_state_{name}").value = 1 if states.get(name) else 0
+        getattr(dut, f"i_jtag_state_{name}").value = (
+            1 if states.get(name) else 0
+        )
     dut.i_jtag_tck.value = 0
     await Timer(HALF_TCK_NS, unit="ns")
     dut.i_jtag_tck.value = 1
@@ -53,8 +60,14 @@ async def shift_dr(dut, length, value):
 
 async def debug(dut, op, addr=0, data=0, be=0xF):
     """Shift one command into the DEBUG register; returns (status, word accessed last, data read)
-    of the previous command."""
-    value = (op << 60) | (be << 56) | ((addr & 0xFFFFFF) << 32) | (data & 0xFFFFFFFF)
+    of the previous command.
+    """
+    value = (
+        (op << 60)
+        | (be << 56)
+        | ((addr & 0xFFFFFF) << 32)
+        | (data & 0xFFFFFFFF)
+    )
     out = await shift_dr(dut, 64, value)
     return out >> 56, (out >> 32) & 0xFFFFFF, out & 0xFFFFFFFF
 
@@ -75,7 +88,9 @@ async def settle(dut):
 async def read(dut, addr):
     await debug(dut, OP_READ, addr)
     status, word, data = await settle(dut)
-    assert word == addr, f"the word accessed last is 0x{word:06X}, expected 0x{addr:06X}"
+    assert word == addr, (
+        f"the word accessed last is 0x{word:06X}, expected 0x{addr:06X}"
+    )
     return data
 
 
@@ -88,19 +103,28 @@ async def start_debug(dut):
     await start(dut)
     await load_ir(dut, 1)
     status, _, _ = await settle(dut)
-    assert status & INIT, f"the SDRAM is not reported initialized (status {status:#x})"
+    assert status & INIT, (
+        f"the SDRAM is not reported initialized (status {status:#x})"
+    )
 
 
 @cocotb.test()
 async def test_write_and_read_back(dut):
     """Words written through the debug port are in the chip and read back, byte masks included."""
     await start_debug(dut)
-    words = {0x000000: 0x11111111, 0x000001: 0x22222222, 0x123456: 0xCAFEBABE, 0xFFFFFF: 0xDEADBEEF}
+    words = {
+        0x000000: 0x11111111,
+        0x000001: 0x22222222,
+        0x123456: 0xCAFEBABE,
+        0xFFFFFF: 0xDEADBEEF,
+    }
     for addr, value in words.items():
         await write(dut, addr, value)
     for addr, value in words.items():
         assert await read(dut, addr) == value
-        assert await model_word(dut, addr) == value, "the chip holds something else"
+        assert await model_word(dut, addr) == value, (
+            "the chip holds something else"
+        )
     await write(dut, 0x123456, 0x12345678, be=0b0101)
     want = merge(0xCAFEBABE, 0x12345678, 0b0101)
     assert await read(dut, 0x123456) == want, "byte enables"
@@ -129,11 +153,18 @@ async def test_fill(dut):
     await settle(dut)
     for addr in (0x100, 0x101, 0x120, 0x13F):
         assert await read(dut, addr) == 0, f"word 0x{addr:X} was not filled"
-    assert await read(dut, 0x100 - 1) == 0x01010101, "the word before the range changed"
-    assert await read(dut, 0x100 + 64) == 0x02020202, "the word after the range changed"
+    assert await read(dut, 0x100 - 1) == 0x01010101, (
+        "the word before the range changed"
+    )
+    assert await read(dut, 0x100 + 64) == 0x02020202, (
+        "the word after the range changed"
+    )
     await debug(dut, OP_FILL, 0x000200, 0xFFFFFFFF)
     await settle(dut)
-    assert await read(dut, 0x200) == 0xFFFFFFFF and await read(dut, 0x23F) == 0xFFFFFFFF
+    assert (
+        await read(dut, 0x200) == 0xFFFFFFFF
+        and await read(dut, 0x23F) == 0xFFFFFFFF
+    )
     assert await model_word(dut, 0x220) == 0xFFFFFFFF
 
 
@@ -190,7 +221,9 @@ async def test_traffic_from_the_core_and_the_host_together(dut):
     await task
     # the core never waits for more than one debug access on top of its own
     assert max(stalls) <= 14, f"a core access took {max(stalls)} core cycles"
-    dut._log.info(f"core stall with the host active: max {max(stalls)} core cycles")
+    dut._log.info(
+        f"core stall with the host active: max {max(stalls)} core cycles"
+    )
 
 
 @cocotb.test()
@@ -199,14 +232,20 @@ async def test_a_command_while_busy_is_dropped(dut):
     await start_debug(dut)
     await write(dut, 0x700000, 0x13579BDF)
     await debug(dut, OP_COUNT, data=1500)
-    await debug(dut, OP_FILL, 0x710000, 0xABABABAB)       # about 1500 words: busy for a while
-    status, _, _ = await debug(dut, OP_WRITE, 0x700000, 0xFFFFFFFF)  # arrives while busy
+    await debug(
+        dut, OP_FILL, 0x710000, 0xABABABAB
+    )  # about 1500 words: busy for a while
+    status, _, _ = await debug(
+        dut, OP_WRITE, 0x700000, 0xFFFFFFFF
+    )  # arrives while busy
     assert status & BUSY, "the fill should still be running"
     status, _, _ = await debug(dut, OP_NOP)
     assert status & OVERRUN, f"overrun not flagged (status {status:#x})"
     await settle(dut)
     assert await read(dut, 0x700000) == 0x13579BDF, "the dropped command ran"
-    assert await read(dut, 0x710000 + 1499) == 0xABABABAB, "the fill did not finish"
+    assert await read(dut, 0x710000 + 1499) == 0xABABABAB, (
+        "the fill did not finish"
+    )
 
 
 @cocotb.test()
@@ -224,10 +263,13 @@ async def test_other_instructions_are_a_bypass(dut):
 @cocotb.test()
 async def test_the_core_is_not_starved_by_a_long_fill(dut):
     """While the host's fill keeps the debug master requesting back to back, the core's accesses
-    are served between its requests: correct data and a bounded stall."""
+    are served between its requests: correct data and a bounded stall.
+    """
     await start_debug(dut)
     await debug(dut, OP_COUNT, data=3000)
-    await debug(dut, OP_FILL, 0x900000, 0x77777777)        # about 3000 words, back to back
+    await debug(
+        dut, OP_FILL, 0x900000, 0x77777777
+    )  # about 3000 words, back to back
     rng = random.Random(11)
     ref, stalls = {}, []
     for _ in range(60):
@@ -241,9 +283,15 @@ async def test_the_core_is_not_starved_by_a_long_fill(dut):
             assert got == ref[addr], f"core word 0x{addr:06X}"
         stalls.append(cycles)
     status, _, _ = await debug(dut, OP_NOP)
-    assert status & BUSY, "the fill ended before the core accesses were done: lengthen it"
+    assert status & BUSY, (
+        "the fill ended before the core accesses were done: lengthen it"
+    )
     await settle(dut)
     assert await read(dut, 0x900000 + 2999) == 0x77777777
     # one debug access in flight and then the core's own: bounded, not starved
-    assert max(stalls) <= 12, f"a core access took {max(stalls)} core cycles during the fill"
-    dut._log.info(f"core stall during a long fill: max {max(stalls)}, mean {sum(stalls) / len(stalls):.1f} core cycles")
+    assert max(stalls) <= 12, (
+        f"a core access took {max(stalls)} core cycles during the fill"
+    )
+    dut._log.info(
+        f"core stall during a long fill: max {max(stalls)}, mean {sum(stalls) / len(stalls):.1f} core cycles"
+    )

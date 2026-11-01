@@ -29,7 +29,9 @@ class Slave:
             wr = self.wren is not None and int(self.wren.value) == 1
             if state == "idle" and (rd or wr):
                 addr = int(self.addr.value)
-                self.requests.append((addr, "w" if wr else "r", int(self.line.value)))
+                self.requests.append(
+                    (addr, "w" if wr else "r", int(self.line.value))
+                )
                 state, count = "wait", LAT
             elif state == "wait":
                 count -= 1
@@ -55,11 +57,31 @@ async def start(dut):
     dut.i_byteena.value = 0xF
     dut.i_wdata_x.value = 0
     s = Slave(dut, "o_s_", 0x11110000)
-    s.addr, s.rden, s.wren, s.line, s.advance = dut.o_s_addr, dut.o_s_rden, dut.o_s_wren, dut.o_s_line, dut.o_s_advance
-    s.dut_ready, s.dut_rdata, s.dut_rdata_x = dut.i_s_ready, dut.i_s_rdata, dut.i_s_rdata_x
+    s.addr, s.rden, s.wren, s.line, s.advance = (
+        dut.o_s_addr,
+        dut.o_s_rden,
+        dut.o_s_wren,
+        dut.o_s_line,
+        dut.o_s_advance,
+    )
+    s.dut_ready, s.dut_rdata, s.dut_rdata_x = (
+        dut.i_s_ready,
+        dut.i_s_rdata,
+        dut.i_s_rdata_x,
+    )
     f = Slave(dut, "o_f_", 0x22220000)
-    f.addr, f.rden, f.wren, f.line, f.advance = dut.o_f_addr, dut.o_f_rden, None, dut.o_f_line, dut.o_f_advance
-    f.dut_ready, f.dut_rdata, f.dut_rdata_x = dut.i_f_ready, dut.i_f_rdata, dut.i_f_rdata_x
+    f.addr, f.rden, f.wren, f.line, f.advance = (
+        dut.o_f_addr,
+        dut.o_f_rden,
+        None,
+        dut.o_f_line,
+        dut.o_f_advance,
+    )
+    f.dut_ready, f.dut_rdata, f.dut_rdata_x = (
+        dut.i_f_ready,
+        dut.i_f_rdata,
+        dut.i_f_rdata_x,
+    )
     for _ in range(3):
         await RisingEdge(dut.i_clk)
     dut.i_rst.value = 0
@@ -143,10 +165,20 @@ async def test_store_to_the_sdram_passes_through(dut):
 @cocotb.test()
 async def test_mixed_sequence(dut):
     s, f = await start(dut)
-    plan = [SDRAM + 0x10, FLASH + 0x10, FLASH + 0x20, SDRAM + 0x30, FLASH + 0x30]
+    plan = [
+        SDRAM + 0x10,
+        FLASH + 0x10,
+        FLASH + 0x20,
+        SDRAM + 0x30,
+        FLASH + 0x30,
+    ]
     for a in plan:
         r, _, _ = await request(dut, a, rd=1, line=1)
         tag = 0x22220000 if a & FLASH and not a & SDRAM else 0x11110000
         assert r == word(tag, a & ~0xF)
     assert [a for a, _, _ in s.requests] == [SDRAM + 0x10, SDRAM + 0x30]
-    assert [a for a, _, _ in f.requests] == [FLASH + 0x10, FLASH + 0x20, FLASH + 0x30]
+    assert [a for a, _, _ in f.requests] == [
+        FLASH + 0x10,
+        FLASH + 0x20,
+        FLASH + 0x30,
+    ]

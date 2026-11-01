@@ -39,7 +39,9 @@ class Memory:
                 dut.i_d_rdata.value = w[0]
                 dut.i_d_rdata_x.value = w[1] | (w[2] << 32) | (w[3] << 64)
             elif int(dut.o_d_wren.value) == 1:
-                self.writes.append((int(dut.o_d_addr.value), int(dut.o_d_wdata.value)))
+                self.writes.append(
+                    (int(dut.o_d_addr.value), int(dut.o_d_wdata.value))
+                )
                 for _ in range(LAT):
                     await RisingEdge(dut.i_clk)
                 dut.i_d_ready.value = 1
@@ -50,7 +52,14 @@ class Memory:
 async def start(dut):
     cocotb.start_soon(Clock(dut.i_clk, 10, unit="ns").start())
     dut.i_rst.value = 1
-    for n in ("i_rden", "i_wren", "i_mem_advance", "i_flush", "i_invalidate", "i_d_ready"):
+    for n in (
+        "i_rden",
+        "i_wren",
+        "i_mem_advance",
+        "i_flush",
+        "i_invalidate",
+        "i_d_ready",
+    ):
         getattr(dut, n).value = 0
     dut.i_addr.value = FLASH
     dut.i_wdata.value = 0
@@ -103,8 +112,10 @@ async def test_a_flash_load_is_cached(dut):
 async def test_a_store_that_hits_the_flash_line_does_not_change_it(dut):
     mem = await start(dut)
     a = FLASH + 0x2000
-    await access(dut, a)                                   # the line is in
-    await access(dut, a, wr=0xDEADBEEF)                    # the chip ignores it, so must the cache
+    await access(dut, a)  # the line is in
+    await access(
+        dut, a, wr=0xDEADBEEF
+    )  # the chip ignores it, so must the cache
     v, hit = await access(dut, a)
     assert v == word(a), f"the cache shows {v:#x}, the chip has {word(a):#x}"
     assert hit <= 3
@@ -130,7 +141,7 @@ async def test_regions_do_not_alias(dut):
         v, waited = await access(dut, a)
         assert v == word(a) and waited > LAT
     assert [x >> 28 for x, _ in mem.reads] == [0x2, 0x4]
-    v, waited = await access(dut, f)                       # the SDRAM line took the slot
+    v, waited = await access(dut, f)  # the SDRAM line took the slot
     assert v == word(f) and waited > LAT
 
 
@@ -157,16 +168,20 @@ async def test_a_bypassed_load_goes_to_memory_every_time(dut):
     assert mem.reads == [(a, 0), (a, 0)]
     dut.i_bypass.value = 0
     v, waited = await access(dut, a)
-    assert v == word(a) and waited > LAT, "the bypassed loads must not have filled the line"
+    assert v == word(a) and waited > LAT, (
+        "the bypassed loads must not have filled the line"
+    )
 
 
 @cocotb.test()
 async def test_a_bypassed_store_does_not_update_the_line(dut):
     mem = await start(dut)
     a = SDRAM + 0x600
-    await access(dut, a)                                   # the line is in
+    await access(dut, a)  # the line is in
     dut.i_bypass.value = 1
-    await access(dut, a, wr=0x0BADF00D)                    # the host owns this word: only passed on
+    await access(
+        dut, a, wr=0x0BADF00D
+    )  # the host owns this word: only passed on
     dut.i_bypass.value = 0
     v, hit = await access(dut, a)
     assert v == word(a) and hit <= 3
@@ -187,7 +202,7 @@ async def test_one_miss_pulse_per_filled_line(dut):
     mem = await start(dut)
     monitor = cocotb.start_soon(count_misses(dut, 600))
     await access(dut, FLASH + 0x100)
-    await access(dut, FLASH + 0x104)                      # same line
+    await access(dut, FLASH + 0x104)  # same line
     await access(dut, SDRAM + 0x100)
-    await access(dut, SDRAM + 0x100, wr=7)                # a store: no fill
+    await access(dut, SDRAM + 0x100, wr=7)  # a store: no fill
     assert await monitor == 2

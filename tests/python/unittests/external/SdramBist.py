@@ -26,12 +26,14 @@ async def start(dut):
     for _ in range(6):
         await RisingEdge(dut.i_clk)
     dut.i_rst.value = 0
-    for _ in range(40_000):                        # 200 us of power-up wait
+    for _ in range(40_000):  # 200 us of power-up wait
         await RisingEdge(dut.i_clk)
         if int(dut.o_init_done.value):
             break
     else:
-        raise AssertionError("the controller never finished its power-up sequence")
+        raise AssertionError(
+            "the controller never finished its power-up sequence"
+        )
     for _ in range(4):
         await RisingEdge(dut.i_clk)
 
@@ -97,13 +99,16 @@ async def test_random_addresses(dut):
 @cocotb.test()
 async def test_a_flipped_bit_is_found(dut):
     """Control: a bit flipped in the chip between the write and the read is reported
-    with its address and the exact bit."""
+    with its address and the exact bit.
+    """
     await start(dut)
     flipped = False
 
     async def on_phase(phase):
         nonlocal flipped
-        if phase == 2 and not flipped:             # the first read pass, right at its start
+        if (
+            phase == 2 and not flipped
+        ):  # the first read pass, right at its start
             flipped = True
             dut.i_dbg_flip_addr.value = 0x23
             dut.i_dbg_flip_bit.value = 5
@@ -115,5 +120,7 @@ async def test_a_flipped_bit_is_found(dut):
     r = result(dut)
     assert flipped and r["fail"] == 1, r
     assert r["errors"] >= 1, r
-    assert int(dut.o_first_addr.value) == 0x23, hex(int(dut.o_first_addr.value))
+    assert int(dut.o_first_addr.value) == 0x23, hex(
+        int(dut.o_first_addr.value)
+    )
     assert int(dut.o_first_exp.value) ^ int(dut.o_first_got.value) == 1 << 5

@@ -43,7 +43,14 @@ class Chip:
 async def start(dut):
     cocotb.start_soon(Clock(dut.i_clk, 10, unit="ns").start())
     dut.i_rst.value = 1
-    for n in ("i_a_rden", "i_a_advance", "i_b_rden", "i_b_advance", "i_a_line", "i_b_line"):
+    for n in (
+        "i_a_rden",
+        "i_a_advance",
+        "i_b_rden",
+        "i_b_advance",
+        "i_a_line",
+        "i_b_line",
+    ):
         getattr(dut, n).value = 0
     dut.i_a_addr.value = 0
     dut.i_b_addr.value = 0
@@ -91,7 +98,10 @@ async def test_single_requests(dut):
     res = []
     await master(dut, "a", 0x20000010, res)
     await master(dut, "b", 0x20000020, res)
-    assert [(w, a) for w, a, _, _ in res] == [("a", 0x20000010), ("b", 0x20000020)]
+    assert [(w, a) for w, a, _, _ in res] == [
+        ("a", 0x20000010),
+        ("b", 0x20000020),
+    ]
     assert [d for _, _, d, _ in res] == [word(0x20000010), word(0x20000020)]
     assert chip.log == [0x20000010, 0x20000020]
 
@@ -120,7 +130,10 @@ async def test_a_grant_is_not_cut(dut):
     assert [w for w, _, _, _ in res] == ["b", "a"]
     assert chip.log == [0x20000300, 0x20000400]
     # each master got its own word
-    assert {a: d for _, a, d, _ in res} == {0x20000300: word(0x20000300), 0x20000400: word(0x20000400)}
+    assert {a: d for _, a, d, _ in res} == {
+        0x20000300: word(0x20000300),
+        0x20000400: word(0x20000400),
+    }
 
 
 @cocotb.test()

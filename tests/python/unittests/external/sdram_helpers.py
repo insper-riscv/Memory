@@ -1,13 +1,11 @@
 """Helpers shared by the SDRAM system tests: clocks and reset, one core access, the stored word of the chip model."""
 
-import random
-
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
-MEM_NS = 7                 # 142.857 MHz
-CPU_NS = 56                # the core clock: the memory clock divided by 8
+MEM_NS = 7  # 142.857 MHz
+CPU_NS = 56  # the core clock: the memory clock divided by 8
 LAST_WORD = (1 << 24) - 1  # 64 MB of 32-bit words
 
 
@@ -68,11 +66,15 @@ async def access(dut, we, word, wdata=0, be=0xF, hold=0):
             break
         assert cycles < 400, "ready never came"
     for _ in range(hold):
-        assert int(dut.o_ready.value) == 1, "ready dropped before the pipeline advanced"
-        assert int(dut.o_rdata.value) == before, "read data changed before the pipeline advanced"
+        assert int(dut.o_ready.value) == 1, (
+            "ready dropped before the pipeline advanced"
+        )
+        assert int(dut.o_rdata.value) == before, (
+            "read data changed before the pipeline advanced"
+        )
         await _post_edge(dut)
     assert int(dut.o_ready.value) == 1
-    dut.i_mem_advance.value = 1          # the pipeline advances on the next edge
+    dut.i_mem_advance.value = 1  # the pipeline advances on the next edge
     await _post_edge(dut)
     dut.i_mem_advance.value = 0
     dut.i_rden.value = 0
@@ -123,8 +125,12 @@ async def line_access(dut, we, word, words=None, bes=None, hold=0):
             break
         assert cycles < 400, "ready never came"
     for _ in range(hold):
-        assert int(dut.o_ready.value) == 1, "ready dropped before the pipeline advanced"
-        assert (int(dut.o_rdata.value), int(dut.o_rdata_x.value)) == before, "read data changed before the pipeline advanced"
+        assert int(dut.o_ready.value) == 1, (
+            "ready dropped before the pipeline advanced"
+        )
+        assert (int(dut.o_rdata.value), int(dut.o_rdata_x.value)) == before, (
+            "read data changed before the pipeline advanced"
+        )
         await _post_edge(dut)
     dut.i_mem_advance.value = 1
     await _post_edge(dut)
@@ -133,4 +139,9 @@ async def line_access(dut, we, word, words=None, bes=None, hold=0):
     dut.i_wren.value = 0
     dut.i_line.value = 0
     x = int(dut.o_rdata_x.value)
-    return [int(dut.o_rdata.value), x & 0xFFFFFFFF, (x >> 32) & 0xFFFFFFFF, x >> 64], cycles
+    return [
+        int(dut.o_rdata.value),
+        x & 0xFFFFFFFF,
+        (x >> 32) & 0xFFFFFFFF,
+        x >> 64,
+    ], cycles

@@ -1,6 +1,8 @@
 from pathlib import Path
+
 import cocotb
 from cocotb.triggers import Timer
+
 
 # ---------- Helpers ----------
 def parse_hex(hex_path: Path, depth=64):
@@ -9,12 +11,15 @@ def parse_hex(hex_path: Path, depth=64):
     Retorna uma lista de 'depth' palavras (int).
     """
     mem = [0] * depth
-    lines = [ln.strip() for ln in hex_path.read_text().splitlines() if ln.strip()]
+    lines = [
+        ln.strip() for ln in hex_path.read_text().splitlines() if ln.strip()
+    ]
     for idx, ln in enumerate(lines):
         if idx >= depth:
             break
         mem[idx] = int(ln, 16) & 0xFFFFFFFF
     return mem
+
 
 async def read_rom_sync(dut, word_addr: int, do_re: bool = True):
     """
@@ -32,7 +37,9 @@ async def read_rom_sync(dut, word_addr: int, do_re: bool = True):
 
     # gerar subida de clock
     dut.i_clk.value = 1
-    await Timer(1, units="ns")  # esperar um pouco depois da borda para a saída estabilizar
+    await Timer(
+        1, units="ns"
+    )  # esperar um pouco depois da borda para a saída estabilizar
 
     # capturar valor
     val = int(dut.o_data.value)
@@ -42,7 +49,9 @@ async def read_rom_sync(dut, word_addr: int, do_re: bool = True):
 
     return val
 
+
 # ---------- TESTES ----------
+
 
 @cocotb.test()
 async def rom_leitura_sincrona_basica(dut):

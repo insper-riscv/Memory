@@ -10,9 +10,9 @@ import cocotb
 
 from tests.python.unittests.external.ExtBus import access, post_edge, start
 
-CACHE = 0xF0000000          # peripheral 7: write = flush, read = busy
+CACHE = 0xF0000000  # peripheral 7: write = flush, read = busy
 SDRAM = 0x40000000
-UNCACHED = 0x43FFF000       # the last 4 KB of the SDRAM space; the memory of the test holds 4096 words
+UNCACHED = 0x43FFF000  # the last 4 KB of the SDRAM space; the memory of the test holds 4096 words
 
 
 async def peek(dut, word):
@@ -48,16 +48,22 @@ async def test_the_flush_stops_other_accesses_until_it_ends(dut):
         await access(dut, SDRAM + 0x400 + 0x10 * i, we=True, wdata=0x1000 + i)
     await access(dut, CACHE, we=True, wdata=1)
     # the next access is not a poll of the status: it just has to wait, and see the flush done
-    v, _c = await access(dut, 0xC0000008)       # the UART status, an access that does not use the cache
+    v, _c = await access(
+        dut, 0xC0000008
+    )  # the UART status, an access that does not use the cache
     for i in range(8):
-        assert await peek(dut, 0x100 + 4 * i) == 0x1000 + i, f"line {i} was not written back before the access"
+        assert await peek(dut, 0x100 + 4 * i) == 0x1000 + i, (
+            f"line {i} was not written back before the access"
+        )
 
 
 @cocotb.test()
 async def test_the_uncached_window_writes_through(dut):
     await start(dut)
     await access(dut, UNCACHED + 0x20, we=True, wdata=0x600D)
-    assert await peek(dut, 0xC08) == 0x600D, "a word of the shared window stayed in the cache"
+    assert await peek(dut, 0xC08) == 0x600D, (
+        "a word of the shared window stayed in the cache"
+    )
     v, _c = await access(dut, UNCACHED + 0x20)
     assert v == 0x600D
 
@@ -82,7 +88,9 @@ async def test_flush_with_invalidate_drops_the_lines(dut):
     assert await peek(dut, 0x180) == 0x77, "the invalidate lost the dirty data"
     v, miss = await access(dut, SDRAM + 0x600)
     assert v == 0x77
-    assert miss > hit + 4, f"the read after an invalidate was a hit ({miss} against {hit} clocks)"
+    assert miss > hit + 4, (
+        f"the read after an invalidate was a hit ({miss} against {hit} clocks)"
+    )
 
 
 async def store_bytes(dut, addr, data, be):
@@ -107,10 +115,13 @@ async def store_bytes(dut, addr, data, be):
 @cocotb.test()
 async def test_a_byte_store_at_an_unaligned_address_changes_only_its_byte(dut):
     """The window the host shares with the program is not cached: a byte store goes out as a
-    word-aligned write with the byte enable of its lane (the stdout buffer is written this way)."""
+    word-aligned write with the byte enable of its lane (the stdout buffer is written this way).
+    """
     await start(dut)
     await store_bytes(dut, UNCACHED + 0x40, 0x11223344, 0xF)
-    await store_bytes(dut, UNCACHED + 0x41, 0x0000AA00, 0x2)        # byte 1 of the word
-    await store_bytes(dut, UNCACHED + 0x42, 0x00BB0000, 0x4)        # byte 2
-    await store_bytes(dut, UNCACHED + 0x42, 0xCCDD0000, 0xC)        # half-word at +2
+    await store_bytes(
+        dut, UNCACHED + 0x41, 0x0000AA00, 0x2
+    )  # byte 1 of the word
+    await store_bytes(dut, UNCACHED + 0x42, 0x00BB0000, 0x4)  # byte 2
+    await store_bytes(dut, UNCACHED + 0x42, 0xCCDD0000, 0xC)  # half-word at +2
     assert await peek(dut, 0xC10) == 0xCCDDAA44, hex(await peek(dut, 0xC10))

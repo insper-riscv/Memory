@@ -14,8 +14,22 @@ from cocotb.triggers import RisingEdge, Timer
 HALF_TCK_NS = 40
 # segments g..a of each hexadecimal digit, low level lit (the DE0-CV)
 PATTERNS = [
-    0b1000000, 0b1111001, 0b0100100, 0b0110000, 0b0011001, 0b0010010, 0b0000010, 0b1111000,
-    0b0000000, 0b0010000, 0b0001000, 0b0000011, 0b1000110, 0b0100001, 0b0000110, 0b0001110,
+    0b1000000,
+    0b1111001,
+    0b0100100,
+    0b0110000,
+    0b0011001,
+    0b0010010,
+    0b0000010,
+    0b1111000,
+    0b0000000,
+    0b0010000,
+    0b0001000,
+    0b0000011,
+    0b1000110,
+    0b0100001,
+    0b0000110,
+    0b0001110,
 ]
 
 
@@ -32,7 +46,14 @@ async def post_edge(dut):
 
 
 async def start(dut):
-    for sig in (dut.i_we, dut.i_re, dut.i_state_cdr, dut.i_state_sdr, dut.i_state_udr, dut.i_state_uir):
+    for sig in (
+        dut.i_we,
+        dut.i_re,
+        dut.i_state_cdr,
+        dut.i_state_sdr,
+        dut.i_state_udr,
+        dut.i_state_uir,
+    ):
         sig.value = 0
     dut.i_addr.value = 0
     dut.i_wdata.value = 0
@@ -78,7 +99,12 @@ async def tck(dut, cdr=0, sdr=0, udr=0, uir=0, ir=None):
     dut.i_tck.value = 1
     await Timer(HALF_TCK_NS, unit="ns")
     dut.i_tck.value = 0
-    for sig in (dut.i_state_cdr, dut.i_state_sdr, dut.i_state_udr, dut.i_state_uir):
+    for sig in (
+        dut.i_state_cdr,
+        dut.i_state_sdr,
+        dut.i_state_udr,
+        dut.i_state_uir,
+    ):
         sig.value = 0
 
 
@@ -117,7 +143,9 @@ async def test_every_digit_pattern(dut):
     await start(dut)
     for digit in range(16):
         await core_write(dut, digit * 0x111111)
-        assert int(dut.o_hex.value) == expected_hex(digit * 0x111111), f"digit {digit:X}"
+        assert int(dut.o_hex.value) == expected_hex(digit * 0x111111), (
+            f"digit {digit:X}"
+        )
 
 
 @cocotb.test()
@@ -136,7 +164,9 @@ async def test_core_write_and_read_back(dut):
     assert await core_read(dut) == 0xABCDEF, "only the 24 low bits are kept"
     assert await core_read(dut, addr=1) == 0, "other words read zero"
     await core_write(dut, 0x777777, addr=1)
-    assert await core_read(dut) == 0xABCDEF, "a write to another word is ignored"
+    assert await core_read(dut) == 0xABCDEF, (
+        "a write to another word is ignored"
+    )
 
 
 @cocotb.test()
@@ -147,7 +177,9 @@ async def test_host_write_and_read(dut):
         await post_edge(dut)
     assert int(dut.o_value.value) == 0x00000F
     assert await core_read(dut) == 0x00000F
-    assert await scan(dut) == 0x00000F, "a scan without the write bit only reads"
+    assert await scan(dut) == 0x00000F, (
+        "a scan without the write bit only reads"
+    )
     for _ in range(6):
         await post_edge(dut)
     assert int(dut.o_value.value) == 0x00000F
@@ -161,12 +193,16 @@ async def test_host_sees_the_core_write(dut):
 
 
 @cocotb.test()
-async def test_the_value_survives_the_reset_of_a_program_not_the_hardware_reset(dut):
+async def test_the_value_survives_the_reset_of_a_program_not_the_hardware_reset(
+    dut,
+):
     await start(dut)
     await core_write(dut, 0x00AB01)
     for _ in range(10):
         await post_edge(dut)
-    assert int(dut.o_value.value) == 0x00AB01, "the display keeps the value between two programs"
+    assert int(dut.o_value.value) == 0x00AB01, (
+        "the display keeps the value between two programs"
+    )
     dut.i_rst.value = 1
     await post_edge(dut)
     dut.i_rst.value = 0
@@ -196,7 +232,9 @@ async def test_failure_flag_starts_clear_and_the_host_sets_and_clears_it(dut):
     await start(dut)
     assert int(dut.o_fail.value) == 0
     assert await scan_fail(dut) == 0
-    assert await scan_fail(dut, True) == 0, "the scan returns the flag as it was"
+    assert await scan_fail(dut, True) == 0, (
+        "the scan returns the flag as it was"
+    )
     assert int(dut.o_fail.value) == 1
     assert await scan_fail(dut) == 1, "a scan without the write bit only reads"
     assert int(dut.o_fail.value) == 1

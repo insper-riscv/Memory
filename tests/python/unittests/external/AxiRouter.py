@@ -18,13 +18,15 @@ NOBODY = 0x10000000
 class Slave:
     def __init__(self, dut, n):
         self.dut, self.n = dut, n
-        self.writes = []         # single-beat writes: (address, data, strobes)
-        self.bursts = []         # longer writes: (address, [(data, strobes), ...])
-        self.reads = []          # (address, length) of every read
+        self.writes = []  # single-beat writes: (address, data, strobes)
+        self.bursts = []  # longer writes: (address, [(data, strobes), ...])
+        self.reads = []  # (address, length) of every read
         self.aw = None
         self.beats = []
         self.b = False
-        self.r_left = None       # beats of the read in service still to give, minus one
+        self.r_left = (
+            None  # beats of the read in service still to give, minus one
+        )
         self.rd_addr = 0
         for ch in ("awready", "wready", "arready"):
             self.sig(ch).value = 1
@@ -47,7 +49,12 @@ class Slave:
             if v("awvalid") and v("awready"):
                 self.aw = int(self.sig("awaddr").value)
             if v("wvalid") and v("wready"):
-                self.beats.append((int(self.sig("wdata").value), int(self.sig("wstrb").value)))
+                self.beats.append(
+                    (
+                        int(self.sig("wdata").value),
+                        int(self.sig("wstrb").value),
+                    )
+                )
                 if v("wlast"):
                     done = self.beats
                     self.beats = []
@@ -80,7 +87,17 @@ class Slave:
 
 
 # Signals of a master port that the slave (this testbench) drives into the router.
-SLAVE_DRIVEN = {"awready", "wready", "arready", "bvalid", "bresp", "rvalid", "rdata", "rresp", "rlast"}
+SLAVE_DRIVEN = {
+    "awready",
+    "wready",
+    "arready",
+    "bvalid",
+    "bresp",
+    "rvalid",
+    "rdata",
+    "rresp",
+    "rlast",
+}
 
 
 async def setup(dut):
@@ -202,10 +219,15 @@ async def test_no_slave_answers_decerr(dut):
     s = await setup(dut)
     assert await write(dut, NOBODY, 0x5) == DECERR
     assert await read(dut, NOBODY) == (0, DECERR)
-    assert await read(dut, 0x44000000) == (0, DECERR)      # just above the SDRAM
-    assert await read(dut, 0x4C000000) == (0, DECERR)      # bits 27 and 26 both set
+    assert await read(dut, 0x44000000) == (0, DECERR)  # just above the SDRAM
+    assert await read(dut, 0x4C000000) == (
+        0,
+        DECERR,
+    )  # bits 27 and 26 both set
     assert s[0].writes == s[1].writes == [] and s[0].reads == s[1].reads == []
-    assert await write(dut, SLAVE0, 0x1) == OKAY            # and the router is fine after it
+    assert (
+        await write(dut, SLAVE0, 0x1) == OKAY
+    )  # and the router is fine after it
     assert await read(dut, SLAVE1) == (SLAVE1 ^ 0xFFFFFFFF, OKAY)
 
 
@@ -297,7 +319,13 @@ async def read_burst(dut, addr, n, size=2, burst=1):
     for _ in range(200):
         await Timer(1, unit="ns")
         if int(dut.o_s_rvalid.value):
-            got.append((int(dut.o_s_rdata.value), int(dut.o_s_rresp.value), int(dut.o_s_rlast.value)))
+            got.append(
+                (
+                    int(dut.o_s_rdata.value),
+                    int(dut.o_s_rresp.value),
+                    int(dut.o_s_rlast.value),
+                )
+            )
             last = got[-1][2]
             await RisingEdge(dut.i_clk)
             await Timer(1, unit="ns")
@@ -314,7 +342,11 @@ async def test_a_write_burst_goes_whole_to_one_slave(dut):
     s = await setup(dut)
     beats = [(0x100 + i, 0xF) for i in range(4)]
     assert await write_burst(dut, SLAVE1, beats) == OKAY
-    assert s[1].bursts == [(SLAVE1, beats)] and s[0].bursts == [] and s[0].writes == []
+    assert (
+        s[1].bursts == [(SLAVE1, beats)]
+        and s[0].bursts == []
+        and s[0].writes == []
+    )
     beats = [(0x200 + i, 0x3) for i in range(4)]
     assert await write_burst(dut, SLAVE0, beats, w_first=True) == OKAY
     assert s[0].bursts == [(SLAVE0, beats)]
@@ -324,15 +356,26 @@ async def test_a_write_burst_goes_whole_to_one_slave(dut):
 async def test_a_read_burst_comes_whole_from_one_slave(dut):
     s = await setup(dut)
     got = await read_burst(dut, SLAVE0, 4)
-    assert got == [((SLAVE0 + 4 * i) ^ 0xFFFFFFFF, OKAY, 1 if i == 3 else 0) for i in range(4)], got
+    assert got == [
+        ((SLAVE0 + 4 * i) ^ 0xFFFFFFFF, OKAY, 1 if i == 3 else 0)
+        for i in range(4)
+    ], got
     assert s[0].reads == [(SLAVE0, 3)] and s[1].reads == []
 
 
 @cocotb.test()
 async def test_a_burst_to_no_slave_is_consumed_and_answered_decerr(dut):
     s = await setup(dut)
-    assert await write_burst(dut, NOBODY, [(i, 0xF) for i in range(4)]) == DECERR
+    assert (
+        await write_burst(dut, NOBODY, [(i, 0xF) for i in range(4)]) == DECERR
+    )
     got = await read_burst(dut, NOBODY, 4)
     assert got == [(0, DECERR, 1 if i == 3 else 0) for i in range(4)], got
-    assert s[0].writes == s[1].writes == [] and s[0].bursts == s[1].bursts == [] and s[0].reads == s[1].reads == []
-    assert await write(dut, SLAVE1, 0x9) == OKAY             # and the router is fine after it
+    assert (
+        s[0].writes == s[1].writes == []
+        and s[0].bursts == s[1].bursts == []
+        and s[0].reads == s[1].reads == []
+    )
+    assert (
+        await write(dut, SLAVE1, 0x9) == OKAY
+    )  # and the router is fine after it

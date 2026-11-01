@@ -1,8 +1,9 @@
+import argparse
+import json
 import os
 import sys
-import json
-import argparse
 from pathlib import Path
+
 # cocotb 2.0 split the Python test-runner API out of the main cocotb
 # package into cocotb-tools, imported as cocotb_tools.runner — this
 # repo's requirements.txt pulls unpinned cocotb, which now resolves to
@@ -10,10 +11,17 @@ from pathlib import Path
 # own sim_runner module for the same migration.
 from cocotb_tools.runner import get_results, get_runner
 
-def run_cocotb_test(toplevel: str, sources: list, test_module: str, parameters: dict = None,
-                    build_args: list = None, test_args: list = None):
+
+def run_cocotb_test(
+    toplevel: str,
+    sources: list,
+    test_module: str,
+    parameters: dict = None,
+    build_args: list = None,
+    test_args: list = None,
+):
     tests_root = Path(__file__).resolve().parents[1]
-    repo_root  = Path(__file__).resolve().parents[2] 
+    repo_root = Path(__file__).resolve().parents[2]
     sys.path.append(str(repo_root))
 
     sim = os.getenv("SIM", "ghdl")
@@ -29,7 +37,7 @@ def run_cocotb_test(toplevel: str, sources: list, test_module: str, parameters: 
         group = "misc"
 
     if group == "instructions":
-        test_name = test_module.split(".")[-1]
+        test_name = test_module.rsplit(".", maxsplit=1)[-1]
         build_dir = tests_root / "python/sim_build" / group / test_name
     else:
         build_dir = tests_root / "python/sim_build" / group / toplevel
@@ -85,12 +93,13 @@ def run_cocotb_test(toplevel: str, sources: list, test_module: str, parameters: 
     if failed:
         raise RuntimeError(f"{failed} of {total} cocotb tests failed")
 
+
 if __name__ == "__main__":
     tests_root = Path(__file__).resolve().parents[1]
-    json_path  = tests_root / "python/tests.json"
+    json_path = tests_root / "python/tests.json"
 
     try:
-        with open(json_path, "r") as f:
+        with open(json_path) as f:
             TEST_CONFIGS = json.load(f)
     except FileNotFoundError:
         print(f"Erro: Arquivo de configuração '{json_path}' não encontrado.")
@@ -99,12 +108,14 @@ if __name__ == "__main__":
         print(f"Erro: O arquivo JSON '{json_path}' está mal formatado.")
         sys.exit(1)
 
-    parser = argparse.ArgumentParser(description="Runner de Testes Cocotb para o projeto RV32I")
+    parser = argparse.ArgumentParser(
+        description="Runner de Testes Cocotb para o projeto RV32I"
+    )
     parser.add_argument(
         "test_name",
         nargs="?",
         default="all",
-        help=f"Nome do teste a ser executado. Opções: {list(TEST_CONFIGS.keys()) + ['all']}"
+        help=f"Nome do teste a ser executado. Opções: {list(TEST_CONFIGS.keys()) + ['all']}",
     )
     args = parser.parse_args()
 
@@ -122,26 +133,44 @@ if __name__ == "__main__":
             # it, e.g. to check whether a fix actually resolved it.
             if config.get("skip"):
                 reason = config.get("skip_reason", "no reason given")
-                print(f"\n{'='*20} PULANDO TESTE: {name.upper()} {'='*20}")
+                print(f"\n{'=' * 20} PULANDO TESTE: {name.upper()} {'=' * 20}")
                 print(f"[SKIP] {reason}")
                 continue
-            print(f"\n{'='*20} INICIANDO TESTE: {name.upper()} {'='*20}")
+            print(f"\n{'=' * 20} INICIANDO TESTE: {name.upper()} {'=' * 20}")
             try:
-                run_cocotb_test(**{k: v for k, v in config.items() if k not in ("skip", "skip_reason")})
-                print(f"{'-'*20} TESTE {name.upper()} FINALIZADO COM SUCESSO {'-'*20}")
+                run_cocotb_test(
+                    **{
+                        k: v
+                        for k, v in config.items()
+                        if k not in ("skip", "skip_reason")
+                    }
+                )
+                print(
+                    f"{'-' * 20} TESTE {name.upper()} FINALIZADO COM SUCESSO {'-' * 20}"
+                )
             except Exception as e:
                 failures.append(name)
                 print(f"[ERRO] O teste '{name}' falhou: {e}")
         print("\nTodos os testes foram executados.")
         if failures:
-            print(f"[ERRO] {len(failures)} teste(s) falharam: {', '.join(failures)}")
+            print(
+                f"[ERRO] {len(failures)} teste(s) falharam: {', '.join(failures)}"
+            )
             sys.exit(1)
     elif args.test_name in TEST_CONFIGS:
         print(f"Executando teste específico: {args.test_name}")
         config = TEST_CONFIGS[args.test_name]
         if config.get("skip"):
-            print(f"[AVISO] '{args.test_name}' está marcado como skip ({config.get('skip_reason', 'no reason given')}) -- rodando mesmo assim, por ter sido pedido explicitamente.")
-        run_cocotb_test(**{k: v for k, v in config.items() if k not in ("skip", "skip_reason")})
+            print(
+                f"[AVISO] '{args.test_name}' está marcado como skip ({config.get('skip_reason', 'no reason given')}) -- rodando mesmo assim, por ter sido pedido explicitamente."
+            )
+        run_cocotb_test(
+            **{
+                k: v
+                for k, v in config.items()
+                if k not in ("skip", "skip_reason")
+            }
+        )
         print(f"\nTeste {args.test_name} finalizado.")
     else:
         print(f"Erro: Teste '{args.test_name}' não encontrado em tests.json.")

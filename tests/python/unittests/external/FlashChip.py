@@ -52,7 +52,9 @@ async def request(dut, addr, line, timeout=500):
             await RisingEdge(dut.i_clk)
             await Timer(1, unit="ns")
             dut.i_advance.value = 0
-            assert int(dut.o_ready.value) == 0, "ready has to drop once the request advances"
+            assert int(dut.o_ready.value) == 0, (
+                "ready has to drop once the request advances"
+            )
             return words, n
     raise AssertionError(f"no ready for {addr:#x} after {timeout} clocks")
 
