@@ -9,6 +9,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.dut import Dut
 
 SLOW_CLOCKS = 12  # clocks a flash line takes, at least
 FAST_CLOCKS = 2  # clocks a request that skips the chip takes, at most
@@ -17,12 +18,12 @@ FLASH = 0x20000000
 SDRAM = 0x40000000
 
 
-def word(addr):
+def word(addr: int):
     """Return the data word the models hold at an address."""
     return ((addr * 2654435761) ^ 0x5A5A1234) & 0xFFFFFFFF
 
 
-async def start(dut):
+async def start(dut: Dut):
     """Start the clock and reset the DUT."""
     cocotb.start_soon(Clock(dut.i_clk, 10, unit="ns").start())
     dut.i_rst.value = 1
@@ -37,7 +38,7 @@ async def start(dut):
     dut.i_rst.value = 0
 
 
-async def fetch(dut, addr, timeout=400):
+async def fetch(dut: Dut, addr: int, timeout: int = 400):
     """Fetch one instruction word and return it."""
     dut.i_addr.value = addr
     dut.i_sel.value = 1
@@ -49,7 +50,14 @@ async def fetch(dut, addr, timeout=400):
     raise AssertionError(f"no instruction for {addr:#x}")
 
 
-async def b_request(dut, addr, rd=0, wr=0, line=0, timeout=400):  # noqa: PLR0913, PLR0917
+async def b_request(  # noqa: PLR0913, PLR0917
+    dut: Dut,
+    addr: int,
+    rd: int = 0,
+    wr: int = 0,
+    line: int = 0,
+    timeout: int = 400,
+):
     """Issue a request on port B and return the answer."""
     dut.i_b_addr.value = addr
     dut.i_b_rden.value = rd
@@ -71,7 +79,7 @@ async def b_request(dut, addr, rd=0, wr=0, line=0, timeout=400):  # noqa: PLR091
 
 
 @cocotb.test()
-async def test_instruction_fetch_from_the_flash(dut):
+async def test_instruction_fetch_from_the_flash(dut: Dut):
     """Check that instruction fetch from the flash."""
     await start(dut)
     base = FLASH + 0x10230
@@ -87,7 +95,7 @@ async def test_instruction_fetch_from_the_flash(dut):
 
 
 @cocotb.test()
-async def test_b_reads_a_line_while_the_icache_is_idle(dut):
+async def test_b_reads_a_line_while_the_icache_is_idle(dut: Dut):
     """Check that b reads a line while the icache is idle."""
     await start(dut)
     r, rx, _ = await b_request(dut, FLASH + 0x400, rd=1, line=1)
@@ -97,7 +105,7 @@ async def test_b_reads_a_line_while_the_icache_is_idle(dut):
 
 
 @cocotb.test()
-async def test_both_masters_at_once_get_their_own_data(dut):
+async def test_both_masters_at_once_get_their_own_data(dut: Dut):
     """Check that both masters at once get their own data."""
     await start(dut)
     b = cocotb.start_soon(b_request(dut, FLASH + 0x800, rd=1, line=1))
@@ -110,7 +118,7 @@ async def test_both_masters_at_once_get_their_own_data(dut):
 
 
 @cocotb.test()
-async def test_a_store_to_the_flash_never_reaches_the_chip(dut):
+async def test_a_store_to_the_flash_never_reaches_the_chip(dut: Dut):
     """Check that a store to the flash never reaches the chip."""
     await start(dut)
     _, _, waited = await b_request(dut, FLASH + 0x900, wr=1)
@@ -120,7 +128,7 @@ async def test_a_store_to_the_flash_never_reaches_the_chip(dut):
 
 
 @cocotb.test()
-async def test_a_read_past_the_window_is_zero_and_skips_the_chip(dut):
+async def test_a_read_past_the_window_is_zero_and_skips_the_chip(dut: Dut):
     """Check that a read past the window is zero and skips the chip."""
     await start(dut)
     r, rx, _ = await b_request(dut, FLASH + 0x200000, rd=1, line=1)
@@ -129,7 +137,7 @@ async def test_a_read_past_the_window_is_zero_and_skips_the_chip(dut):
 
 
 @cocotb.test()
-async def test_sdram_requests_do_not_touch_the_flash_path(dut):
+async def test_sdram_requests_do_not_touch_the_flash_path(dut: Dut):
     """Check that sdram requests do not touch the flash path."""
     await start(dut)
     dut.i_addr.value = SDRAM + 0x40

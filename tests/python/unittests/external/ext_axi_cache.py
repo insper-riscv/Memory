@@ -14,6 +14,7 @@ its alias there (the cache's tag is 14 bits of address, the memory's is
 import cocotb
 
 from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.dut import Dut
 from tests.python.unittests.external.ext_bus import access, post_edge, start
 
 CACHE = 0xF0000000  # peripheral 7: write = flush, read = busy
@@ -23,14 +24,14 @@ SDRAM = 0x40000000
 UNCACHED = 0x43FFF000
 
 
-async def peek(dut, word):
+async def peek(dut: Dut, word: int):
     """Return a word as the memory model holds it."""
     dut.i_dbg_word_addr.value = word
     await post_edge(dut)
     return int(dut.o_dbg_word_data.value)
 
 
-async def wait_idle(dut):
+async def wait_idle(dut: Dut):
     """Wait until the cache is idle."""
     for _ in range(100_000):
         v, _c = await access(dut, CACHE)
@@ -40,7 +41,7 @@ async def wait_idle(dut):
 
 
 @cocotb.test()
-async def test_a_cached_write_reaches_the_memory_only_with_the_flush(dut):
+async def test_a_cached_write_reaches_the_memory_only_with_the_flush(dut: Dut):
     """Check that a cached write reaches the memory with the flush."""
     await start(dut)
     await access(dut, SDRAM + 0x200, we=True, wdata=0xCAFE0001)
@@ -53,7 +54,7 @@ async def test_a_cached_write_reaches_the_memory_only_with_the_flush(dut):
 
 
 @cocotb.test()
-async def test_the_flush_stops_other_accesses_until_it_ends(dut):
+async def test_the_flush_stops_other_accesses_until_it_ends(dut: Dut):
     """Check that the flush stops other accesses until it ends."""
     await start(dut)
     for i in range(8):
@@ -73,7 +74,7 @@ async def test_the_flush_stops_other_accesses_until_it_ends(dut):
 
 
 @cocotb.test()
-async def test_the_uncached_window_writes_through(dut):
+async def test_the_uncached_window_writes_through(dut: Dut):
     """Check that the uncached window writes through."""
     await start(dut)
     await access(dut, UNCACHED + 0x20, we=True, wdata=0x600D)
@@ -87,7 +88,7 @@ async def test_the_uncached_window_writes_through(dut):
 
 
 @cocotb.test()
-async def test_cache_status_reads_zero_when_idle(dut):
+async def test_cache_status_reads_zero_when_idle(dut: Dut):
     """Check that cache status reads zero when idle."""
     await start(dut)
     v, _c = await access(dut, CACHE)
@@ -95,7 +96,7 @@ async def test_cache_status_reads_zero_when_idle(dut):
 
 
 @cocotb.test()
-async def test_flush_with_invalidate_drops_the_lines(dut):
+async def test_flush_with_invalidate_drops_the_lines(dut: Dut):
     """A flush keeps the lines (the next read is a hit).
 
     A flush with bit 1 set drops them (a miss).
@@ -120,7 +121,7 @@ async def test_flush_with_invalidate_drops_the_lines(dut):
     )
 
 
-async def store_bytes(dut, addr, data, be):
+async def store_bytes(dut: Dut, addr: int, data: int, be: int):
     """One store the way the core makes a byte or half-word one.
 
     The byte address, the data, the byte enables.
@@ -144,7 +145,9 @@ async def store_bytes(dut, addr, data, be):
 
 
 @cocotb.test()
-async def test_a_byte_store_at_an_unaligned_address_changes_only_its_byte(dut):
+async def test_a_byte_store_at_an_unaligned_address_changes_only_its_byte(
+    dut: Dut,
+):
     """The window the host shares with the program is not cached.
 
     A byte store goes out as a word-aligned write with the byte enable

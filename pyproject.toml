@@ -11,6 +11,13 @@ dependencies = [
     "cocotb==2.1.0",
 ]
 
+[dependency-groups]
+dev = [
+    "pyright[nodejs]>=1.1",
+    "deptry>=0.20",
+    "pylint>=4.1.3",
+]
+
 [tool.uv]
 package = false
 
@@ -89,3 +96,49 @@ docstring-code-line-length = 72
 [tool.complexipy]
 paths = ["tests"]
 max-complexity-allowed = 10
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+typeCheckingMode = "strict"
+include = ["tests"]
+exclude = ["**/.venv", "**/sim_build", "build", "Common-Components"]
+
+[tool.pyrefly]
+preset = "strict"
+project-includes = ["tests"]
+python-version = "3.14"
+
+[tool.pylint.main]
+ignore = [".venv", "Common-Components", "build", "sim_build"]
+# The repository root is not a package, so `pylint .` needs to recurse.
+recursive = true
+fail-under = 10
+
+[tool.pylint.messages_control]
+disable = [
+    # The limits of these are enforced by ruff, with the thresholds of
+    # [tool.ruff.lint.pylint].
+    "too-many-arguments",
+    "too-many-positional-arguments",
+    "too-many-locals",
+    "broad-exception-caught",
+    # The cocotb models keep one attribute per signal of a port and have a
+    # single method that runs the clock loop.
+    "too-many-instance-attributes",
+    "too-few-public-methods",
+]
+
+[tool.pylint.similarities]
+# The testbenches repeat the same JTAG and handshake sequences by design.
+ignore-comments = true
+ignore-docstrings = true
+ignore-imports = true
+ignore-signatures = true
+min-similarity-lines = 20
+
+[tool.deptry]
+# The default exclusions skip tests/, which holds all the Python of the repository.
+exclude = ["venv", "\\.venv", "\\.git", "Common-Components", "build", "sim_build"]
+known_first_party = ["tests"]

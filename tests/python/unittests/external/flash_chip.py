@@ -9,17 +9,18 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.dut import Dut
 
 FIRST = 24
 NEXT = 4
 
 
-def word(addr):
+def word(addr: int):
     """Return the content of the storage at a byte address."""
     return ((addr * 2654435761) ^ 0x5A5A1234) & 0xFFFFFFFF
 
 
-async def storage(dut):
+async def storage(dut: Dut):
     """Model a memory with a registered read.
 
     The word of the address before the edge.
@@ -30,7 +31,7 @@ async def storage(dut):
         dut.i_mem_data.value = word(int(dut.o_mem_addr.value) & ~3)
 
 
-async def start(dut):
+async def start(dut: Dut):
     """Start the clock and reset the DUT."""
     cocotb.start_soon(Clock(dut.i_clk, 10, unit="ns").start())
     dut.i_rst.value = 1
@@ -45,7 +46,7 @@ async def start(dut):
     cocotb.start_soon(storage(dut))
 
 
-async def request(dut, addr, line, timeout=500):
+async def request(dut: Dut, addr: int, line: int, timeout: int = 500):
     """Hold the request until ready, then advance.
 
     Returns (words, clocks waited).
@@ -77,7 +78,7 @@ async def request(dut, addr, line, timeout=500):
 
 
 @cocotb.test()
-async def test_line_comes_whole_and_aligned(dut):
+async def test_line_comes_whole_and_aligned(dut: Dut):
     """Check that line comes whole and aligned."""
     await start(dut)
     # an address in the middle of the line still returns the line from
@@ -88,7 +89,7 @@ async def test_line_comes_whole_and_aligned(dut):
 
 
 @cocotb.test()
-async def test_a_single_word(dut):
+async def test_a_single_word(dut: Dut):
     """Check that a single word."""
     await start(dut)
     words, _ = await request(dut, 0x20000044, 0)
@@ -96,7 +97,7 @@ async def test_a_single_word(dut):
 
 
 @cocotb.test()
-async def test_latency_follows_the_generics(dut):
+async def test_latency_follows_the_generics(dut: Dut):
     """Check that latency follows the generics."""
     await start(dut)
     _, line_wait = await request(dut, 0x20000100, 1)
@@ -108,7 +109,7 @@ async def test_latency_follows_the_generics(dut):
 
 
 @cocotb.test()
-async def test_ready_holds_until_advance(dut):
+async def test_ready_holds_until_advance(dut: Dut):
     """Check that ready holds until advance."""
     await start(dut)
     dut.i_addr.value = 0x20000300
@@ -127,7 +128,7 @@ async def test_ready_holds_until_advance(dut):
 
 
 @cocotb.test()
-async def test_back_to_back_requests(dut):
+async def test_back_to_back_requests(dut: Dut):
     """Check that back to back requests."""
     await start(dut)
     for k in range(6):
@@ -137,7 +138,7 @@ async def test_back_to_back_requests(dut):
 
 
 @cocotb.test()
-async def test_a_request_outside_the_window_reads_zero(dut):
+async def test_a_request_outside_the_window_reads_zero(dut: Dut):
     """Check that a request outside the window reads zero."""
     await start(dut)
     # bits 25:20 set: past the 1 MB window of the chip
@@ -151,7 +152,7 @@ async def test_a_request_outside_the_window_reads_zero(dut):
 
 
 @cocotb.test()
-async def test_busy_covers_the_latency_of_a_request(dut):
+async def test_busy_covers_the_latency_of_a_request(dut: Dut):
     """Check that busy covers the latency of a request."""
     await start(dut)
     busy = 0

@@ -12,6 +12,7 @@ copy after every group of accesses.
 import cocotb
 
 from tests.python.unittests.checks import Prng, check_equal, check_true
+from tests.python.unittests.dut import Dut
 from tests.python.unittests.external.data_cache import (
     SAME_INDEX,
     Mirror,
@@ -25,7 +26,7 @@ FLUSH_EVERY = 25  # accesses between two checks of the chip
 
 
 @cocotb.test()
-async def test_a_store_reaches_the_chip_at_once(dut):
+async def test_a_store_reaches_the_chip_at_once(dut: Dut):
     """Check that a store reaches the chip at once."""
     await begin(dut)
     m = Mirror(dut)
@@ -41,7 +42,7 @@ async def test_a_store_reaches_the_chip_at_once(dut):
 
 
 @cocotb.test()
-async def test_a_store_that_misses_does_not_bring_the_line_in(dut):
+async def test_a_store_that_misses_does_not_bring_the_line_in(dut: Dut):
     """Check that a store that misses does not bring the line in."""
     await begin(dut)
     m = Mirror(dut)
@@ -58,7 +59,7 @@ async def test_a_store_that_misses_does_not_bring_the_line_in(dut):
 
 
 @cocotb.test()
-async def test_a_store_that_hits_updates_the_line_and_the_chip(dut):
+async def test_a_store_that_hits_updates_the_line_and_the_chip(dut: Dut):
     """Check that a store that hits updates the line and the chip."""
     await begin(dut)
     m = Mirror(dut)
@@ -74,7 +75,7 @@ async def test_a_store_that_hits_updates_the_line_and_the_chip(dut):
 
 
 @cocotb.test()
-async def test_random_traffic_keeps_the_chip_current(dut):
+async def test_random_traffic_keeps_the_chip_current(dut: Dut):
     """Check that random traffic keeps the chip current."""
     await begin(dut)
     m = Mirror(dut)
@@ -88,7 +89,7 @@ async def test_random_traffic_keeps_the_chip_current(dut):
         0x000400,
         0x000FFF,
     ]
-    words = []
+    words: list[int] = []
     for b in base:
         words += [b, b + SAME_INDEX, b + 3 * SAME_INDEX]
     for i in range(300):

@@ -9,17 +9,26 @@ the chip with a Python copy.
 
 """
 
+from collections.abc import Coroutine
+from typing import Any
+
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
-from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.checks import check_equal, check_true, log_info
+from tests.python.unittests.dut import Dut
 from tests.python.unittests.external.axi_router import (
     OKAY,
     read_burst,
     write_burst,
 )
-from tests.python.unittests.external.sdram_helpers import CPU_NS, MEM_NS, merge
+from tests.python.unittests.external.sdram_helpers import (
+    CPU_NS,
+    MEM_NS,
+    merge,
+    model_word,
+)
 
 LAST_BEAT = 3  # index of the last beat of a four-beat burst
 
@@ -28,7 +37,7 @@ INCR, FIXED, WRAP = 1, 0, 2
 BASE = 0x40000000
 
 
-async def setup(dut):
+async def setup(dut: Dut):
     """Reset the DUT and start its clock and slaves."""
     for sig in ("awvalid", "wvalid", "arvalid", "bready", "rready"):
         getattr(dut, f"i_s_{sig}").value = 0
@@ -54,29 +63,20 @@ async def setup(dut):
     raise AssertionError("the controller never finished its power-up sequence")
 
 
-async def chip_word(dut, word):
-    """Return a word as the chip model holds it."""
-    dut.i_dbg_word_addr.value = word
-    for _ in range(3):
-        await RisingEdge(dut.i_clk_mem)
-    await Timer(1, unit="ns")
-    return int(dut.o_dbg_word_data.value)
-
-
-def word_of(addr):
+def word_of(addr: int):
     """Return the word index of a byte address."""
     return (addr - BASE) >> 2
 
 
 @cocotb.test()
-async def test_a_line_burst_is_written_and_read_whole(dut):
+async def test_a_line_burst_is_written_and_read_whole(dut: Dut):
     """Check that a line burst is written and read whole."""
     await setup(dut)
     addr = BASE + 0x1230
     beats = [(0xA0000000 + i, 0xF) for i in range(4)]
     check_equal(await write_burst(dut, addr, beats), OKAY)
     for i in range(4):
-        check_equal(await chip_word(dut, word_of(addr) + i), 0xA0000000 + i)
+        check_equal(await model_word(dut, word_of(addr) + i), 0xA0000000 + i)
     got = await read_burst(dut, addr, 4)
     check_equal(
         got,
@@ -86,7 +86,7 @@ async def test_a_line_burst_is_written_and_read_whole(dut):
 
 
 @cocotb.test()
-async def test_byte_strobes_of_a_line_burst(dut):
+async def test_byte_strobes_of_a_line_burst(dut: Dut):
     """Check that byte strobes of a line burst."""
     await setup(dut)
     addr = BASE + 0x2000
@@ -102,11 +102,13 @@ async def test_byte_strobes_of_a_line_burst(dut):
     check_equal(await write_burst(dut, addr, burst), OKAY)
     for i in range(4):
         want = merge(0x11111111 * (i + 1), new[i], strobes[i])
-        check_equal(await chip_word(dut, word_of(addr) + i), want, f"word {i}")
+        check_equal(
+            await model_word(dut, word_of(addr) + i), want, f"word {i}"
+        )
 
 
 @cocotb.test()
-async def test_other_lengths_are_one_word_per_beat(dut):
+async def test_other_lengths_are_one_word_per_beat(dut: Dut):
     """One, two, three, five and eight beats, aligned or not to 16.
 
     Bytes, one word access per beat.
@@ -131,7 +133,7 @@ async def test_other_lengths_are_one_word_per_beat(dut):
         )
         for i in range(n):
             check_equal(
-                await chip_word(dut, word_of(addr) + i),
+                await model_word(dut, word_of(addr) + i),
                 beats[i][0],
                 f"{n} beats at +{off:#x}, word {i}",
             )
@@ -144,7 +146,7 @@ async def test_other_lengths_are_one_word_per_beat(dut):
 
 
 @cocotb.test()
-async def test_what_it_does_not_serve_is_slverr_and_touches_nothing(dut):
+async def test_what_it_does_not_serve_is_slverr_and_touches_nothing(dut: Dut):
     """Check that what it does not serve is slverr and touches.
 
     Nothing.
@@ -153,43 +155,48 @@ async def test_what_it_does_not_serve_is_slverr_and_touches_nothing(dut):
     await setup(dut)
     addr = BASE + 0x4000
     check_equal(await write_burst(dut, addr, [(0x77777777, 0xF)]), OKAY)
-    before = await chip_word(dut, word_of(addr))
+    before = await model_word(dut, word_of(addr))
+    # name, size, burst type, address and number of beats
     cases = [
-        ("wrap", {"burst": WRAP}, addr, 4),
-        ("fixed", {"burst": FIXED}, addr, 4),
-        ("half-word size", {"size": 1}, addr, 2),
-        ("byte size", {"size": 0}, addr, 3),
-        ("8-byte size", {"size": 3}, addr, 2),
-        ("unaligned", {}, addr + 2, 1),
+        ("wrap", 2, WRAP, addr, 4),
+        ("fixed", 2, FIXED, addr, 4),
+        ("half-word size", 1, INCR, addr, 2),
+        ("byte size", 0, INCR, addr, 3),
+        ("8-byte size", 3, INCR, addr, 2),
+        ("unaligned", 2, INCR, addr + 2, 1),
     ]
-    for name, kw, a, n in cases:
+    for name, size, burst, a, n in cases:
         resp = await write_burst(
-            dut, a, [(0xBAD00000 + i, 0xF) for i in range(n)], **kw
+            dut,
+            a,
+            [(0xBAD00000 + i, 0xF) for i in range(n)],
+            size=size,
+            burst=burst,
         )
         check_equal(resp, SLVERR, f"{name}: write answered {resp}")
-        got = await read_burst(dut, a, n, **kw)
+        got = await read_burst(dut, a, n, size=size, burst=burst)
         check_equal(
             got,
             [(0, SLVERR, 1 if i == n - 1 else 0) for i in range(n)],
             f"{name}: {got}",
         )
         check_equal(
-            await chip_word(dut, word_of(addr)),
+            await model_word(dut, word_of(addr)),
             before,
             f"{name} reached the chip",
         )
     # and the slave serves a good one after all of them
     check_equal(await write_burst(dut, addr, [(0x12345678, 0xF)]), OKAY)
-    check_equal(await chip_word(dut, word_of(addr)), 0x12345678)
+    check_equal(await model_word(dut, word_of(addr)), 0x12345678)
 
 
 @cocotb.test()
-async def test_a_line_read_is_faster_than_four_single_reads(dut):
+async def test_a_line_read_is_faster_than_four_single_reads(dut: Dut):
     """Check that a line read is faster than four single reads."""
     await setup(dut)
     addr = BASE + 0x5000
 
-    async def timed(coro):
+    async def timed(coro: Coroutine[Any, Any, object]) -> int:
         t = [0]
 
         async def count():
@@ -206,5 +213,5 @@ async def test_a_line_read_is_faster_than_four_single_reads(dut):
     singles = 0
     for i in range(4):
         singles += await timed(read_burst(dut, addr + 4 * i, 1))
-    dut._log.info(f"a line read took {line} clocks, four word reads {singles}")
+    log_info(f"a line read took {line} clocks, four word reads {singles}")
     check_true(line < singles - 4, f"{line} against {singles}")

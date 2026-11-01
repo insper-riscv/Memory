@@ -10,11 +10,15 @@ see jtag_uart).
 
 """
 
+from typing import TypedDict
+
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.dut import Dut
+from tests.python.unittests.jtag import load_ir, shift_dr
 
 PERIPHERALS = 0x80000000  # first address of the peripherals
 TIMEOUT = 5000  # clocks an access may take
@@ -25,17 +29,16 @@ UART = 0xC0000000
 TXDATA, RXDATA, STATUS = UART, UART + 4, UART + 8
 MEM = 0x40000100
 MEM_VALUE = 0x12345678
-HALF_TCK_NS = 40
 DEPTH = 64
 
 
-async def post_edge(dut):
+async def post_edge(dut: Dut):
     """Wait for a clock edge and let the signals settle."""
     await RisingEdge(dut.i_clk)
     await Timer(1, unit="ns")
 
 
-def own_memory(dut):
+def own_memory(dut: Dut):
     """Tell whether the testbench plays the memory (m_* ports).
 
     False when the design has its own (the AXI4-Lite one).
@@ -44,7 +47,7 @@ def own_memory(dut):
     return not hasattr(dut, "u_slave")
 
 
-async def start(dut):
+async def start(dut: Dut):
     """Start the clock and reset the DUT."""
     for sig in (dut.i_rden, dut.i_wren, dut.i_mem_advance):
         sig.value = 0
@@ -63,7 +66,7 @@ async def start(dut):
     await load_ir(dut, 1)
 
 
-def drive_memory(dut, addr, cycles, mem_latency):
+def drive_memory(dut: Dut, addr: int, cycles: int, mem_latency: int):
     """Answer the memory side of an access, or check it is not used."""
     if not own_memory(dut):
         return
@@ -76,7 +79,14 @@ def drive_memory(dut, addr, cycles, mem_latency):
         )
 
 
-async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):  # noqa: PLR0913, PLR0917
+async def access(  # noqa: PLR0913, PLR0917
+    dut: Dut,
+    addr: int,
+    we: bool = False,
+    wdata: int = 0,
+    hold: int = 0,
+    mem_latency: int = 2,
+):
     """One core access; returns (read data, cycles until ready).
 
     The port holds until ready, then `hold` more cycles (the pipeline
@@ -112,28 +122,16 @@ async def access(dut, addr, we=False, wdata=0, hold=0, mem_latency=2):  # noqa: 
     return int(dut.o_rdata.value), cycles
 
 
-async def tck(dut, **states):
-    """Give one TCK pulse with the given scan states."""
-    for name in ("cdr", "sdr", "udr", "uir"):
-        getattr(dut, f"i_jtag_state_{name}").value = (
-            1 if states.get(name) else 0
-        )
-    dut.i_jtag_tck.value = 0
-    await Timer(HALF_TCK_NS, unit="ns")
-    dut.i_jtag_tck.value = 1
-    await Timer(HALF_TCK_NS, unit="ns")
-    dut.i_jtag_tck.value = 0
-    for name in ("cdr", "sdr", "udr", "uir"):
-        getattr(dut, f"i_jtag_state_{name}").value = 0
+class Scan(TypedDict):
+    """The fields of the answer to a command of the scan register."""
+
+    bytes: list[int]
+    rx_dropped: int
+    overrun: int
+    left: int
 
 
-async def load_ir(dut, value):
-    """Load a value into the instruction register."""
-    dut.i_jtag_ir_in.value = value
-    await tck(dut, uir=True)
-
-
-async def scan(dut, push=None):
+async def scan(dut: Dut, push: int | None = None) -> Scan:
     """One scan of the 48-bit register.
 
     Sends a command (with a byte if `push`), returns the fields of the
@@ -141,14 +139,7 @@ async def scan(dut, push=None):
 
     """
     value = 0 if push is None else (1 << 8) | push
-    await tck(dut, cdr=True)
-    out = 0
-    for i in range(48):
-        dut.i_jtag_tdi.value = (value >> i) & 1
-        await Timer(1, unit="ns")
-        out |= int(dut.o_jtag_tdo.value) << i
-        await tck(dut, sdr=True)
-    await tck(dut, udr=True)
+    out = await shift_dr(dut, 48, value)
     n = (out >> 32) & 7
     return {
         "bytes": [(out >> (8 * i)) & 0xFF for i in range(n)],
@@ -158,13 +149,13 @@ async def scan(dut, push=None):
     }
 
 
-async def drain(dut):
+async def drain(dut: Dut):
     """Scan until the transmit queue is empty and the answers are in.
 
     Returns all bytes.
 
     """
-    got = []
+    got: list[int] = []
     quiet = 0
     for _ in range(100):
         await Timer(1, unit="us")
@@ -183,7 +174,7 @@ async def drain(dut):
 
 
 @cocotb.test()
-async def test_memory_access_passes_through(dut):
+async def test_memory_access_passes_through(dut: Dut):
     """Check that memory access passes through."""
     await start(dut)
     value, cycles = await access(dut, MEM)
@@ -196,12 +187,12 @@ async def test_memory_access_passes_through(dut):
     await access(dut, TXDATA, we=True, wdata=0x41)
 
 
-async def _status(dut):
+async def _status(dut: Dut):
     return (await access(dut, STATUS))[0]
 
 
 @cocotb.test()
-async def test_core_to_host_bytes_in_order(dut):
+async def test_core_to_host_bytes_in_order(dut: Dut):
     """Check that core to host bytes in order."""
     await start(dut)
     for b in b"hello, world":
@@ -213,7 +204,7 @@ async def test_core_to_host_bytes_in_order(dut):
 
 
 @cocotb.test()
-async def test_an_answer_is_shown_once(dut):
+async def test_an_answer_is_shown_once(dut: Dut):
     """Check that an answer is shown once."""
     await start(dut)
     for b in b"abc":
@@ -224,21 +215,21 @@ async def test_an_answer_is_shown_once(dut):
     check_equal(a["bytes"], [], a)
     b = await scan(dut)  # and is shown
     check_equal(b["bytes"], list(b"abc"), b)
-    got = []
+    got: list[int] = []
     for _ in range(4):
         got += (await scan(dut))["bytes"]  # once
     check_equal(got, [])
 
 
 @cocotb.test()
-async def test_host_to_core_bytes_in_order(dut):
+async def test_host_to_core_bytes_in_order(dut: Dut):
     """Check that host to core bytes in order."""
     await start(dut)
     for b in b"ping":
         await scan(dut, push=b)
         await Timer(1, unit="us")
     check_equal(((await _status(dut)) >> 8) & 0xFF, 4)
-    got = []
+    got: list[int] = []
     for _ in range(5):
         v, _c = await access(dut, RXDATA)
         if v & 0x100:
@@ -250,7 +241,7 @@ async def test_host_to_core_bytes_in_order(dut):
 
 
 @cocotb.test()
-async def test_a_stopped_pipeline_pops_once(dut):
+async def test_a_stopped_pipeline_pops_once(dut: Dut):
     """Check that a stopped pipeline pops once."""
     await start(dut)
     for b in b"xy":
@@ -269,7 +260,7 @@ async def test_a_stopped_pipeline_pops_once(dut):
 
 
 @cocotb.test()
-async def test_transmit_queue_full_drops_and_flags(dut):
+async def test_transmit_queue_full_drops_and_flags(dut: Dut):
     """Check that transmit queue full drops and flags."""
     await start(dut)
     for i in range(DEPTH + 3):
@@ -287,7 +278,7 @@ async def test_transmit_queue_full_drops_and_flags(dut):
 
 
 @cocotb.test()
-async def test_receive_queue_full_is_flagged_to_the_host(dut):
+async def test_receive_queue_full_is_flagged_to_the_host(dut: Dut):
     """Check that receive queue full is flagged to the host."""
     await start(dut)
     for i in range(DEPTH + 2):
@@ -301,7 +292,7 @@ async def test_receive_queue_full_is_flagged_to_the_host(dut):
 
 
 @cocotb.test()
-async def test_unmapped_window_reads_zero(dut):
+async def test_unmapped_window_reads_zero(dut: Dut):
     """Check that unmapped window reads zero."""
     await start(dut)
     v, _c = await access(dut, 0xA0000000)
@@ -312,7 +303,7 @@ async def test_unmapped_window_reads_zero(dut):
 
 
 @cocotb.test()
-async def test_load_data_stays_while_the_next_access_runs(dut):
+async def test_load_data_stays_while_the_next_access_runs(dut: Dut):
     """Check that load data stays while the next access runs."""
     await start(dut)
     await scan(dut, push=0x5A)
@@ -328,7 +319,7 @@ async def test_load_data_stays_while_the_next_access_runs(dut):
 
 
 @cocotb.test()
-async def test_the_load_in_the_last_stage_keeps_its_data(dut):
+async def test_the_load_in_the_last_stage_keeps_its_data(dut: Dut):
     """While load A is in its last stage the next access is already.
 
     On the port: rdata must still be A's until that next access
@@ -366,7 +357,7 @@ async def test_the_load_in_the_last_stage_keeps_its_data(dut):
 
 
 @cocotb.test()
-async def test_status_tells_whether_a_host_has_scanned(dut):
+async def test_status_tells_whether_a_host_has_scanned(dut: Dut):
     """Check that status tells whether a host has scanned."""
     await start(dut)
     check_equal((await _status(dut)) >> 17 & 1, 0)

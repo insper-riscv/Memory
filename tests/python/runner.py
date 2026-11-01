@@ -11,10 +11,11 @@ from pathlib import Path
 # repo's requirements.txt pulls unpinned cocotb, which now resolves to
 # 2.x, so the old `cocotb.runner` import 404s. See insper-riscv/Tools'
 # own sim_runner module for the same migration.
-from cocotb_tools.runner import get_results, get_runner
+from cocotb_tools.check_results import get_results
+from cocotb_tools.runner import get_runner
 
 
-def _resolve_parameter(value, repo_root: Path) -> str:
+def _resolve_parameter(value: bool | int | str, repo_root: Path) -> str:
     """Return a generic of the design as the simulator expects it.
 
     Booleans become VHDL literals, integers become decimal text, and a
@@ -50,12 +51,12 @@ def _build_dir(tests_root: Path, test_module: str, toplevel: str) -> Path:
 
 def run_cocotb_test(  # noqa: PLR0913, PLR0917
     toplevel: str,
-    sources: list,
+    sources: list[str],
     test_module: str,
-    parameters: dict | None = None,
-    build_args: list | None = None,
-    test_args: list | None = None,
-):
+    parameters: dict[str, bool | int | str] | None = None,
+    build_args: list[str] | None = None,
+    test_args: list[str] | None = None,
+) -> None:
     """Build the design and run one cocotb test module."""
     tests_root = Path(__file__).resolve().parents[1]
     repo_root = Path(__file__).resolve().parents[2]
@@ -104,13 +105,14 @@ def run_cocotb_test(  # noqa: PLR0913, PLR0917
         raise RuntimeError(f"{failed} of {total} cocotb tests failed")
 
 
-if __name__ == "__main__":
+def main() -> None:
+    """Run the cocotb tests named in tests.json."""
     tests_root = Path(__file__).resolve().parents[1]
     json_path = tests_root / "python/tests.json"
 
     try:
         with json_path.open() as f:
-            TEST_CONFIGS = json.load(f)
+            test_configs = json.load(f)
     except FileNotFoundError:
         print(f"Erro: Arquivo de configuração '{json_path}' não encontrado.")
         sys.exit(1)
@@ -126,15 +128,15 @@ if __name__ == "__main__":
         nargs="?",
         default="all",
         help=(
-            f"Nome do teste a ser executado. Opções: {[*TEST_CONFIGS, 'all']}"
+            f"Nome do teste a ser executado. Opções: {[*test_configs, 'all']}"
         ),
     )
     args = parser.parse_args()
 
     if args.test_name == "all":
         print("Executando TODOS os testes definidos em tests.json...")
-        failures = []
-        for name, config in TEST_CONFIGS.items():
+        failures: list[str] = []
+        for name, config in test_configs.items():
             # "skip"/"skip_reason": a config-level opt-out (not a
             # removal) for a test that's currently known-broken for a
             # reason unrelated to whatever change is being tested right
@@ -171,9 +173,9 @@ if __name__ == "__main__":
                 f"{', '.join(failures)}"
             )
             sys.exit(1)
-    elif args.test_name in TEST_CONFIGS:
+    elif args.test_name in test_configs:
         print(f"Executando teste específico: {args.test_name}")
-        config = TEST_CONFIGS[args.test_name]
+        config = test_configs[args.test_name]
         if config.get("skip"):
             print(
                 f"[AVISO] '{args.test_name}' está marcado como skip "
@@ -190,5 +192,9 @@ if __name__ == "__main__":
         print(f"\nTeste {args.test_name} finalizado.")
     else:
         print(f"Erro: Teste '{args.test_name}' não encontrado em tests.json.")
-        print(f"Opções disponíveis: {[*list(TEST_CONFIGS.keys()), 'all']}")
+        print(f"Opções disponíveis: {[*list(test_configs.keys()), 'all']}")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

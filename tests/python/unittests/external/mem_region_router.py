@@ -9,6 +9,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.dut import Dut, Signal
 
 FAST_CLOCKS = 2  # clocks an absorbed store waits, at most
 
@@ -17,7 +18,7 @@ FLASH = 0x20000000
 LAT = 3
 
 
-def word(tag, addr):
+def word(tag: int, addr: int) -> int:
     """Return the data word the models hold at an address."""
     return ((addr * 2654435761) ^ tag) & 0xFFFFFFFF
 
@@ -29,12 +30,26 @@ class Slave:
 
     """
 
-    def __init__(self, dut, prefix, tag, writes=False):
+    # The signals of the slave port, bound by the testbench once the
+    # model exists; the FLASH port has no write enable.
+    addr: Signal
+    rden: Signal
+    wren: Signal | None
+    line: Signal
+    advance: Signal
+    dut_ready: Signal
+    dut_rdata: Signal
+    dut_rdata_x: Signal
+
+    def __init__(
+        self, dut: Dut, prefix: str, tag: int, writes: bool = False
+    ) -> None:
         """Bind the model to the DUT."""
         self.dut, self.p, self.tag, self.writes = dut, prefix, tag, writes
-        self.requests = []
+        self.requests: list[tuple[int, str, int]] = []
+        self.count = 0
 
-    def _accept(self):
+    def _accept(self) -> str:
         """Record a request that arrives while idle."""
         rd = int(self.rden.value) == 1
         wr = self.wren is not None and int(self.wren.value) == 1
@@ -45,7 +60,7 @@ class Slave:
         self.count = LAT
         return "wait"
 
-    def _answer(self):
+    def _answer(self) -> str:
         """Count the latency down and present the line when it ends."""
         self.count -= 1
         if self.count != 0:
@@ -57,7 +72,7 @@ class Slave:
         self.dut_ready.value = 1
         return "done"
 
-    def _release(self):
+    def _release(self) -> str:
         """Drop ready once the requester advanced."""
         if int(self.advance.value) != 1:
             return "done"
@@ -79,7 +94,7 @@ class Slave:
             state = steps[state]()
 
 
-async def start(dut):
+async def start(dut: Dut):
     """Start the clock and reset the DUT."""
     cocotb.start_soon(Clock(dut.i_clk, 10, unit="ns").start())
     dut.i_rst.value = 1
@@ -123,7 +138,14 @@ async def start(dut):
     return s, f
 
 
-async def request(dut, addr, rd=0, wr=0, line=0, timeout=100):  # noqa: PLR0913, PLR0917
+async def request(  # noqa: PLR0913, PLR0917
+    dut: Dut,
+    addr: int,
+    rd: int = 0,
+    wr: int = 0,
+    line: int = 0,
+    timeout: int = 100,
+):
     """Hold the request until ready, advance for a cycle, then drop.
 
     It; returns (rdata, rdata_x, waited).
@@ -149,13 +171,13 @@ async def request(dut, addr, rd=0, wr=0, line=0, timeout=100):  # noqa: PLR0913,
     raise AssertionError(f"no ready for {addr:#x}")
 
 
-def line_words(tag, base):
+def line_words(tag: int, base: int) -> list[int]:
     """Return the four words of a line."""
     return [word(tag, base + 4 * i) for i in range(4)]
 
 
 @cocotb.test()
-async def test_line_read_goes_to_the_sdram(dut):
+async def test_line_read_goes_to_the_sdram(dut: Dut):
     """Check that line read goes to the sdram."""
     s, f = await start(dut)
     r, rx, _ = await request(dut, SDRAM + 0x1230, rd=1, line=1)
@@ -165,7 +187,7 @@ async def test_line_read_goes_to_the_sdram(dut):
 
 
 @cocotb.test()
-async def test_line_read_goes_to_the_flash(dut):
+async def test_line_read_goes_to_the_flash(dut: Dut):
     """Check that line read goes to the flash."""
     s, f = await start(dut)
     r, rx, _ = await request(dut, FLASH + 0x400, rd=1, line=1)
@@ -175,7 +197,7 @@ async def test_line_read_goes_to_the_flash(dut):
 
 
 @cocotb.test()
-async def test_store_to_the_flash_is_absorbed(dut):
+async def test_store_to_the_flash_is_absorbed(dut: Dut):
     """Check that store to the flash is absorbed."""
     s, f = await start(dut)
     _, _, waited = await request(dut, FLASH + 0x80, wr=1)
@@ -184,7 +206,7 @@ async def test_store_to_the_flash_is_absorbed(dut):
 
 
 @cocotb.test()
-async def test_read_outside_the_window_is_zero(dut):
+async def test_read_outside_the_window_is_zero(dut: Dut):
     """Check that read outside the window is zero."""
     s, f = await start(dut)
     r, rx, _ = await request(dut, FLASH + 0x100000, rd=1, line=1)
@@ -198,7 +220,7 @@ async def test_read_outside_the_window_is_zero(dut):
 
 
 @cocotb.test()
-async def test_store_to_the_sdram_passes_through(dut):
+async def test_store_to_the_sdram_passes_through(dut: Dut):
     """Check that store to the sdram passes through."""
     s, f = await start(dut)
     await request(dut, SDRAM + 0x20, wr=1)
@@ -206,7 +228,7 @@ async def test_store_to_the_sdram_passes_through(dut):
 
 
 @cocotb.test()
-async def test_mixed_sequence(dut):
+async def test_mixed_sequence(dut: Dut):
     """Check that mixed sequence."""
     s, f = await start(dut)
     plan = [

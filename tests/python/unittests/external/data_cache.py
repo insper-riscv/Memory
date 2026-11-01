@@ -13,11 +13,12 @@ import cocotb
 from cocotb.triggers import RisingEdge
 
 from tests.python.unittests.checks import Prng, check_equal, check_true
+from tests.python.unittests.dut import Dut
 from tests.python.unittests.external.sdram_helpers import (
-    _post_edge,
     access,
     merge,
     model_word,
+    post_edge,
     start,
 )
 
@@ -32,16 +33,16 @@ SAME_INDEX = (
 )  # words apart that map to the same line of the cache
 
 
-async def begin(dut):
+async def begin(dut: Dut):
     """Start the clock and reset the DUT."""
     dut.i_flush.value = 0
     await start(dut)
 
 
-async def flush(dut):
+async def flush(dut: Dut):
     """Write back every dirty line; returns the cpu cycles it took."""
     dut.i_flush.value = 1
-    await _post_edge(dut)
+    await post_edge(dut)
     dut.i_flush.value = 0
     cycles = 1
     while True:
@@ -50,7 +51,7 @@ async def flush(dut):
         if int(dut.o_flush_done.value):
             break
         check_true(cycles < FLUSH_LIMIT, "flush never finished")
-    await _post_edge(dut)
+    await post_edge(dut)
     check_equal(int(dut.o_busy.value), 0)
     return cycles
 
@@ -62,24 +63,24 @@ class Mirror:
 
     """
 
-    def __init__(self, dut):
+    def __init__(self, dut: Dut):
         """Bind the model to the DUT."""
         self.dut = dut
-        self.mem = {}
+        self.mem: dict[int, int] = {}
 
-    async def word(self, w):
+    async def word(self, w: int):
         """Return the data word the models hold at an address."""
         if w not in self.mem:
             self.mem[w] = await model_word(self.dut, w)
         return self.mem[w]
 
-    async def write(self, w, data, be=0xF):
+    async def write(self, w: int, data: int, be: int = 0xF):
         """Write one word."""
         old = await self.word(w)
         self.mem[w] = merge(old, data, be)
         return await access(self.dut, True, w, data, be)
 
-    async def read(self, w, hold=0):
+    async def read(self, w: int, hold: int = 0):
         """Read one word and return it."""
         want = await self.word(w)
         got, cycles = await access(self.dut, False, w, hold=hold)
@@ -103,7 +104,7 @@ class Mirror:
 
 
 @cocotb.test()
-async def test_write_then_read(dut):
+async def test_write_then_read(dut: Dut):
     """A word written and read back through the cache, and the chip.
 
     Only sees it after the flush.
@@ -124,7 +125,7 @@ async def test_write_then_read(dut):
 
 
 @cocotb.test()
-async def test_hit_is_fast_and_miss_is_not(dut):
+async def test_hit_is_fast_and_miss_is_not(dut: Dut):
     """A hit is ready in two clocks, a miss takes the line fill.
 
     And a dirty miss takes more.
@@ -155,7 +156,7 @@ async def test_hit_is_fast_and_miss_is_not(dut):
 
 
 @cocotb.test()
-async def test_byte_enables(dut):
+async def test_byte_enables(dut: Dut):
     """Every byte-enable mask writes exactly the enabled bytes.
 
     This holds in the cache and in the chip.
@@ -173,7 +174,7 @@ async def test_byte_enables(dut):
 
 
 @cocotb.test()
-async def test_hold_keeps_ready_and_data(dut):
+async def test_hold_keeps_ready_and_data(dut: Dut):
     """While the pipeline stays stopped after ready, ready stays.
 
     High and the read data does not move.
@@ -188,7 +189,7 @@ async def test_hold_keeps_ready_and_data(dut):
 
 
 @cocotb.test()
-async def test_eviction_writes_back(dut):
+async def test_eviction_writes_back(dut: Dut):
     """Words that map to the same line replace each other, and each.
 
     One keeps its own content.
@@ -214,7 +215,7 @@ async def test_eviction_writes_back(dut):
 
 
 @cocotb.test()
-async def test_random_traffic(dut):
+async def test_random_traffic(dut: Dut):
     """Random reads and writes over a few conflicting lines.
 
     Against the Python copy.
@@ -233,7 +234,7 @@ async def test_random_traffic(dut):
         0x000400,
         0x000FFF,
     ]
-    words = []
+    words: list[int] = []
     for b in base:
         words += [b, b + SAME_INDEX, b + 3 * SAME_INDEX]
     for _ in range(300):
@@ -255,7 +256,7 @@ async def test_random_traffic(dut):
 
 
 @cocotb.test()
-async def test_flush_keeps_lines_valid(dut):
+async def test_flush_keeps_lines_valid(dut: Dut):
     """A flush leaves the lines in the cache.
 
     The next read of a flushed word is a hit.

@@ -13,15 +13,21 @@ content stored in the model.
 import cocotb
 from cocotb.triggers import Timer
 
-from tests.python.unittests.checks import Prng, check_equal, check_true
+from tests.python.unittests.checks import (
+    Prng,
+    check_equal,
+    check_true,
+    log_info,
+)
+from tests.python.unittests.dut import Dut
 from tests.python.unittests.external.sdram_helpers import (
     CPU_NS,
     LAST_WORD,
-    _post_edge,
     access,
     line_access,
     merge,
     model_word,
+    post_edge,
     start,
 )
 
@@ -35,7 +41,7 @@ LINE_READ = 0.7  # share of line writes and reads together
 
 
 @cocotb.test()
-async def test_power_up_and_first_access(dut):
+async def test_power_up_and_first_access(dut: Dut):
     """The power-up sequence completes.
 
     A write followed by a read returns the word.
@@ -51,7 +57,7 @@ async def test_power_up_and_first_access(dut):
 
 
 @cocotb.test()
-async def test_byte_enables(dut):
+async def test_byte_enables(dut: Dut):
     """Every byte-enable mask writes exactly the enabled bytes."""
     await start(dut)
     base = 0x11223344
@@ -67,7 +73,7 @@ async def test_byte_enables(dut):
 
 
 @cocotb.test()
-async def test_address_decode(dut):
+async def test_address_decode(dut: Dut):
     """Distinct word addresses keep distinct values.
 
     Banks, rows, columns, the first and last word.
@@ -111,7 +117,7 @@ async def test_address_decode(dut):
 
 
 @cocotb.test()
-async def test_random_traffic(dut):
+async def test_random_traffic(dut: Dut):
     """Random reads and writes with random byte masks.
 
     Gaps between accesses and pipeline holds are random too.
@@ -120,7 +126,7 @@ async def test_random_traffic(dut):
     await start(dut)
     rng = Prng(7)
     pool = [rng.randrange(1 << 24) for _ in range(48)]
-    ref = {}
+    ref: dict[int, int] = {}
     for _ in range(500):
         w = rng.choice(pool)
         hold = rng.choice([0, 0, 0, 1, 3])
@@ -143,14 +149,14 @@ async def test_random_traffic(dut):
                 f"word 0x{w:06X}: read 0x{got:08X}, expected 0x{ref[w]:08X}",
             )
         for _ in range(rng.choice([0, 0, 1, 5, 20])):
-            await _post_edge(dut)
+            await post_edge(dut)
     for w, v in ref.items():
         got, _ = await access(dut, False, w)
         check_equal(got, v)
 
 
 @cocotb.test()
-async def test_refresh_keeps_running(dut):
+async def test_refresh_keeps_running(dut: Dut):
     """With the bus idle for several refresh periods the controller.
 
     Keeps refreshing (the chip model fails the simulation if two
@@ -160,7 +166,7 @@ async def test_refresh_keeps_running(dut):
     await start(dut)
     before = int(dut.o_dbg_refreshes.value)
     for _ in range(int(60_000 / CPU_NS)):  # 60 us
-        await _post_edge(dut)
+        await post_edge(dut)
     after = int(dut.o_dbg_refreshes.value)
     check_true(
         after - before >= MIN_REFRESHES_60US,
@@ -172,7 +178,7 @@ async def test_refresh_keeps_running(dut):
 
 
 @cocotb.test()
-async def test_read_data_changes_only_when_the_pipeline_advances(dut):
+async def test_read_data_changes_only_when_the_pipeline_advances(dut: Dut):
     """A second read held in the stopped pipeline keeps the first.
 
     Read data visible.
@@ -189,10 +195,10 @@ async def test_read_data_changes_only_when_the_pipeline_advances(dut):
     check_equal(second, 0x22222222)
 
 
-async def _ratio(dut, cpu_ns, offset):
+async def _ratio(dut: Dut, cpu_ns: int, offset: int):
     await start(dut, cpu_ns, offset)
     rng = Prng(cpu_ns)
-    ref = {}
+    ref: dict[int, int] = {}
     for _ in range(60):
         w = rng.randrange(1 << 24)
         v = rng.getrandbits(32)
@@ -209,13 +215,13 @@ async def _ratio(dut, cpu_ns, offset):
 
 
 @cocotb.test()
-async def test_core_clock_twice_the_memory_clock_period(dut):
+async def test_core_clock_twice_the_memory_clock_period(dut: Dut):
     """Core clock at 14 ns (the memory clock divided by 2), in phase."""
     await _ratio(dut, 14, 0)
 
 
 @cocotb.test()
-async def test_core_clock_unrelated_and_shifted(dut):
+async def test_core_clock_unrelated_and_shifted(dut: Dut):
     """Core clock at 53 ns, shifted by 3 ns.
 
     No fixed relation to the memory clock.
@@ -225,13 +231,13 @@ async def test_core_clock_unrelated_and_shifted(dut):
 
 
 @cocotb.test()
-async def test_core_clock_slow_and_shifted(dut):
+async def test_core_clock_slow_and_shifted(dut: Dut):
     """Core clock at 100 ns, shifted by 13 ns."""
     await _ratio(dut, 100, 13)
 
 
 @cocotb.test()
-async def test_a_corrupted_chip_is_noticed(dut):
+async def test_a_corrupted_chip_is_noticed(dut: Dut):
     """Control for the checks above.
 
     Flipping one stored bit changes exactly that bit of the read.
@@ -257,7 +263,7 @@ async def test_a_corrupted_chip_is_noticed(dut):
 
 
 @cocotb.test()
-async def test_latency(dut):
+async def test_latency(dut: Dut):
     """The stall a core sees, in core cycles (logged, and bounded.
 
     To catch a regression).
@@ -266,7 +272,7 @@ async def test_latency(dut):
     await start(dut)
     _, w = await access(dut, True, 0x5, 1)
     _, r = await access(dut, False, 0x5)
-    dut._log.info(
+    log_info(
         f"stall: write {w} core cycles, read {r} core cycles "
         f"(core clock {CPU_NS} ns)"
     )
@@ -274,7 +280,7 @@ async def test_latency(dut):
 
 
 @cocotb.test()
-async def test_line_write_then_word_reads(dut):
+async def test_line_write_then_word_reads(dut: Dut):
     """A line written in one request holds its four words, read.
 
     Back one by one and from the chip.
@@ -291,7 +297,7 @@ async def test_line_write_then_word_reads(dut):
 
 
 @cocotb.test()
-async def test_line_read_of_words_written_one_by_one(dut):
+async def test_line_read_of_words_written_one_by_one(dut: Dut):
     """A line read returns the four words written one at a time.
 
     They come in order.
@@ -307,7 +313,7 @@ async def test_line_read_of_words_written_one_by_one(dut):
 
 
 @cocotb.test()
-async def test_line_byte_enables(dut):
+async def test_line_byte_enables(dut: Dut):
     """Each word of a line write keeps its own byte enables."""
     await start(dut)
     base = 0x000100
@@ -322,7 +328,7 @@ async def test_line_byte_enables(dut):
 
 
 @cocotb.test()
-async def test_line_is_faster_than_four_words(dut):
+async def test_line_is_faster_than_four_words(dut: Dut):
     """One line request costs less than four word requests (one.
 
     Handshake, one row opening).
@@ -335,7 +341,7 @@ async def test_line_is_faster_than_four_words(dut):
     for i in range(4):
         _, c = await access(dut, False, base + i)
         word_cycles += c
-    dut._log.info(
+    log_info(
         f"line read {line_cycles} cycles, four words {word_cycles} cycles"
     )
     check_true(
@@ -343,7 +349,9 @@ async def test_line_is_faster_than_four_words(dut):
     )
 
 
-async def mixed_line_write(dut, rng, base, mem):
+async def mixed_line_write(
+    dut: Dut, rng: Prng, base: int, mem: dict[int, int]
+):
     """Write a random line with random byte enables; update the copy."""
     words = [rng.getrandbits(32) for _ in range(4)]
     bes = [rng.choice([0xF, 0xF, 0x3, 0xC, 0x1]) for _ in range(4)]
@@ -356,7 +364,7 @@ async def mixed_line_write(dut, rng, base, mem):
         mem[base + i] = merge(old, words[i], bes[i])
 
 
-async def mixed_line_read(dut, base, mem):
+async def mixed_line_read(dut: Dut, base: int, mem: dict[int, int]):
     """Read a line and compare the words the copy already knows."""
     got, _ = await line_access(dut, False, base)
     for i in range(4):
@@ -369,7 +377,7 @@ async def mixed_line_read(dut, base, mem):
 
 
 @cocotb.test()
-async def test_lines_and_words_mixed(dut):
+async def test_lines_and_words_mixed(dut: Dut):
     """Random lines and words over rows, banks and the ends of memory.
 
     The result is compared against a Python copy.
@@ -389,7 +397,7 @@ async def test_lines_and_words_mixed(dut):
         LAST_WORD & ~3,
     ]
     lines += [rng.randrange(1 << 22) << 2 for _ in range(12)]
-    mem = {}
+    mem: dict[int, int] = {}
     for _ in range(80):
         base = rng.choice(lines)
         kind = rng.random()

@@ -10,12 +10,13 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.dut import Dut
 
 BASE = 0x40000000
 LAT = 5
 
 
-def word(addr, version=0):
+def word(addr: int, version: int = 0) -> int:
     """Return the content of the memory model at a word address."""
     return ((addr * 2654435761) ^ (0xA5A50000 + version)) & 0xFFFFFFFF
 
@@ -23,12 +24,12 @@ def word(addr, version=0):
 class Memory:
     """Answers each line request after a latency, and counts them."""
 
-    def __init__(self, dut, latency=LAT):
+    def __init__(self, dut: Dut, latency: int = LAT):
         """Bind the model to the DUT."""
         self.dut = dut
         self.latency = latency
         self.version = 0
-        self.requests = []
+        self.requests: list[int] = []
 
     async def run(self):
         """Drive the slave side of the port, clock by clock."""
@@ -51,7 +52,7 @@ class Memory:
                 dut.i_d_ready.value = 0
 
 
-async def start(dut):
+async def start(dut: Dut):
     """Start the clock and reset the DUT."""
     cocotb.start_soon(Clock(dut.i_clk, 10, unit="ns").start())
     # O mesmo clock nas duas entradas: o comportamento é o de um clock
@@ -71,7 +72,7 @@ async def start(dut):
     return mem
 
 
-async def fetch(dut, addr, timeout=200):
+async def fetch(dut: Dut, addr: int, timeout: int = 200):
     """Hold addr until ready, the way the core does.
 
     Returns (data, clocks waited).
@@ -88,7 +89,7 @@ async def fetch(dut, addr, timeout=200):
 
 
 @cocotb.test()
-async def test_miss_then_hits_in_the_line(dut):
+async def test_miss_then_hits_in_the_line(dut: Dut):
     """Check that miss then hits in the line."""
     mem = await start(dut)
     base = BASE + 0x1230
@@ -106,7 +107,7 @@ async def test_miss_then_hits_in_the_line(dut):
 
 
 @cocotb.test()
-async def test_sequential_code_across_lines(dut):
+async def test_sequential_code_across_lines(dut: Dut):
     """Check that sequential code across lines."""
     mem = await start(dut)
     for i in range(64):
@@ -118,7 +119,7 @@ async def test_sequential_code_across_lines(dut):
 
 
 @cocotb.test()
-async def test_conflict_evicts_the_line(dut):
+async def test_conflict_evicts_the_line(dut: Dut):
     """Check that conflict evicts the line."""
     mem = await start(dut)
     a, b = BASE + 0x040, BASE + 0x040 + 0x1000  # same index, different tag
@@ -129,7 +130,7 @@ async def test_conflict_evicts_the_line(dut):
 
 
 @cocotb.test()
-async def test_not_selected_never_hits_or_fills(dut):
+async def test_not_selected_never_hits_or_fills(dut: Dut):
     """Check that not selected never hits or fills."""
     mem = await start(dut)
     dut.i_addr.value = 0x00000100
@@ -142,7 +143,7 @@ async def test_not_selected_never_hits_or_fills(dut):
 
 
 @cocotb.test()
-async def test_invalidate_drops_every_line(dut):
+async def test_invalidate_drops_every_line(dut: Dut):
     """Check that invalidate drops every line."""
     mem = await start(dut)
     addrs = [BASE + 0x100, BASE + 0x2F0, BASE + 0x1008]
@@ -163,7 +164,7 @@ async def test_invalidate_drops_every_line(dut):
 
 
 @cocotb.test()
-async def test_invalidate_during_a_fill_drops_that_line(dut):
+async def test_invalidate_during_a_fill_drops_that_line(dut: Dut):
     """Check that invalidate during a fill drops that line."""
     mem = await start(dut)
     a = BASE + 0x300
@@ -184,7 +185,7 @@ async def test_invalidate_during_a_fill_drops_that_line(dut):
 
 
 @cocotb.test()
-async def test_address_change_during_a_fill(dut):
+async def test_address_change_during_a_fill(dut: Dut):
     """Check that address change during a fill."""
     await start(dut)
     a, b = BASE + 0x500, BASE + 0x900
@@ -206,7 +207,7 @@ FLASH = 0x20000000
 
 
 @cocotb.test()
-async def test_regions_do_not_alias(dut):
+async def test_regions_do_not_alias(dut: Dut):
     """Check that regions do not alias."""
     mem = await start(dut)
     # same index and same bits 25:12, different region
@@ -224,7 +225,7 @@ async def test_regions_do_not_alias(dut):
 
 
 @cocotb.test()
-async def test_fill_addresses_carry_the_region_base(dut):
+async def test_fill_addresses_carry_the_region_base(dut: Dut):
     """Check that fill addresses carry the region base."""
     mem = await start(dut)
     for addr in (FLASH + 0x40, BASE + 0x40, FLASH + 0x7FFF0, BASE + 0x3FFFFF0):
@@ -242,7 +243,7 @@ async def test_fill_addresses_carry_the_region_base(dut):
 
 
 @cocotb.test()
-async def test_flash_line_hits_in_the_line(dut):
+async def test_flash_line_hits_in_the_line(dut: Dut):
     """Check that flash line hits in the line."""
     mem = await start(dut)
     base = FLASH + 0x2230
@@ -254,7 +255,7 @@ async def test_flash_line_hits_in_the_line(dut):
 
 
 @cocotb.test()
-async def test_invalidate_drops_the_lines_of_both_regions(dut):
+async def test_invalidate_drops_the_lines_of_both_regions(dut: Dut):
     """Check that invalidate drops the lines of both regions."""
     mem = await start(dut)
     addrs = [FLASH + 0x100, BASE + 0x2F0]
@@ -271,7 +272,7 @@ async def test_invalidate_drops_the_lines_of_both_regions(dut):
     check_equal(len(mem.requests), 2)
 
 
-async def count_misses(dut, cycles):
+async def count_misses(dut: Dut, cycles: int):
     """Count the clocks with o_miss high over `cycles` clocks."""
     seen = 0
     for _ in range(cycles):
@@ -282,7 +283,7 @@ async def count_misses(dut, cycles):
 
 
 @cocotb.test()
-async def test_one_miss_pulse_per_filled_line(dut):
+async def test_one_miss_pulse_per_filled_line(dut: Dut):
     """Check that one miss pulse per filled line."""
     await start(dut)
     monitor = cocotb.start_soon(count_misses(dut, 1200))

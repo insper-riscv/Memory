@@ -9,6 +9,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.dut import Dut
 
 TIMEOUT = 400  # cpu cycles ready may take
 
@@ -17,12 +18,13 @@ CPU_NS = 56  # the core clock: the memory clock divided by 8
 LAST_WORD = (1 << 24) - 1  # 64 MB of 32-bit words
 
 
-async def _post_edge(dut):
+async def post_edge(dut: Dut):
+    """Wait for a CPU clock edge and let the signals settle."""
     await RisingEdge(dut.i_clk_cpu)
     await Timer(1, unit="ns")
 
 
-async def start(dut, cpu_ns=CPU_NS, cpu_offset_ns=0):
+async def start(dut: Dut, cpu_ns: int = CPU_NS, cpu_offset_ns: int = 0):
     """Start the clocks, reset, and wait for the power-up sequence."""
     for sig in (dut.i_rden, dut.i_wren, dut.i_mem_advance, dut.i_dbg_flip):
         sig.value = 0
@@ -48,13 +50,15 @@ async def start(dut, cpu_ns=CPU_NS, cpu_offset_ns=0):
     dut.i_rst_cpu.value = 0
     # 200 us of power-up wait, with a margin
     for _ in range(int(2 * 200_000 / cpu_ns)):
-        await _post_edge(dut)
+        await post_edge(dut)
         if int(dut.o_init_done.value) and int(dut.o_dbg_init_ok.value):
             return
     raise AssertionError("the controller never finished its power-up sequence")
 
 
-async def access(dut, we, word, wdata=0, be=0xF, hold=0):  # noqa: PLR0913, PLR0917
+async def access(  # noqa: PLR0913, PLR0917
+    dut: Dut, we: bool, word: int, wdata: int = 0, be: int = 0xF, hold: int = 0
+):
     """One core access. Returns (read data, cpu cycles until ready).
 
     Hold: extra cpu cycles the pipeline stays stopped after ready (e.g.
@@ -70,7 +74,7 @@ async def access(dut, we, word, wdata=0, be=0xF, hold=0):  # noqa: PLR0913, PLR0
     before = int(dut.o_rdata.value)
     cycles = 0
     while True:
-        await _post_edge(dut)
+        await post_edge(dut)
         cycles += 1
         if int(dut.o_ready.value):
             break
@@ -86,17 +90,17 @@ async def access(dut, we, word, wdata=0, be=0xF, hold=0):  # noqa: PLR0913, PLR0
             before,
             "read data changed before the pipeline advanced",
         )
-        await _post_edge(dut)
+        await post_edge(dut)
     check_equal(int(dut.o_ready.value), 1)
     dut.i_mem_advance.value = 1  # the pipeline advances on the next edge
-    await _post_edge(dut)
+    await post_edge(dut)
     dut.i_mem_advance.value = 0
     dut.i_rden.value = 0
     dut.i_wren.value = 0
     return int(dut.o_rdata.value), cycles
 
 
-def merge(old, new, be):
+def merge(old: int, new: int, be: int):
     """Merge new bytes into an old word by byte enable."""
     out = old
     for i in range(4):
@@ -105,7 +109,7 @@ def merge(old, new, be):
     return out
 
 
-async def model_word(dut, word):
+async def model_word(dut: Dut, word: int):
     """Return the word as stored in the chip model."""
     dut.i_dbg_word_addr.value = word
     for _ in range(3):
@@ -114,7 +118,14 @@ async def model_word(dut, word):
     return int(dut.o_dbg_word_data.value)
 
 
-async def line_access(dut, we, word, words=None, bes=None, hold=0):  # noqa: PLR0913, PLR0917
+async def line_access(  # noqa: PLR0913, PLR0917
+    dut: Dut,
+    we: bool,
+    word: int,
+    words: list[int] | None = None,
+    bes: list[int] | None = None,
+    hold: int = 0,
+):
     """One access of a line (four words from the word address `word`.
 
     Aligned down to 4).
@@ -138,7 +149,7 @@ async def line_access(dut, we, word, words=None, bes=None, hold=0):  # noqa: PLR
     before = (int(dut.o_rdata.value), int(dut.o_rdata_x.value))
     cycles = 0
     while True:
-        await _post_edge(dut)
+        await post_edge(dut)
         cycles += 1
         if int(dut.o_ready.value):
             break
@@ -154,9 +165,9 @@ async def line_access(dut, we, word, words=None, bes=None, hold=0):  # noqa: PLR
             before,
             "read data changed before the pipeline advanced",
         )
-        await _post_edge(dut)
+        await post_edge(dut)
     dut.i_mem_advance.value = 1
-    await _post_edge(dut)
+    await post_edge(dut)
     dut.i_mem_advance.value = 0
     dut.i_rden.value = 0
     dut.i_wren.value = 0

@@ -9,11 +9,12 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import check_equal
+from tests.python.unittests.dut import Dut
 
 LAT = 4
 
 
-def word(addr):
+def word(addr: int):
     """Return the data word the models hold at an address."""
     return ((addr * 2654435761) ^ 0x33330000) & 0xFFFFFFFF
 
@@ -25,10 +26,10 @@ class Chip:
 
     """
 
-    def __init__(self, dut):
+    def __init__(self, dut: Dut):
         """Bind the model to the DUT."""
         self.dut = dut
-        self.log = []
+        self.log: list[int] = []
         self.busy = False
 
     async def run(self):
@@ -53,7 +54,7 @@ class Chip:
                 state = "idle"
 
 
-async def start(dut):
+async def start(dut: Dut):
     """Start the clock and reset the DUT."""
     cocotb.start_soon(Clock(dut.i_clk, 10, unit="ns").start())
     dut.i_rst.value = 1
@@ -79,7 +80,14 @@ async def start(dut):
     return chip
 
 
-async def master(dut, who, addr, results, start_delay=0, hold_after=0):  # noqa: PLR0913, PLR0917
+async def master(  # noqa: PLR0913, PLR0917
+    dut: Dut,
+    who: str,
+    addr: int,
+    results: list[tuple[str, int, int, int]],
+    start_delay: int = 0,
+    hold_after: int = 0,
+):
     """Model a cache-like master.
 
     Hold the request until ready, advance, drop on the same edge.
@@ -111,10 +119,10 @@ async def master(dut, who, addr, results, start_delay=0, hold_after=0):  # noqa:
 
 
 @cocotb.test()
-async def test_single_requests(dut):
+async def test_single_requests(dut: Dut):
     """Check that single requests."""
     chip = await start(dut)
-    res = []
+    res: list[tuple[str, int, int, int]] = []
     await master(dut, "a", 0x20000010, res)
     await master(dut, "b", 0x20000020, res)
     check_equal(
@@ -131,10 +139,10 @@ async def test_single_requests(dut):
 
 
 @cocotb.test()
-async def test_a_wins_a_tie_then_b_follows(dut):
+async def test_a_wins_a_tie_then_b_follows(dut: Dut):
     """Check that a wins a tie then b follows."""
     chip = await start(dut)
-    res = []
+    res: list[tuple[str, int, int, int]] = []
     ta = cocotb.start_soon(master(dut, "a", 0x20000100, res))
     tb = cocotb.start_soon(master(dut, "b", 0x20000200, res))
     await ta
@@ -144,10 +152,10 @@ async def test_a_wins_a_tie_then_b_follows(dut):
 
 
 @cocotb.test()
-async def test_a_grant_is_not_cut(dut):
+async def test_a_grant_is_not_cut(dut: Dut):
     """Check that a grant is not cut."""
     chip = await start(dut)
-    res = []
+    res: list[tuple[str, int, int, int]] = []
     tb = cocotb.start_soon(master(dut, "b", 0x20000300, res))
     # A shows up while B is being served
     ta = cocotb.start_soon(master(dut, "a", 0x20000400, res, start_delay=2))
@@ -166,10 +174,10 @@ async def test_a_grant_is_not_cut(dut):
 
 
 @cocotb.test()
-async def test_b_is_not_starved_by_back_to_back_requests_of_a(dut):
+async def test_b_is_not_starved_by_back_to_back_requests_of_a(dut: Dut):
     """Check that b is not starved by back to back requests of a."""
     await start(dut)
-    res = []
+    res: list[tuple[str, int, int, int]] = []
 
     async def a_twice():
         await master(dut, "a", 0x20000500, res)
