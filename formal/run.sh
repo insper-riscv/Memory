@@ -24,7 +24,7 @@ netlist() {
   ghdl -a --std=08 --workdir="$work" "$1"
   ghdl --synth --std=08 --workdir="$work" --out=verilog sdram_arbiter > "$2.v"
   sed -e 's/input  \[95:0\] i_c_rdata_x);/input  [95:0] i_c_rdata_x,\n  output dbg_st, output dbg_grant_b, output dbg_last_b, output dbg_a_tog_l, output [1:0] dbg_a_s, output dbg_grant_i, output dbg_last_i, output dbg_i_tog_l, output [1:0] dbg_i_s);/' \
-      -e 's/^endmodule/  assign dbg_st = st;\n  assign dbg_grant_b = grant_b;\n  assign dbg_last_b = last_b;\n  assign dbg_a_tog_l = a_tog_l;\n  assign dbg_a_s = a_s;\n  assign dbg_grant_i = grant_i;\n  assign dbg_last_i = last_i;\n  assign dbg_i_tog_l = i_tog_l;\n  assign dbg_i_s = i_s;\nendmodule/' \
+      -e 's/^endmodule/  assign dbg_st = st;\n  assign dbg_grant_b = grant_b;\n  assign dbg_last_b = last_b;\n  assign dbg_a_tog_l = a_tog_l;\n  assign dbg_a_s = a_s;\n  assign dbg_grant_i = grant_i;\n  assign dbg_last_i = last_i;\n  assign dbg_i_tog_l = ins_tog_l;\n  assign dbg_i_s = ins_s;\nendmodule/' \
       "$2.v" > "$2_dbg.v"
   grep -q dbg_st "$2_dbg.v" || { echo "the netlist has no register named st: the exposure did not apply"; exit 1; }
 }
@@ -63,6 +63,6 @@ mutant() {  # <name> <sed expression>
 }
 mutant rdata_swap   "s/a_rdata_i <= i_c_rdata;/a_rdata_i <= b_rdata_i;/"
 mutant no_wait_ctrl "s/if i_c_ack_tog = c_req_i then/if true then/"
-mutant rdata_swap_i   "s/i_rdata_i <= i_c_rdata;/i_rdata_i <= b_rdata_i;/"
+mutant rdata_swap_i   "s/ins_rdata_i <= i_c_rdata;/ins_rdata_i <= b_rdata_i;/"
 
 [ "$fail" -eq 0 ] && echo "formal: all expectations met" || { echo "formal: FAILED (logs in build/formal)"; exit 1; }
