@@ -54,7 +54,22 @@ The proof by induction has no depth limit. The bounded check covers every run of
 ## 7. Running
 
 ```bash
-bash formal/run.sh
+bash formal/run.sh   # the arbiter alone
+make formal          # the arbiter and the AXI master and slave bridges, at once
 ```
 
-It needs `ghdl`, `yosys`, `sby` and `z3`, all in the toolchain image of insper-riscv/Infra, and takes a few seconds. The script exits with a failure when any expectation of section 5 changes, including a check that should fail and passes.
+It needs `ghdl`, `yosys`, `sby` and `z3`, all in the toolchain image of insper-riscv/Infra. The script exits with a failure when any expectation of section 5 changes, including a check that should fail and passes.
+
+## 8. Parallel execution and verdicts
+
+The proofs of a script are independent, so they run side by side, and `make formal` also runs the three blocks side by side. At most `FORMAL_JOBS` proofs run at the same time (default: the number of cores, up to 8), shared by all the blocks. The results are printed in a fixed order, whatever order the proofs end in.
+
+SymbiYosys ends with a code that tells a verdict from a failure of the tool:
+
+| Exit code | Meaning | Result |
+| :--- | :--- | :--- |
+| 0 | the property holds, or the goal is covered | PASS |
+| 2 | a counterexample exists, or a goal cannot be covered | FAIL |
+| any other | the tool reached no verdict (4 unknown, 8 timeout, 16 error) | ERROR |
+
+An expected FAIL only holds for the code 2. An ERROR fails the run with the exit code and the log of the proof, so a broken solver or netlist is never taken for a defect that was caught.
