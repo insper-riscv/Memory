@@ -453,5 +453,23 @@
         "parameters": {
             "SIZE_BYTES": 4096
         }
+    },
+    "RamChipOffset": {
+        "toplevel": "ram_chip",
+        "sources": [
+            "Common-Components/src/utils_pkg.vhd",
+            "external/cache/ram_chip.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.ram_chip_offset",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "SIZE_BYTES": 4096,
+            "BASE_KIB": 8
+        }
     }
 }
