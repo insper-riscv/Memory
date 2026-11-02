@@ -23,7 +23,7 @@ SDRAM = 0x10000
 
 @cocotb.test()
 async def test_line_read_inside_the_region_reaches_the_rom(dut: Dut):
-    """Check that a read inside [0x800, 0x8000) goes to the ROM."""
+    """Check that a read inside the region goes to the ROM."""
     s, f = await start(dut)
     r, rx, _ = await request(dut, ROM + 0x400, rd=1, line=1)
     got = [r, rx & 0xFFFFFFFF, (rx >> 32) & 0xFFFFFFFF, rx >> 64]
@@ -33,7 +33,7 @@ async def test_line_read_inside_the_region_reaches_the_rom(dut: Dut):
 
 @cocotb.test()
 async def test_the_region_edges(dut: Dut):
-    """Check the first and last lines of the region and the one after it."""
+    """Check the first and last lines and the ones around them."""
     s, f = await start(dut)
     await request(dut, ROM, rd=1, line=1)
     await request(dut, ROM_LAST_LINE, rd=1, line=1)
@@ -45,7 +45,7 @@ async def test_the_region_edges(dut: Dut):
 
 @cocotb.test()
 async def test_store_to_the_rom_is_absorbed_and_sdram_passes(dut: Dut):
-    """Check that a store to the ROM is absorbed and one to the SDRAM goes through."""
+    """Check that a ROM store is absorbed and a SDRAM store passes."""
     s, f = await start(dut)
     await request(dut, ROM + 0x80, wr=1)
     check_true(s.requests == [] and f.requests == [])
