@@ -7,3 +7,4 @@ logs/
 *.ghw
 *.vcd
 results.xml
+.cache/
