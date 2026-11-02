@@ -206,7 +206,7 @@ Qualquer alteração em código, configuração ou documentação deve passar se
 ```bash
 make check  # Verifica a sintaxe VHDL-2008 dos modelos de simulação
 make test   # Executa os testes por entidade (cocotb + GHDL)
-make paths  # Confere que todos os caminhos listados em paths.yaml existem
+make paths  # Confere os caminhos do paths.yaml e a árvore do repositório (riscv-tools check-tree)
 ```
 
 O job `python-static-analysis` do CI roda `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone`, `semgrep` e `uv audit` sobre os arquivos Python, e o nome do job é o check que o ruleset da branch padrão exige, então não o renomeie.
