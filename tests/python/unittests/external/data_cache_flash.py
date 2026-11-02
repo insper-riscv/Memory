@@ -9,6 +9,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.dut import Dut
 
 HIT_CLOCKS = 3  # clocks of a cache hit, at most
 STORED = 0xCAFE0001  # word the test stores
@@ -18,7 +19,7 @@ SDRAM = 0x40000000
 LAT = 4
 
 
-def word(addr):
+def word(addr: int):
     """Return the data word the models hold at an address."""
     return ((addr * 2654435761) ^ 0x77770000) & 0xFFFFFFFF
 
@@ -29,11 +30,11 @@ class Memory:
     Answer line reads after a latency and record every request.
     """
 
-    def __init__(self, dut):
+    def __init__(self, dut: Dut):
         """Bind the model to the DUT."""
         self.dut = dut
-        self.reads = []
-        self.writes = []
+        self.reads: list[tuple[int, int]] = []
+        self.writes: list[tuple[int, int]] = []
 
     async def _answer_read(self):
         """Answer one line read after the latency."""
@@ -73,7 +74,7 @@ class Memory:
                 await self._answer_write()
 
 
-async def start(dut):
+async def start(dut: Dut):
     """Start the clock and reset the DUT."""
     cocotb.start_soon(Clock(dut.i_clk, 10, unit="ns").start())
     dut.i_rst.value = 1
@@ -99,7 +100,9 @@ async def start(dut):
     return mem
 
 
-async def access(dut, addr, wr=None, timeout=300):
+async def access(
+    dut: Dut, addr: int, wr: int | None = None, timeout: int = 300
+):
     """One core access.
 
     Returns (value read or None, clocks until ready).
@@ -126,7 +129,7 @@ async def access(dut, addr, wr=None, timeout=300):
 
 
 @cocotb.test()
-async def test_a_flash_load_is_cached(dut):
+async def test_a_flash_load_is_cached(dut: Dut):
     """Check that a flash load is cached."""
     mem = await start(dut)
     a = FLASH + 0x1230
@@ -139,7 +142,7 @@ async def test_a_flash_load_is_cached(dut):
 
 
 @cocotb.test()
-async def test_a_store_that_hits_the_flash_line_does_not_change_it(dut):
+async def test_a_store_that_hits_the_flash_line_does_not_change_it(dut: Dut):
     """Check that a store that hits the flash line does not change.
 
     It.
@@ -162,7 +165,7 @@ async def test_a_store_that_hits_the_flash_line_does_not_change_it(dut):
 
 
 @cocotb.test()
-async def test_a_store_that_misses_the_flash_does_not_bring_the_line(dut):
+async def test_a_store_that_misses_the_flash_does_not_bring_the_line(dut: Dut):
     """Check that a store missing the flash does not bring the line."""
     mem = await start(dut)
     a = FLASH + 0x3000
@@ -173,7 +176,7 @@ async def test_a_store_that_misses_the_flash_does_not_bring_the_line(dut):
 
 
 @cocotb.test()
-async def test_regions_do_not_alias(dut):
+async def test_regions_do_not_alias(dut: Dut):
     """Check that regions do not alias."""
     mem = await start(dut)
     f, s = FLASH + 0x1230, SDRAM + 0x1230
@@ -186,7 +189,7 @@ async def test_regions_do_not_alias(dut):
 
 
 @cocotb.test()
-async def test_a_sdram_store_still_updates_the_line(dut):
+async def test_a_sdram_store_still_updates_the_line(dut: Dut):
     """Check that a sdram store still updates the line."""
     mem = await start(dut)
     a = SDRAM + 0x500
@@ -198,7 +201,7 @@ async def test_a_sdram_store_still_updates_the_line(dut):
 
 
 @cocotb.test()
-async def test_a_bypassed_load_goes_to_memory_every_time(dut):
+async def test_a_bypassed_load_goes_to_memory_every_time(dut: Dut):
     """Check that a bypassed load goes to memory every time."""
     mem = await start(dut)
     a = SDRAM + 0x3FFF008
@@ -217,7 +220,7 @@ async def test_a_bypassed_load_goes_to_memory_every_time(dut):
 
 
 @cocotb.test()
-async def test_a_bypassed_store_does_not_update_the_line(dut):
+async def test_a_bypassed_store_does_not_update_the_line(dut: Dut):
     """Check that a bypassed store does not update the line."""
     mem = await start(dut)
     a = SDRAM + 0x600
@@ -232,7 +235,7 @@ async def test_a_bypassed_store_does_not_update_the_line(dut):
     check_equal(mem.writes, [(a, 0x0BADF00D)])
 
 
-async def count_misses(dut, cycles):
+async def count_misses(dut: Dut, cycles: int):
     """Count the miss pulses seen in a number of clocks."""
     seen = 0
     for _ in range(cycles):
@@ -243,7 +246,7 @@ async def count_misses(dut, cycles):
 
 
 @cocotb.test()
-async def test_one_miss_pulse_per_filled_line(dut):
+async def test_one_miss_pulse_per_filled_line(dut: Dut):
     """Check that one miss pulse per filled line."""
     await start(dut)
     monitor = cocotb.start_soon(count_misses(dut, 600))

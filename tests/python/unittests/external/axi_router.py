@@ -15,6 +15,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.dut import Dut, Signal
 
 BACK_TO_BACK = 5  # writes sent to each slave by the back-to-back test
 AW_DELAY = 2  # clocks W is offered before AW in a burst
@@ -28,18 +29,20 @@ NOBODY = 0x10000000
 class Slave:
     """A slave model driven by the testbench."""
 
-    def __init__(self, dut, n):
+    def __init__(self, dut: Dut, n: int):
         """Bind the model to the DUT."""
         self.dut, self.n = dut, n
-        self.writes = []  # single-beat writes: (address, data, strobes)
-        self.bursts = []  # longer writes: (address, [(data, strobes), ...])
-        self.reads = []  # (address, length) of every read
-        self.aw = None
-        self.beats = []
+        # single-beat writes: (address, data, strobes)
+        self.writes: list[tuple[int | None, int, int]] = []
+        # longer writes: (address, [(data, strobes), ...])
+        self.bursts: list[tuple[int | None, list[tuple[int, int]]]] = []
+        # (address, length) of every read
+        self.reads: list[tuple[int, int]] = []
+        self.aw: int | None = None
+        self.beats: list[tuple[int, int]] = []
         self.b = False
-        self.r_left = (
-            None  # beats of the read in service still to give, minus one
-        )
+        # beats of the read in service still to give, minus one
+        self.r_left: int | None = None
         self.rd_addr = 0
         for ch in ("awready", "wready", "arready"):
             self.sig(ch).value = 1
@@ -50,12 +53,12 @@ class Slave:
         self.sig("rresp").value = OKAY
         cocotb.start_soon(self.run())
 
-    def sig(self, name):
+    def sig(self, name: str) -> Signal:
         """Return the signal of this port with the given name."""
         direction = "i" if name in SLAVE_DRIVEN else "o"
         return getattr(self.dut, f"{direction}_m{self.n}_{name}")
 
-    def v(self, name):
+    def v(self, name: str) -> int:
         """Return the integer value of a signal of this port."""
         return int(self.sig(name).value)
 
@@ -86,7 +89,7 @@ class Slave:
         if self.v("bvalid") and self.v("bready"):
             self.b = False
         if self.v("rvalid") and self.v("rready"):
-            if self.r_left == 0:
+            if not self.r_left:
                 self.r_left = None
             else:
                 self.r_left -= 1
@@ -128,7 +131,7 @@ SLAVE_DRIVEN = {
 }
 
 
-async def setup(dut):
+async def setup(dut: Dut):
     """Reset the DUT and start its clock and slaves."""
     for sig in ("awvalid", "wvalid", "arvalid", "bready", "rready"):
         getattr(dut, f"i_s_{sig}").value = 0
@@ -150,7 +153,7 @@ async def setup(dut):
     return s
 
 
-async def write_response(dut, tries):
+async def write_response(dut: Dut, tries: int):
     """Take the write response within a number of clocks."""
     dut.i_s_bready.value = 1
     for _ in range(tries):
@@ -165,7 +168,7 @@ async def write_response(dut, tries):
     raise AssertionError("no write response")
 
 
-async def write_clock(dut, w_first, cycle):
+async def write_clock(dut: Dut, w_first: bool, cycle: int):
     """Run one clock of a write request; return (aw_taken, w_taken)."""
     await Timer(1, unit="ns")
     aw_hs = int(dut.i_s_awvalid.value) and int(dut.o_s_awready.value)
@@ -183,7 +186,9 @@ async def write_clock(dut, w_first, cycle):
     return bool(aw_hs), bool(w_hs)
 
 
-async def write(dut, addr, data, strb=0xF, w_first=False):
+async def write(
+    dut: Dut, addr: int, data: int, strb: int = 0xF, w_first: bool = False
+):
     """Write once and return the response.
 
     With w_first W is offered a clock before AW.
@@ -207,7 +212,7 @@ async def write(dut, addr, data, strb=0xF, w_first=False):
     return await write_response(dut, 40)
 
 
-async def read(dut, addr):
+async def read(dut: Dut, addr: int):
     """Read one word and return it."""
     dut.i_s_araddr.value = addr
     dut.i_s_arvalid.value = 1
@@ -235,7 +240,7 @@ async def read(dut, addr):
 
 
 @cocotb.test()
-async def test_writes_go_to_the_selected_slave(dut):
+async def test_writes_go_to_the_selected_slave(dut: Dut):
     """Check that writes go to the selected slave."""
     s = await setup(dut)
     check_equal(await write(dut, SLAVE0, 0x11, 0x3), OKAY)
@@ -245,7 +250,7 @@ async def test_writes_go_to_the_selected_slave(dut):
 
 
 @cocotb.test()
-async def test_reads_come_from_the_selected_slave(dut):
+async def test_reads_come_from_the_selected_slave(dut: Dut):
     """Check that reads come from the selected slave."""
     s = await setup(dut)
     check_equal(await read(dut, SLAVE0), (SLAVE0 ^ 0xFFFFFFFF, OKAY))
@@ -254,7 +259,7 @@ async def test_reads_come_from_the_selected_slave(dut):
 
 
 @cocotb.test()
-async def test_w_before_aw_waits_and_follows_aw(dut):
+async def test_w_before_aw_waits_and_follows_aw(dut: Dut):
     """Check that w before aw waits and follows aw."""
     s = await setup(dut)
     check_equal(await write(dut, SLAVE1, 0xBEEF, w_first=True), OKAY)
@@ -262,7 +267,7 @@ async def test_w_before_aw_waits_and_follows_aw(dut):
 
 
 @cocotb.test()
-async def test_no_slave_answers_decerr(dut):
+async def test_no_slave_answers_decerr(dut: Dut):
     """Check that no slave answers decerr."""
     s = await setup(dut)
     check_equal(await write(dut, NOBODY, 0x5), DECERR)
@@ -280,7 +285,7 @@ async def test_no_slave_answers_decerr(dut):
 
 
 @cocotb.test()
-async def test_back_to_back(dut):
+async def test_back_to_back(dut: Dut):
     """Check that back to back."""
     s = await setup(dut)
     for i in range(10):
@@ -292,7 +297,9 @@ async def test_back_to_back(dut):
     )
 
 
-async def burst_clock(dut, beats, i, w_first, cycle):
+async def burst_clock(
+    dut: Dut, beats: list[tuple[int, int]], i: int, w_first: bool, cycle: int
+):
     """Offer beat i for one clock; return (aw_taken, w_taken)."""
     data, strb = beats[i]
     dut.i_s_wdata.value = data
@@ -310,7 +317,14 @@ async def burst_clock(dut, beats, i, w_first, cycle):
     return bool(aw_hs), bool(w_hs)
 
 
-async def write_burst(dut, addr, beats, w_first=False, size=2, burst=1):  # noqa: PLR0913, PLR0917
+async def write_burst(  # noqa: PLR0913, PLR0917
+    dut: Dut,
+    addr: int,
+    beats: list[tuple[int, int]],
+    w_first: bool = False,
+    size: int = 2,
+    burst: int = 1,
+):
     """Write a burst of len(beats) beats of (data, strobes).
 
     Return the response.
@@ -341,7 +355,9 @@ async def write_burst(dut, addr, beats, w_first=False, size=2, burst=1):  # noqa
     return await write_response(dut, 100)
 
 
-async def read_burst(dut, addr, n, size=2, burst=1):
+async def read_burst(
+    dut: Dut, addr: int, n: int, size: int = 2, burst: int = 1
+):
     """Read a burst of n beats; return [(data, resp, last)]."""
     dut.i_s_araddr.value = addr
     dut.i_s_arlen.value = n - 1
@@ -362,7 +378,7 @@ async def read_burst(dut, addr, n, size=2, burst=1):
     dut.i_s_arsize.value = 2
     dut.i_s_arburst.value = 1
     dut.i_s_rready.value = 1
-    got = []
+    got: list[tuple[int, int, int]] = []
     for _ in range(200):
         await Timer(1, unit="ns")
         if int(dut.o_s_rvalid.value):
@@ -385,7 +401,7 @@ async def read_burst(dut, addr, n, size=2, burst=1):
 
 
 @cocotb.test()
-async def test_a_write_burst_goes_whole_to_one_slave(dut):
+async def test_a_write_burst_goes_whole_to_one_slave(dut: Dut):
     """Check that a write burst goes whole to one slave."""
     s = await setup(dut)
     beats = [(0x100 + i, 0xF) for i in range(4)]
@@ -401,7 +417,7 @@ async def test_a_write_burst_goes_whole_to_one_slave(dut):
 
 
 @cocotb.test()
-async def test_a_read_burst_comes_whole_from_one_slave(dut):
+async def test_a_read_burst_comes_whole_from_one_slave(dut: Dut):
     """Check that a read burst comes whole from one slave."""
     s = await setup(dut)
     got = await read_burst(dut, SLAVE0, 4)
@@ -417,7 +433,7 @@ async def test_a_read_burst_comes_whole_from_one_slave(dut):
 
 
 @cocotb.test()
-async def test_a_burst_to_no_slave_is_consumed_and_answered_decerr(dut):
+async def test_a_burst_to_no_slave_is_consumed_and_answered_decerr(dut: Dut):
     """Check that a burst to no slave is consumed and answered.
 
     Decerr.

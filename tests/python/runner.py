@@ -5,16 +5,18 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Any
 
 # cocotb 2.0 split the Python test-runner API out of the main cocotb
 # package into cocotb-tools, imported as cocotb_tools.runner — this
 # repo's requirements.txt pulls unpinned cocotb, which now resolves to
 # 2.x, so the old `cocotb.runner` import 404s. See insper-riscv/Tools'
 # own sim_runner module for the same migration.
-from cocotb_tools.runner import get_results, get_runner
+from cocotb_tools.check_results import get_results
+from cocotb_tools.runner import get_runner
 
 
-def _resolve_parameter(value, repo_root: Path) -> str:
+def _resolve_parameter(value: bool | int | str, repo_root: Path) -> str:
     """Return a generic of the design as the simulator expects it.
 
     Booleans become VHDL literals, integers become decimal text, and a
@@ -50,12 +52,12 @@ def _build_dir(tests_root: Path, test_module: str, toplevel: str) -> Path:
 
 def run_cocotb_test(  # noqa: PLR0913, PLR0917
     toplevel: str,
-    sources: list,
+    sources: list[str],
     test_module: str,
-    parameters: dict | None = None,
-    build_args: list | None = None,
-    test_args: list | None = None,
-):
+    parameters: dict[str, bool | int | str] | None = None,
+    build_args: list[str] | None = None,
+    test_args: list[str] | None = None,
+) -> None:
     """Build the design and run one cocotb test module."""
     tests_root = Path(__file__).resolve().parents[1]
     repo_root = Path(__file__).resolve().parents[2]
@@ -104,19 +106,84 @@ def run_cocotb_test(  # noqa: PLR0913, PLR0917
         raise RuntimeError(f"{failed} of {total} cocotb tests failed")
 
 
-if __name__ == "__main__":
-    tests_root = Path(__file__).resolve().parents[1]
-    json_path = tests_root / "python/tests.json"
-
+def _load_configs(json_path: Path) -> dict[str, dict[str, Any]]:
+    """Read the test configurations, exiting if the file is unusable."""
     try:
         with json_path.open() as f:
-            TEST_CONFIGS = json.load(f)
+            return json.load(f)
     except FileNotFoundError:
         print(f"Erro: Arquivo de configuração '{json_path}' não encontrado.")
-        sys.exit(1)
     except json.JSONDecodeError:
         print(f"Erro: O arquivo JSON '{json_path}' está mal formatado.")
+    sys.exit(1)
+
+
+def _run_config(config: dict[str, Any]) -> None:
+    """Run one configuration, leaving out the opt-out keys."""
+    run_cocotb_test(
+        **{k: v for k, v in config.items() if k not in ("skip", "skip_reason")}
+    )
+
+
+def _sweep_one(name: str, config: dict[str, Any]) -> bool:
+    """Run one test of the "all" sweep and return True if it failed.
+
+    "skip"/"skip_reason": a config-level opt-out (not a removal) for a
+    test that's currently known-broken for a reason unrelated to
+    whatever change is being tested right now -- same spirit as the
+    asm/c suite's own .off files, adapted to this suite's single
+    tests.json instead of one file per test. Only skipped in the "all"
+    sweep; running it by name explicitly (`runner.py <name>`) still
+    attempts it, e.g. to check whether a fix actually resolved it.
+    """
+    if config.get("skip"):
+        reason = config.get("skip_reason", "no reason given")
+        print(f"\n{'=' * 20} PULANDO TESTE: {name.upper()} {'=' * 20}")
+        print(f"[SKIP] {reason}")
+        return False
+    print(f"\n{'=' * 20} INICIANDO TESTE: {name.upper()} {'=' * 20}")
+    try:
+        _run_config(config)
+    except Exception as e:  # noqa: BLE001
+        print(f"[ERRO] O teste '{name}' falhou: {e}")
+        return True
+    print(f"{'-' * 20} TESTE {name.upper()} FINALIZADO COM SUCESSO {'-' * 20}")
+    return False
+
+
+def _run_all(test_configs: dict[str, dict[str, Any]]) -> None:
+    """Run every test of tests.json and exit with 1 if any failed."""
+    print("Executando TODOS os testes definidos em tests.json...")
+    failures = [
+        name
+        for name, config in test_configs.items()
+        if _sweep_one(name, config)
+    ]
+    print("\nTodos os testes foram executados.")
+    if failures:
+        print(
+            f"[ERRO] {len(failures)} teste(s) falharam: {', '.join(failures)}"
+        )
         sys.exit(1)
+
+
+def _run_named(name: str, config: dict[str, Any]) -> None:
+    """Run one test asked for by name, even if it is marked as skip."""
+    print(f"Executando teste específico: {name}")
+    if config.get("skip"):
+        print(
+            f"[AVISO] '{name}' está marcado como skip "
+            f"({config.get('skip_reason', 'no reason given')}) -- "
+            "rodando mesmo assim, por ter sido pedido explicitamente."
+        )
+    _run_config(config)
+    print(f"\nTeste {name} finalizado.")
+
+
+def main() -> None:
+    """Run the cocotb tests named in tests.json."""
+    tests_root = Path(__file__).resolve().parents[1]
+    test_configs = _load_configs(tests_root / "python/tests.json")
 
     parser = argparse.ArgumentParser(
         description="Runner de Testes Cocotb para o projeto RV32I"
@@ -126,69 +193,20 @@ if __name__ == "__main__":
         nargs="?",
         default="all",
         help=(
-            f"Nome do teste a ser executado. Opções: {[*TEST_CONFIGS, 'all']}"
+            f"Nome do teste a ser executado. Opções: {[*test_configs, 'all']}"
         ),
     )
     args = parser.parse_args()
 
     if args.test_name == "all":
-        print("Executando TODOS os testes definidos em tests.json...")
-        failures = []
-        for name, config in TEST_CONFIGS.items():
-            # "skip"/"skip_reason": a config-level opt-out (not a
-            # removal) for a test that's currently known-broken for a
-            # reason unrelated to whatever change is being tested right
-            # now -- same spirit as the asm/c suite's own .off files,
-            # adapted to this suite's single tests.json instead of one
-            # file per test. Only skipped in the "all" sweep; running
-            # it by name explicitly (`runner.py <name>`) still attempts
-            # it, e.g. to check whether a fix actually resolved it.
-            if config.get("skip"):
-                reason = config.get("skip_reason", "no reason given")
-                print(f"\n{'=' * 20} PULANDO TESTE: {name.upper()} {'=' * 20}")
-                print(f"[SKIP] {reason}")
-                continue
-            print(f"\n{'=' * 20} INICIANDO TESTE: {name.upper()} {'=' * 20}")
-            try:
-                run_cocotb_test(
-                    **{
-                        k: v
-                        for k, v in config.items()
-                        if k not in ("skip", "skip_reason")
-                    }
-                )
-                print(
-                    f"{'-' * 20} TESTE {name.upper()} FINALIZADO COM SUCESSO "
-                    f"{'-' * 20}"
-                )
-            except Exception as e:  # noqa: BLE001
-                failures.append(name)
-                print(f"[ERRO] O teste '{name}' falhou: {e}")
-        print("\nTodos os testes foram executados.")
-        if failures:
-            print(
-                f"[ERRO] {len(failures)} teste(s) falharam: "
-                f"{', '.join(failures)}"
-            )
-            sys.exit(1)
-    elif args.test_name in TEST_CONFIGS:
-        print(f"Executando teste específico: {args.test_name}")
-        config = TEST_CONFIGS[args.test_name]
-        if config.get("skip"):
-            print(
-                f"[AVISO] '{args.test_name}' está marcado como skip "
-                f"({config.get('skip_reason', 'no reason given')}) -- "
-                "rodando mesmo assim, por ter sido pedido explicitamente."
-            )
-        run_cocotb_test(
-            **{
-                k: v
-                for k, v in config.items()
-                if k not in ("skip", "skip_reason")
-            }
-        )
-        print(f"\nTeste {args.test_name} finalizado.")
+        _run_all(test_configs)
+    elif args.test_name in test_configs:
+        _run_named(args.test_name, test_configs[args.test_name])
     else:
         print(f"Erro: Teste '{args.test_name}' não encontrado em tests.json.")
-        print(f"Opções disponíveis: {[*list(TEST_CONFIGS.keys()), 'all']}")
+        print(f"Opções disponíveis: {[*test_configs, 'all']}")
         sys.exit(1)
+
+
+if __name__ == "__main__":
+    main()

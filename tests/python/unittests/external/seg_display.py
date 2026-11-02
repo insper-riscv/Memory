@@ -15,6 +15,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import Prng, check_equal
+from tests.python.unittests.dut import Dut
 
 HALF_TCK_NS = 40
 # segments g..a of each hexadecimal digit, low level lit (the DE0-CV)
@@ -38,7 +39,7 @@ PATTERNS = [
 ]
 
 
-def expected_hex(value):
+def expected_hex(value: int) -> int:
     """Return the segment pattern expected for a value."""
     out = 0
     for n in range(6):
@@ -46,13 +47,13 @@ def expected_hex(value):
     return out
 
 
-async def post_edge(dut):
+async def post_edge(dut: Dut):
     """Wait for a clock edge and let the signals settle."""
     await RisingEdge(dut.i_clk)
     await Timer(1, unit="ns")
 
 
-async def start(dut):
+async def start(dut: Dut):
     """Start the clock and reset the DUT."""
     for sig in (
         dut.i_we,
@@ -77,7 +78,7 @@ async def start(dut):
     await tck(dut, ir=1)
 
 
-async def core_write(dut, value, addr=0):
+async def core_write(dut: Dut, value: int, addr: int = 0):
     """Write a value from the core side."""
     dut.i_addr.value = addr
     dut.i_wdata.value = value
@@ -87,7 +88,7 @@ async def core_write(dut, value, addr=0):
     await post_edge(dut)
 
 
-async def core_read(dut, addr=0):
+async def core_read(dut: Dut, addr: int = 0):
     """Read a value from the core side."""
     dut.i_addr.value = addr
     dut.i_re.value = 1
@@ -98,7 +99,14 @@ async def core_read(dut, addr=0):
     return value
 
 
-async def tck(dut, cdr=0, sdr=0, udr=0, uir=0, ir=None):  # noqa: PLR0913, PLR0917
+async def tck(  # noqa: PLR0913, PLR0917
+    dut: Dut,
+    cdr: int = 0,
+    sdr: int = 0,
+    udr: int = 0,
+    uir: int = 0,
+    ir: int | None = None,
+):
     """Give one TCK pulse with the given scan states."""
     if ir is not None:
         dut.i_ir_in.value = ir
@@ -119,7 +127,7 @@ async def tck(dut, cdr=0, sdr=0, udr=0, uir=0, ir=None):  # noqa: PLR0913, PLR09
         sig.value = 0
 
 
-async def scan(dut, value=None):
+async def scan(dut: Dut, value: int | None = None):
     """One scan of the 25-bit register.
 
     Writes `value` if given, returns the value read at the start.
@@ -137,7 +145,7 @@ async def scan(dut, value=None):
     return out & 0xFFFFFF
 
 
-async def scan_fail(dut, value=None):
+async def scan_fail(dut: Dut, value: int | None = None):
     """One scan of the 2-bit failure register (instruction 2).
 
     Writes `value` if given, returns the flag read.
@@ -158,7 +166,7 @@ async def scan_fail(dut, value=None):
 
 
 @cocotb.test()
-async def test_every_digit_pattern(dut):
+async def test_every_digit_pattern(dut: Dut):
     """Check that every digit pattern."""
     await start(dut)
     for digit in range(16):
@@ -171,7 +179,7 @@ async def test_every_digit_pattern(dut):
 
 
 @cocotb.test()
-async def test_each_digit_is_its_own_position(dut):
+async def test_each_digit_is_its_own_position(dut: Dut):
     """Check that each digit is its own position."""
     await start(dut)
     await core_write(dut, 0x123456)
@@ -180,7 +188,7 @@ async def test_each_digit_is_its_own_position(dut):
 
 
 @cocotb.test()
-async def test_core_write_and_read_back(dut):
+async def test_core_write_and_read_back(dut: Dut):
     """Check that core write and read back."""
     await start(dut)
     check_equal(await core_read(dut), 0)
@@ -196,7 +204,7 @@ async def test_core_write_and_read_back(dut):
 
 
 @cocotb.test()
-async def test_host_write_and_read(dut):
+async def test_host_write_and_read(dut: Dut):
     """Check that host write and read."""
     await start(dut)
     check_equal(await scan(dut, 0x00000F), 0)
@@ -213,7 +221,7 @@ async def test_host_write_and_read(dut):
 
 
 @cocotb.test()
-async def test_host_sees_the_core_write(dut):
+async def test_host_sees_the_core_write(dut: Dut):
     """Check that host sees the core write."""
     await start(dut)
     await core_write(dut, 0x5A5A5A)
@@ -222,7 +230,7 @@ async def test_host_sees_the_core_write(dut):
 
 @cocotb.test()
 async def test_the_value_survives_a_program_reset_not_the_hardware_reset(
-    dut,
+    dut: Dut,
 ):
     """Check that the value survives a program reset.
 
@@ -246,7 +254,7 @@ async def test_the_value_survives_a_program_reset_not_the_hardware_reset(
 
 
 @cocotb.test()
-async def test_a_thousand_writes_read_back_without_a_difference(dut):
+async def test_a_thousand_writes_read_back_without_a_difference(dut: Dut):
     """Check that a thousand writes read back without a difference."""
     await start(dut)
     rng = Prng(7)
@@ -264,7 +272,9 @@ async def test_a_thousand_writes_read_back_without_a_difference(dut):
 
 
 @cocotb.test()
-async def test_failure_flag_starts_clear_and_the_host_sets_and_clears_it(dut):
+async def test_failure_flag_starts_clear_and_the_host_sets_and_clears_it(
+    dut: Dut,
+):
     """Check that the failure flag starts clear.
 
     The host sets it and clears it.
@@ -286,7 +296,9 @@ async def test_failure_flag_starts_clear_and_the_host_sets_and_clears_it(dut):
 
 
 @cocotb.test()
-async def test_failure_flag_is_independent_of_the_value_and_the_reset(dut):
+async def test_failure_flag_is_independent_of_the_value_and_the_reset(
+    dut: Dut,
+):
     """Check that the failure flag is independent of the value.
 
     It is also independent of the reset.

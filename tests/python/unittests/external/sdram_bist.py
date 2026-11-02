@@ -6,11 +6,14 @@ flips a stored bit and the self test has to find it.
 
 """
 
+from collections.abc import Awaitable, Callable
+
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.dut import Dut
 
 READ_PHASE = 2  # phase of the self test that reads back
 
@@ -19,7 +22,7 @@ SWEEP = 1 << 10
 RANDOM = 1 << 8
 
 
-async def start(dut):
+async def start(dut: Dut):
     """Start the clock and reset the DUT."""
     dut.i_rst.value = 1
     dut.i_start.value = 0
@@ -44,7 +47,12 @@ async def start(dut):
         await RisingEdge(dut.i_clk)
 
 
-async def run(dut, mode, on_phase=None, limit=2_000_000):
+async def run(
+    dut: Dut,
+    mode: int,
+    on_phase: Callable[[int], Awaitable[None]] | None = None,
+    limit: int = 2_000_000,
+):
     """Start a run and wait for it to finish.
 
     On_phase(phase) is called at each clock.
@@ -65,7 +73,7 @@ async def run(dut, mode, on_phase=None, limit=2_000_000):
     raise AssertionError("the run never finished")
 
 
-def result(dut):
+def result(dut: Dut):
     """Return the result of the built-in self test."""
     return {
         "fail": int(dut.o_fail.value),
@@ -75,7 +83,7 @@ def result(dut):
     }
 
 
-async def _passes(dut, mode, ops):
+async def _passes(dut: Dut, mode: int, ops: int):
     await start(dut)
     await run(dut, mode)
     r = result(dut)
@@ -84,31 +92,31 @@ async def _passes(dut, mode, ops):
 
 
 @cocotb.test()
-async def test_quick_with_byte_masks(dut):
+async def test_quick_with_byte_masks(dut: Dut):
     """Mode 0: 7 phases of one window."""
     await _passes(dut, 0, 7 * WINDOW)
 
 
 @cocotb.test()
-async def test_patterns(dut):
+async def test_patterns(dut: Dut):
     """Mode 1: eight patterns, each written and read back."""
     await _passes(dut, 1, 16 * WINDOW)
 
 
 @cocotb.test()
-async def test_sweep(dut):
+async def test_sweep(dut: Dut):
     """Mode 2: address data and its complement over the swept range."""
     await _passes(dut, 2, 4 * SWEEP)
 
 
 @cocotb.test()
-async def test_random_addresses(dut):
+async def test_random_addresses(dut: Dut):
     """Mode 3: pseudo-random addresses, written and read back."""
     await _passes(dut, 3, 2 * RANDOM)
 
 
 @cocotb.test()
-async def test_a_flipped_bit_is_found(dut):
+async def test_a_flipped_bit_is_found(dut: Dut):
     """Control.
 
     A bit flipped in the chip between the write and the read is reported
@@ -118,7 +126,7 @@ async def test_a_flipped_bit_is_found(dut):
     await start(dut)
     flipped = False
 
-    async def on_phase(phase):
+    async def on_phase(phase: int):
         nonlocal flipped
         if (
             phase == READ_PHASE and not flipped

@@ -6,10 +6,11 @@ import cocotb
 from cocotb.triggers import Timer
 
 from tests.python.unittests.checks import check_equal
+from tests.python.unittests.dut import Dut
 
 
 # ---------- Helpers ----------
-def parse_hex(hex_path: Path, depth=64):
+def parse_hex(hex_path: Path, depth: int = 64):
     """Lê um arquivo .hex com uma palavra de 32 bits por linha.
 
     Retorna uma lista de 'depth' palavras (int).
@@ -25,7 +26,7 @@ def parse_hex(hex_path: Path, depth=64):
     return mem
 
 
-async def read_rom_sync(dut, word_addr: int, do_re: bool = True):
+async def read_rom_sync(dut: Dut, word_addr: int, do_re: bool = True):
     """Lê a ROM síncrona: coloca endereço, seta re conforme do_re.
 
     Aplica uma subida de clock e lê a saída logo após a subida.
@@ -38,19 +39,19 @@ async def read_rom_sync(dut, word_addr: int, do_re: bool = True):
     dut.i_re.value = 1 if do_re else 0
     # garantir clock em '0' antes da subida
     dut.i_clk.value = 0
-    await Timer(1, units="ns")
+    await Timer(1, unit="ns")
 
     # gerar subida de clock
     dut.i_clk.value = 1
     await Timer(
-        1, units="ns"
+        1, unit="ns"
     )  # esperar um pouco depois da borda para a saída estabilizar
 
     # capturar valor
     val = int(dut.o_data.value)
     # voltar clock para 0 e esperar pequena margem
     dut.i_clk.value = 0
-    await Timer(1, units="ns")
+    await Timer(1, unit="ns")
 
     return val
 
@@ -59,7 +60,7 @@ async def read_rom_sync(dut, word_addr: int, do_re: bool = True):
 
 
 @cocotb.test()
-async def rom_leitura_sincrona_basica(dut):
+async def rom_leitura_sincrona_basica(dut: Dut):
     """Verifica leituras sincronas de algumas palavras iniciais e.
 
     Zeros no final, comparando com o arquivo HEX. Também verifica
@@ -72,7 +73,7 @@ async def rom_leitura_sincrona_basica(dut):
 
     # dar um pequeno tempo para a inicialização do processo de leitura
     # do arquivo no VHDL
-    await Timer(1, units="ns")
+    await Timer(1, unit="ns")
 
     # leituras com re = 1 (habilitado) -- checamos várias posições
     for word_idx in [0, 1, 2, 3, 4, 5, 6, 7, 10, 14, 21, 22, 63]:

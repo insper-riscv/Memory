@@ -11,15 +11,21 @@ instance does, with a 64-bit DEBUG register selected by instruction 1
 """
 
 import cocotb
-from cocotb.triggers import Timer
 
-from tests.python.unittests.checks import Prng, check_equal, check_true
+from tests.python.unittests.checks import (
+    Prng,
+    check_equal,
+    check_true,
+    log_info,
+)
+from tests.python.unittests.dut import Dut
 from tests.python.unittests.external.sdram_helpers import (
     access,
     merge,
     model_word,
     start,
 )
+from tests.python.unittests.jtag import load_ir, shift_dr
 
 ALL_ONES = 0xFFFFFFFF  # word the fill writes
 SHORT_STALL = 14  # core cycles a stall may take, at most
@@ -30,52 +36,11 @@ OP_NOP, OP_READ, OP_WRITE, OP_FILL, OP_COUNT, OP_READ_NEXT, OP_WRITE_NEXT = (
     range(7)
 )
 BUSY, ERROR, INIT, OVERRUN = 1, 2, 4, 8
-HALF_TCK_NS = 40
 
 
-async def tck(dut, **states):
-    """One JTAG clock with the given state flags (cdr, sdr, udr.
-
-    Uir) high.
-
-    """
-    for name in ("cdr", "sdr", "udr", "uir"):
-        getattr(dut, f"i_jtag_state_{name}").value = (
-            1 if states.get(name) else 0
-        )
-    dut.i_jtag_tck.value = 0
-    await Timer(HALF_TCK_NS, unit="ns")
-    dut.i_jtag_tck.value = 1
-    await Timer(HALF_TCK_NS, unit="ns")
-    dut.i_jtag_tck.value = 0
-    for name in ("cdr", "sdr", "udr", "uir"):
-        getattr(dut, f"i_jtag_state_{name}").value = 0
-
-
-async def load_ir(dut, value):
-    """Load a value into the instruction register."""
-    dut.i_jtag_ir_in.value = value
-    await tck(dut, uir=True)
-
-
-async def shift_dr(dut, length, value):
-    """Capture, shift `length` bits (LSB first) and update.
-
-    Returns the bits shifted out.
-
-    """
-    await tck(dut, cdr=True)
-    out = 0
-    for i in range(length):
-        dut.i_jtag_tdi.value = (value >> i) & 1
-        await Timer(1, unit="ns")
-        out |= int(dut.o_jtag_tdo.value) << i
-        await tck(dut, sdr=True)
-    await tck(dut, udr=True)
-    return out
-
-
-async def debug(dut, op, addr=0, data=0, be=0xF):
+async def debug(
+    dut: Dut, op: int, addr: int = 0, data: int = 0, be: int = 0xF
+):
     """Shift one command into the DEBUG register.
 
     Returns (status, word accessed last, data read) of the previous
@@ -92,12 +57,13 @@ async def debug(dut, op, addr=0, data=0, be=0xF):
     return out >> 56, (out >> 32) & 0xFFFFFF, out & 0xFFFFFFFF
 
 
-async def settle(dut):
+async def settle(dut: Dut):
     """Shift NOP commands until the previous command has finished.
 
     Returns its (status, word, data).
 
     """
+    status = 0
     for _ in range(200):
         status, word, data = await debug(dut, OP_NOP)
         if not status & BUSY:
@@ -113,7 +79,7 @@ async def settle(dut):
     )
 
 
-async def read(dut, addr):
+async def read(dut: Dut, addr: int):
     """Read one word and return it."""
     await debug(dut, OP_READ, addr)
     _status, word, data = await settle(dut)
@@ -125,13 +91,13 @@ async def read(dut, addr):
     return data
 
 
-async def write(dut, addr, value, be=0xF):
+async def write(dut: Dut, addr: int, value: int, be: int = 0xF):
     """Write one word."""
     await debug(dut, OP_WRITE, addr, value, be)
     await settle(dut)
 
 
-async def start_debug(dut):
+async def start_debug(dut: Dut):
     """Start the clock and the debug port."""
     await start(dut)
     await load_ir(dut, 1)
@@ -143,7 +109,7 @@ async def start_debug(dut):
 
 
 @cocotb.test()
-async def test_write_and_read_back(dut):
+async def test_write_and_read_back(dut: Dut):
     """Check words written through the debug port.
 
     They are in the chip and read back, byte masks included.
@@ -170,7 +136,7 @@ async def test_write_and_read_back(dut):
 
 
 @cocotb.test()
-async def test_the_core_and_the_host_see_the_same_memory(dut):
+async def test_the_core_and_the_host_see_the_same_memory(dut: Dut):
     """What the core writes the host reads, and the other way around."""
     await start_debug(dut)
     await access(dut, True, 0x4321, 0xA5A5A5A5)
@@ -181,7 +147,7 @@ async def test_the_core_and_the_host_see_the_same_memory(dut):
 
 
 @cocotb.test()
-async def test_fill(dut):
+async def test_fill(dut: Dut):
     """A fill writes exactly `count` words from the address.
 
     Nothing else is written.
@@ -217,7 +183,7 @@ async def test_fill(dut):
 
 
 @cocotb.test()
-async def test_the_fill_count_reaches_the_whole_sdram(dut):
+async def test_the_fill_count_reaches_the_whole_sdram(dut: Dut):
     """The count of a fill holds 2**24 words, the whole SDRAM.
 
     A 24-bit count would read it as 0.
@@ -235,7 +201,7 @@ async def test_the_fill_count_reaches_the_whole_sdram(dut):
 
 
 @cocotb.test()
-async def test_next_word_commands(dut):
+async def test_next_word_commands(dut: Dut):
     """Read-next and write-next continue from the word accessed last."""
     await start_debug(dut)
     await write(dut, 0x3000, 0xAAAAAAAA)
@@ -250,7 +216,7 @@ async def test_next_word_commands(dut):
 
 
 @cocotb.test()
-async def test_traffic_from_the_core_and_the_host_together(dut):
+async def test_traffic_from_the_core_and_the_host_together(dut: Dut):
     """The core and the host use the memory at the same time.
 
     Both get the right words.
@@ -270,7 +236,7 @@ async def test_traffic_from_the_core_and_the_host_together(dut):
             )
 
     task = cocotb.start_soon(host())
-    stalls = []
+    stalls: list[int] = []
     for addr, value in core_words.items():
         _, cycles = await access(dut, True, addr, value)
         stalls.append(cycles)
@@ -285,13 +251,11 @@ async def test_traffic_from_the_core_and_the_host_together(dut):
         max(stalls) <= SHORT_STALL,
         f"a core access took {max(stalls)} core cycles",
     )
-    dut._log.info(
-        f"core stall with the host active: max {max(stalls)} core cycles"
-    )
+    log_info(f"core stall with the host active: max {max(stalls)} core cycles")
 
 
 @cocotb.test()
-async def test_a_command_while_busy_is_dropped(dut):
+async def test_a_command_while_busy_is_dropped(dut: Dut):
     """A command that arrives while the previous one runs is dropped.
 
     It is flagged and not run.
@@ -319,7 +283,7 @@ async def test_a_command_while_busy_is_dropped(dut):
 
 
 @cocotb.test()
-async def test_other_instructions_are_a_bypass(dut):
+async def test_other_instructions_are_a_bypass(dut: Dut):
     """With another instruction loaded the register is a single bit.
 
     Nothing is sent to the memory.
@@ -335,7 +299,7 @@ async def test_other_instructions_are_a_bypass(dut):
 
 
 @cocotb.test()
-async def test_the_core_is_not_starved_by_a_long_fill(dut):
+async def test_the_core_is_not_starved_by_a_long_fill(dut: Dut):
     """While the host's fill keeps the debug master requesting back.
 
     To back, the core's accesses are served between its requests:
@@ -348,7 +312,8 @@ async def test_the_core_is_not_starved_by_a_long_fill(dut):
         dut, OP_FILL, 0x900000, 0x77777777
     )  # about 3000 words, back to back
     rng = Prng(11)
-    ref, stalls = {}, []
+    ref: dict[int, int] = {}
+    stalls: list[int] = []
     for _ in range(60):
         addr = 0xA00000 + rng.randrange(256)
         if addr not in ref or rng.random() < HALF:
@@ -372,7 +337,7 @@ async def test_the_core_is_not_starved_by_a_long_fill(dut):
         max(stalls) <= FILL_STALL,
         f"a core access took {max(stalls)} core cycles during the fill",
     )
-    dut._log.info(
+    log_info(
         f"core stall during a long fill: max {max(stalls)}, "
         f"mean {sum(stalls) / len(stalls):.1f} core cycles"
     )

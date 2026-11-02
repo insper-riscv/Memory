@@ -1,0 +1,44 @@
+{
+  "meta": {
+    "generator": {
+      "name": "codeclone",
+      "version": "2.0.2"
+    },
+    "schema_version": "2.1",
+    "fingerprint_version": "1",
+    "python_tag": "cp314",
+    "created_at": "2026-11-01T22:49:20Z",
+    "payload_sha256": "787011899704f5ac6f16fbfee594a9ba39f9ef68ac3545eaee336558f81561ac",
+    "metrics_payload_sha256": "c91c19b0f5fd3f4fa67a0cc5e2b571f4fb9e78dade71b34c9767fb9247df9b9d"
+  },
+  "clones": {
+    "functions": [],
+    "blocks": [
+      "67a3c08aaeb95fd665055d20575b6ef35a2dc89a|12b70f2ba8853dc07b3a08e63ef4676614b0ef3c|ee00624dae7da03be09c4deeea33b0edcbdc51cb|eb1f932afa2806a62189b1e0900d2ed766c817f5",
+      "67a3c08aaeb95fd665055d20575b6ef35a2dc89a|397ba9f14ed434f2b299b8627134065056002016|d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7|3b2d0ce6aad395c692654bb0d717de30336cf701",
+      "67a3c08aaeb95fd665055d20575b6ef35a2dc89a|6d03479693de15c6beb4c4ce40d6eba020c3d882|6d03479693de15c6beb4c4ce40d6eba020c3d882|6d03479693de15c6beb4c4ce40d6eba020c3d882",
+      "67a3c08aaeb95fd665055d20575b6ef35a2dc89a|8af39530ba64e9f90ea039bea29d7d1b46b1b58f|204e32fd9cdf9723db274795003358f625bd1551|d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7",
+      "8418b7f433028760c6b12cb720ff6bd712dee15c|d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7|ac31f077ae5a47cbef932934cf9b0e43a8d0cc9e|d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7",
+      "d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7|ac31f077ae5a47cbef932934cf9b0e43a8d0cc9e|d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7|d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7",
+      "d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7|d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7|42cf0f858bf73054a26c825b82184a682e46ae2e|d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7",
+      "d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7|d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7|d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7|d212c948f28f7f1d26c93a7ab5de0e3fdc350ca7"
+    ]
+  },
+  "metrics": {
+    "max_complexity": 12,
+    "high_risk_functions": [],
+    "max_coupling": 1,
+    "high_coupling_classes": [],
+    "max_cohesion": 1,
+    "low_cohesion_classes": [],
+    "dependency_cycles": [],
+    "dependency_max_depth": 4,
+    "dead_code_items": [],
+    "health_score": 80,
+    "health_grade": "B",
+    "typing_param_permille": 1000,
+    "typing_return_permille": 109,
+    "docstring_permille": 1000,
+    "typing_any_count": 0
+  }
+}

@@ -5,6 +5,7 @@ from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.dut import Dut
 
 # Máscaras de exemplo
 MASKS = [
@@ -21,7 +22,7 @@ MASKS = [
 ]
 
 
-async def init_dut(dut):
+async def init_dut(dut: Dut):
     """Start the clock and reset the memory."""
     dut.i_addr.value = 0
     dut.i_data_in.value = 0
@@ -29,10 +30,10 @@ async def init_dut(dut):
     dut.i_we_ram.value = 0
     dut.i_re_ram.value = 0
     dut.i_en_ram.value = 0
-    await Timer(1, units="ns")
+    await Timer(1, unit="ns")
 
 
-async def write_word(dut, addr, data, mask):
+async def write_word(dut: Dut, addr: int, data: int, mask: int):
     """Write one word with a byte mask."""
     dut.i_addr.value = addr
     dut.i_data_in.value = data
@@ -44,7 +45,7 @@ async def write_word(dut, addr, data, mask):
     dut.i_en_ram.value = 0
 
 
-async def read_word(dut, addr, expect_z=False):
+async def read_word(dut: Dut, addr: int, expect_z: bool = False):
     """Leitura síncrona.
 
     coloca endereço, habilita i_en_ram/i_re_ram, espera a subida do
@@ -59,7 +60,7 @@ async def read_word(dut, addr, expect_z=False):
     # esperar a borda que provoca a leitura síncrona
     await RisingEdge(dut.i_clk)
     # pequeno delay pós-borda para estabilização
-    await Timer(1, units="ns")
+    await Timer(1, unit="ns")
     val = dut.o_data_out.value
     # desabilitar sinais (comportamento de teste original)
     dut.i_re_ram.value = 0
@@ -77,7 +78,7 @@ async def read_word(dut, addr, expect_z=False):
 
 
 @cocotb.test()
-async def sw_fullword(dut):
+async def sw_fullword(dut: Dut):
     """Testa escrita/leitura com mask=1111 (SW)."""
     cocotb.start_soon(Clock(dut.i_clk, 10, "ns").start())
     await init_dut(dut)
@@ -91,7 +92,7 @@ async def sw_fullword(dut):
 
 
 @cocotb.test()
-async def all_masks(dut):
+async def all_masks(dut: Dut):
     """Testa todas as máscaras possíveis de escrita parcial."""
     cocotb.start_soon(Clock(dut.i_clk, 10, "ns").start())
     await init_dut(dut)
@@ -124,7 +125,7 @@ async def all_masks(dut):
 
 
 @cocotb.test()
-async def disable_read(dut):
+async def disable_read(dut: Dut):
     """Verifica comportamento quando reRAM=0 ou eRAM=0 para leitura.
 
     Síncrona.
@@ -170,7 +171,7 @@ async def disable_read(dut):
 
 
 @cocotb.test()
-async def multi_positions(dut):
+async def multi_positions(dut: Dut):
     """Escreve em posições diferentes e confere leituras.
 
     Independentes.
@@ -195,7 +196,7 @@ async def multi_positions(dut):
 
 
 @cocotb.test()
-async def overwrite(dut):
+async def overwrite(dut: Dut):
     """Escreve, sobrescreve, e confere atualização."""
     cocotb.start_soon(Clock(dut.i_clk, 10, "ns").start())
     await init_dut(dut)
