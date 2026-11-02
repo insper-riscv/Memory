@@ -9,6 +9,7 @@
   library IEEE;
   use IEEE.std_logic_1164.all;
   use ieee.numeric_std.all;
+  use work.utils_pkg.all;
   use std.textio.all;
 
   entity rom_simulation is
@@ -17,8 +18,8 @@
       data_width: natural := 32;
       -- Largura do endereço em bits.
       addr_width: natural := 30;
-      -- Log2 do número de palavras da ROM.
-      memory_addr_width: natural := 9;
+      -- Tamanho da memória em bytes, uma potência de dois (2048 são 512 palavras).
+      size_bytes: positive := 2048;
       -- Arquivo com o conteúdo, uma palavra de 32 bits por linha em hexadecimal.
       rom_file: string := "initROM.hex"
     );
@@ -44,19 +45,22 @@
   end entity;
 
   architecture rtl of rom_simulation is
+
+    -- Bits de endereço das palavras da memória (falha se size_bytes não for uma potência de dois).
+    constant MEMORY_ADDR_WIDTH : natural := log2_exact(size_bytes) - 2;
     -- Vetor de palavras da ROM.
-    type rom_block_t is array(0 to 2**memory_addr_width - 1)
+    type rom_block_t is array(0 to 2**MEMORY_ADDR_WIDTH - 1)
       of std_logic_vector(data_width-1 downto 0);
 
     -- Conteúdo da ROM.
     signal rom_mem : rom_block_t := (others => (others => '0'));
     -- Índice da palavra lida na porta 1.
-    signal local_addr : std_logic_vector(memory_addr_width-1 downto 0) := (others => '0');
+    signal local_addr : std_logic_vector(MEMORY_ADDR_WIDTH-1 downto 0) := (others => '0');
     -- Registrador de saída da porta 1.
     signal data_reg : std_logic_vector(data_width-1 downto 0) := (others => '0');
 
     -- Índice da palavra lida na porta 2.
-    signal local_addr2 : std_logic_vector(memory_addr_width-1 downto 0) := (others => '0');
+    signal local_addr2 : std_logic_vector(MEMORY_ADDR_WIDTH-1 downto 0) := (others => '0');
     -- Registrador de saída da porta 2.
     signal data_reg2 : std_logic_vector(data_width-1 downto 0) := (others => '0');
 
@@ -132,8 +136,8 @@
       wait;
     end process;
 
-    local_addr <= i_addr(memory_addr_width-1 downto 0);
-    local_addr2 <= i_addr2(memory_addr_width-1 downto 0);
+    local_addr <= i_addr(MEMORY_ADDR_WIDTH-1 downto 0);
+    local_addr2 <= i_addr2(MEMORY_ADDR_WIDTH-1 downto 0);
 
     sync_read: process(i_clk)
     begin

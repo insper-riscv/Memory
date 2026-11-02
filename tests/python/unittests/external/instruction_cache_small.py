@@ -1,4 +1,4 @@
-"""icache with index_bits equal to 5.
+"""icache with size_bits equal to 4096.
 
 The 4 kbit instruction cache of the simulation platforms: 32 lines of 16
 bytes, so two addresses 512 bytes apart share a line.

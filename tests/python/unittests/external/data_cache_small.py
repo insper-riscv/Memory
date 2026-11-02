@@ -1,4 +1,4 @@
-"""dcache with index_bits equal to 5.
+"""dcache with size_bits equal to 4096.
 
 The 4 kbit data cache of the simulation platforms, write-through: 32
 lines of 16 bytes, so two addresses 512 bytes apart share a line.

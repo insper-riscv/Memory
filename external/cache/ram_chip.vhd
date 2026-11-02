@@ -19,9 +19,9 @@
 -- fim da latência, então um store da porta de dados é visto pela porta de instruções
 -- que pedir depois dele.
 --
--- Janela: o chip ocupa 2^window_bits bytes, 1 MB por padrão. Um acesso cujos bits
--- 25:window_bits não são todos zero está fora da janela: a leitura devolve zero e a
--- escrita é descartada.
+-- Tamanho: o genérico size_bytes, uma potência de dois (1 MB por padrão, no máximo 32 MB). Um
+-- acesso cujos bits 25 até o fim do tamanho não são todos zero está fora da janela do chip: a
+-- leitura devolve zero e a escrita é descartada.
 --
 -- init_file (opcional): imagem gravada no chip no instante zero, uma palavra de 32 bits
 -- por linha, em hexadecimal, a partir do primeiro endereço da janela. É como o hospedeiro
@@ -33,6 +33,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use ieee.std_logic_textio.all;
 use std.textio.all;
+use work.utils_pkg.all;
 
 entity ram_chip is
   generic (
@@ -40,8 +41,8 @@ entity ram_chip is
     init_file   : string  := "";
     -- Bordas entre o pedido e a conclusão do acesso (mínimo 2).
     latency     : natural := 8;
-    -- Tamanho da janela do chip, em bits de endereço (20 = 1 MB, no máximo 25).
-    window_bits : natural range 4 to 25 := 20
+    -- Tamanho do chip em bytes, uma potência de dois de 16 bytes a 32 MB (1048576 é 1 MB).
+    size_bytes  : positive := 1048576
   );
   port (
     -- Clock do módulo.
@@ -100,8 +101,10 @@ end entity ram_chip;
 
 architecture rtl of ram_chip is
 
+  -- Bits de endereço da janela do chip (falha se size_bytes não for uma potência de dois).
+  constant WINDOW_BITS : natural := log2_exact(size_bytes);
   -- Palavras do chip.
-  constant WORDS : natural := 2 ** (window_bits - 2);
+  constant WORDS : natural := size_bytes / 4;
 
   -- Vetor de palavras do chip.
   type word_array_t is array (0 to WORDS - 1) of std_logic_vector(31 downto 0);
@@ -220,10 +223,10 @@ architecture rtl of ram_chip is
   -- Devolve o índice da palavra de um endereço de byte, ou WORDS quando está fora da janela.
   function word_index (addr : std_logic_vector(31 downto 0)) return natural is
   begin
-    if unsigned(addr(25 downto window_bits)) /= 0 then
+    if unsigned(addr(25 downto WINDOW_BITS)) /= 0 then
       return WORDS;
     end if;
-    return to_integer(unsigned(addr(window_bits - 1 downto 2)));
+    return to_integer(unsigned(addr(WINDOW_BITS - 1 downto 2)));
   end function word_index;
 
   -- Devolve o endereço inicial de um acesso: o da linha alinhado em 16 bytes, ou o da palavra.
