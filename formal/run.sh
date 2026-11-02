@@ -7,7 +7,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 block=sdram_arbiter
-src="$root/external/sdram/sdram_arbiter.vhd"
+src="$root/src/ram/soc/sdram_arbiter.vhd"
 props="$root/formal/sdram_arbiter/props.sv"
 out="$root/build/formal"
 rm -rf "$out"; mkdir -p "$out"; cd "$out"

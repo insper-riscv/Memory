@@ -7,7 +7,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 block=axi_slave
-src="$root/external/axi/axi_slave_word_bridge.vhd"
+src="$root/src/barramento/soc/axi_slave_word_bridge.vhd"
 props="$root/formal/axi_slave/props.sv"
 out="$root/build/formal_axi_slave"
 rm -rf "$out"; mkdir -p "$out"; cd "$out"
