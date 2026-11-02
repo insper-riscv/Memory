@@ -195,11 +195,11 @@ jobs:
 
       - name: pycodestyle
         if: ${{ !cancelled() }}
-        run: pycodestyle --max-line-length=79 --max-doc-length=72 --exclude=Common-Components,build,.venv,sim_build,__pycache__ .
+        run: pycodestyle --max-line-length=79 --max-doc-length=72 --exclude=src/common,build,.venv,sim_build,__pycache__ .
 
       - name: pydocstyle
         if: ${{ !cancelled() }}
-        run: pydocstyle --convention=pep257 --match-dir='^(?!(Common-Components|build|\.venv|sim_build|__pycache__)).*' .
+        run: pydocstyle --convention=pep257 --match-dir='^(?!(src/common|build|\.venv|sim_build|__pycache__)).*' .
 
       - name: pylint
         if: ${{ !cancelled() }}
