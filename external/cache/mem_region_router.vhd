@@ -2,7 +2,7 @@
 -- Roteador de região dos pedidos de uma cache
 --
 -- Leva o pedido de um mestre (o lado da memória de uma cache) para a SDRAM ou para
--- a FLASH conforme o bit 29 do endereço (1 = FLASH), e devolve o ready e o dado da
+-- a FLASH conforme o endereço esteja na região da FLASH, [rom_base_kib, rom_end_kib), e devolve o ready e o dado da
 -- região escolhida. O contrato é o da ponte da SDRAM: o pedido fica no barramento
 -- até ready, ready é um nível que só cai com advance, e o dado lido só muda no
 -- pedido seguinte. A escolha é combinacional sobre o endereço, que o mestre
@@ -10,7 +10,7 @@
 --
 -- Dois pedidos à FLASH não chegam ao chip. Um store (i_wren) é concluído aqui, sem
 -- efeito, como num chip protegido contra escrita; e uma leitura fora da janela de 1 MB
--- (bits 25:20 do endereço diferentes de zero) devolve zero. Nos dois casos ready
+-- (a partir de rom_base_kib + rom_window_kib) devolve zero. Nos dois casos ready
 -- sobe um clock depois do pedido e fica em nível até advance. O mestre baixa o
 -- pedido na borda em que vê ready, como as caches fazem.
 --
@@ -22,6 +22,14 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 entity mem_region_router is
+  generic (
+    -- Base, em KiB, da região da FLASH (0x20000000 por padrão).
+    rom_base_kib   : natural := 524288;
+    -- Fim exclusivo, em KiB, da região da FLASH (0x40000000 por padrão).
+    rom_end_kib    : natural := 1048576;
+    -- Tamanho, em KiB, da janela que o chip da FLASH atende a partir da base; a leitura além dela devolve zero.
+    rom_window_kib : natural := 1024
+  );
   port (
     -- Clock do módulo.
     i_clk        : in  std_logic;
@@ -95,6 +103,8 @@ architecture rtl of mem_region_router is
 
   -- O pedido é da FLASH.
   signal is_flash : std_logic;
+  -- O endereço está além da janela que o chip da FLASH atende.
+  signal beyond : std_logic;
   -- O pedido da FLASH é concluído aqui (store ou leitura fora da janela).
   signal is_local : std_logic;
   -- O pedido local já foi visto, ready sobe e fica até advance.
@@ -102,9 +112,10 @@ architecture rtl of mem_region_router is
 
 begin
 
-  is_flash <= i_addr(29);
-  is_local <= is_flash and (i_wren or (i_rden and (i_addr(25) or i_addr(24) or i_addr(23)
-                                                    or i_addr(22) or i_addr(21) or i_addr(20))));
+  is_flash <= '1' when (unsigned(i_addr) >= shift_left(to_unsigned(rom_base_kib, 32), 10) and
+                        unsigned(i_addr) < shift_left(to_unsigned(rom_end_kib, 32), 10)) else '0';
+  beyond   <= '1' when unsigned(i_addr) >= shift_left(to_unsigned(rom_base_kib + rom_window_kib, 32), 10) else '0';
+  is_local <= is_flash and (i_wren or (i_rden and beyond));
 
   o_s_addr    <= i_addr;
   o_s_wdata   <= i_wdata;

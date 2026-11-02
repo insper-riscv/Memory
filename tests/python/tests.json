@@ -307,6 +307,24 @@
             "--std=08"
         ]
     },
+    "MemRegionRouterLow": {
+        "toplevel": "mem_region_router",
+        "sources": [
+            "external/cache/mem_region_router.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.mem_region_router_low",
+        "parameters": {
+            "rom_base_kib": 2,
+            "rom_end_kib": 32,
+            "rom_window_kib": 30
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
     "FlashArbiter": {
         "toplevel": "flash_arbiter",
         "sources": [

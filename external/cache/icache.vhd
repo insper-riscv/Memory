@@ -4,7 +4,7 @@
 -- Mapeamento direto, linhas de 16 bytes (quatro palavras), somente leitura. O tamanho é o genérico
 -- size_bits, uma potência de dois: 32768 bits (4 KB, 256 linhas) por padrão e 4096 bits (4 kbit, 32 linhas).
 -- Fica no caminho de busca dos endereços da SDRAM (0x40000000) e da FLASH
--- (0x20000000); a BOOT_ROM não passa por ela. A tag leva o bit 29 do endereço,
+-- (0x20000000); a BOOT_ROM não passa por ela. A tag leva a região do endereço (dentro de [rom_base_kib, rom_end_kib)),
 -- que distingue as duas regiões: sem ele, uma linha da FLASH e uma da SDRAM com os
 -- mesmos bits 25:12 se confundiriam.
 --
@@ -39,7 +39,7 @@
 -- stores do core, que a cache não observa: só um fence.i os torna visíveis à
 -- busca.
 --
--- Divisão do endereço (64 MB por região): bit 29 região (1 = FLASH), bits 25:12
+-- Divisão do endereço (64 MB por região): região (1 = ROM, pelos genéricos rom_base_kib e rom_end_kib), bits 25:12
 -- tag, 11:4 linha, 3:2 palavra (com 256 linhas; o índice ocupa log2 do número de linhas bits a partir do
 -- bit 4 e a tag o que sobra até o bit 25). Os demais bits acima de 25 não são guardados; o
 -- lado da memória acrescenta a base da região neles (base_flash ou base_sdram).
@@ -57,7 +57,11 @@ entity icache is
     -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória.
     base_sdram : std_logic_vector(5 downto 0) := "010000";
     -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
-    base_flash : std_logic_vector(5 downto 0) := "001000"
+    base_flash : std_logic_vector(5 downto 0) := "001000";
+    -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão).
+    rom_base_kib : natural := 524288;
+    -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão).
+    rom_end_kib  : natural := 1048576
   );
   port (
     -- Clock das memórias de instrução: lê as RAMs e registra o endereço de busca.
@@ -116,7 +120,7 @@ architecture rtl of icache is
   constant INDEX_BITS : natural := index_bits_of(size_bits);
   -- Linhas da cache.
   constant LINES    : natural := 2 ** INDEX_BITS;
-  -- Bits da tag: a região (bit 29) e os bits 25 até INDEX_BITS + 4.
+  -- Bits da tag: a região (ROM ou não) e os bits 25 até INDEX_BITS + 4.
   constant TAG_BITS : natural := 23 - INDEX_BITS;
   -- Primeiro bit da tag no endereço, logo acima do índice e do deslocamento dentro da linha.
   constant TAG_LOW  : natural := INDEX_BITS + 4;
@@ -171,9 +175,19 @@ architecture rtl of icache is
   -- Endereço do pedido ao lado da memória (registrado).
   signal d_addr_i : std_logic_vector(31 downto 0) := (others => '0');
 
+  -- A região da ROM: o endereço está em [rom_base_kib, rom_end_kib) KiB.
+  function in_rom(addr : std_logic_vector(31 downto 0)) return std_logic is
+  begin
+    if unsigned(addr) >= shift_left(to_unsigned(rom_base_kib, 32), 10) and
+       unsigned(addr) < shift_left(to_unsigned(rom_end_kib, 32), 10) then
+      return '1';
+    end if;
+    return '0';
+  end function in_rom;
+
 begin
 
-  tag_match <= '1' when tag_rd = (addr_q(29) & addr_q(25 downto TAG_LOW)) else '0';
+  tag_match <= '1' when tag_rd = (in_rom(addr_q) & addr_q(25 downto TAG_LOW)) else '0';
   hit       <= sel_q and valid_rd and tag_match;
   o_ready     <= hit when addr_q = i_addr else '0';
   o_data      <= ram_rd;
@@ -233,7 +247,7 @@ begin
             drop <= '0';
             -- uma falha do endereço que ainda está em addr: traz a sua linha
             if sel_q = '1' and hit = '0' and addr_q = i_addr and i_invalidate = '0' then
-              fill_tag <= addr_q(29) & addr_q(25 downto TAG_LOW);
+              fill_tag <= in_rom(addr_q) & addr_q(25 downto TAG_LOW);
               fill_idx <= addr_q(INDEX_BITS + 3 downto 4);
               st       <= S_FILL_REQ;
             end if;
