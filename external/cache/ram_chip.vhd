@@ -42,7 +42,9 @@ entity ram_chip is
     -- Bordas entre o pedido e a conclusão do acesso (mínimo 2).
     latency     : natural := 8;
     -- Tamanho do chip em bytes, uma potência de dois de 16 bytes a 32 MB (1048576 é 1 MB).
-    size_bytes  : positive := 1048576
+    size_bytes  : positive := 1048576;
+    -- Onde o chip começa dentro dos 64 MB da região, em KiB: o endereço do chip é o da região menos esta base.
+    base_kib    : natural := 0
   );
   port (
     -- Clock do módulo.
@@ -222,11 +224,16 @@ architecture rtl of ram_chip is
 
   -- Devolve o índice da palavra de um endereço de byte, ou WORDS quando está fora da janela.
   function word_index (addr : std_logic_vector(31 downto 0)) return natural is
+    variable offset : unsigned(25 downto 0);
   begin
-    if unsigned(addr(25 downto WINDOW_BITS)) /= 0 then
+    if unsigned(addr(25 downto 0)) < base_kib * 1024 then
       return WORDS;
     end if;
-    return to_integer(unsigned(addr(WINDOW_BITS - 1 downto 2)));
+    offset := unsigned(addr(25 downto 0)) - to_unsigned(base_kib * 1024, 26);
+    if offset(25 downto WINDOW_BITS) /= 0 then
+      return WORDS;
+    end if;
+    return to_integer(offset(WINDOW_BITS - 1 downto 2));
   end function word_index;
 
   -- Devolve o endereço inicial de um acesso: o da linha alinhado em 16 bytes, ou o da palavra.
