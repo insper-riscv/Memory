@@ -16,7 +16,7 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
-from tests.python.unittests.barramento.axi_router import (
+from tests.python.unittests.barramento.axi_burst import (
     OKAY,
     read_burst,
     write_burst,

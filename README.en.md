@@ -21,7 +21,7 @@ Memories of the RISC-V RV32 SoC: the memory blocks that the core reads and write
 | `src/ram/cyclone-v/` | The `RAM1PORT` Quartus IP and the Virtual JTAG shell of the SDRAM debug port, board only |
 | `src/rom/soc/` | Simulation model of the ROM in plain VHDL with an array that cocotb can read (`rom_simulation`) |
 | `src/rom/cyclone-v/` | Quartus IPs (`altsyncram`) of the ROM: `BOOT_ROM1PORT` (programmed once), `FLASH1PORT` and `FLASH_MEM1PORT` (the two physical copies of the FLASH, rewritten over JTAG for each test) and `FLASH_STORE1PORT`. They also simulate in GHDL through Intel's `altera_mf` models |
-| `src/barramento/soc/` | External interconnect and the family of AXI4 bridges (master, router, word slave and peripheral bank), with the test systems in `sim/` |
+| `src/barramento/soc/` | The two generic AXI4 bridges, which depend only on the memory contract of the core: the master (`axi_master_bridge`, from the core to an AXI4 slave) and the word slave (`axi_slave_word_bridge`, AXI4 in front of a memory), with the test system in `sim/`. The external interconnect, the AXI4 router and the peripheral bank decode the platform map and know the peripherals, so they live in Insper-RISC-V, in `src/interconnect/` |
 | `tests/python/` | Per-entity cocotb tests, in `unittests/{cache,ram,rom,barramento}`, and the catalog (`tests.json`) that drives them |
 
 ## 3. Memory Families

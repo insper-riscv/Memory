@@ -21,7 +21,7 @@ Memórias do SoC RISC-V RV32: os blocos de memória que o núcleo lê e escreve.
 | `src/ram/cyclone-v/` | IP Quartus `RAM1PORT` e a casca Virtual JTAG do controle de depuração da SDRAM, só para a placa |
 | `src/rom/soc/` | Modelo de simulação da ROM em VHDL puro com array que o cocotb consegue ler (`rom_simulation`) |
 | `src/rom/cyclone-v/` | IPs Quartus (`altsyncram`) da ROM: `BOOT_ROM1PORT` (gravada uma vez), `FLASH1PORT` e `FLASH_MEM1PORT` (as duas cópias físicas da FLASH, reescritas por JTAG a cada teste) e `FLASH_STORE1PORT`. Também simulam no GHDL pelos modelos `altera_mf` da Intel |
-| `src/barramento/soc/` | Interconector externo e a família de pontes AXI4 (mestre, roteador, escravo de palavra e banco de periféricos), com os sistemas de teste em `sim/` |
+| `src/barramento/soc/` | As duas pontes AXI4 genéricas, que só dependem do contrato de memória do core: o mestre (`axi_master_bridge`, do core para um escravo AXI4) e o escravo de palavra (`axi_slave_word_bridge`, AXI4 na frente de uma memória), com o sistema de teste em `sim/`. O interconector externo, o roteador AXI4 e o banco de periféricos decodificam o mapa da plataforma e conhecem os periféricos, então ficam no Insper-RISC-V, em `src/interconnect/` |
 | `tests/python/` | Testes por entidade em cocotb, em `unittests/{cache,ram,rom,barramento}`, e o catálogo (`tests.json`) que os conduz |
 
 ## 3. Famílias de Memória
