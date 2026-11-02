@@ -10,8 +10,8 @@ from Python, without `riscv-tools`' compiler or simulation flow.
 tests/python/
 ├── runner.py                    # catalog loader + cocotb/GHDL driver
 ├── tests.json                   # catalog: name -> {toplevel, sources, test_module, ...}
-├── unittests/sim/               # one file per simulation model
-│   └── data/                    # fixtures a test reads (e.g. testROM.hex)
+├── unittests/{cache,ram,rom,barramento}/  # one file per entity or per simulation model
+│   └── rom/data/                # fixtures a test reads (e.g. testROM.hex)
 └── sim_build/                   # generated: <group>/<name>/{waves.ghw, ...} per test
 ```
 
