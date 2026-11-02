@@ -359,5 +359,51 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "InstructionCacheSmall": {
+        "toplevel": "icache",
+        "sources": [
+            "external/cache/icache.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.instruction_cache_small",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "INDEX_BITS": 5
+        }
+    },
+    "DataCacheSmall": {
+        "toplevel": "dcache",
+        "sources": [
+            "external/cache/dcache.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.data_cache_small",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "INDEX_BITS": 5,
+            "WRITE_THROUGH": true
+        }
+    },
+    "RamChip": {
+        "toplevel": "ram_chip",
+        "sources": [
+            "external/cache/ram_chip.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.ram_chip",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
