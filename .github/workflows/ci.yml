@@ -16,8 +16,9 @@ permissions:
 
 jobs:
   # Reuses the pull request result: a push to main whose merge commit joins a head that this same
-  # workflow already passed, over the very base the merge commit has as first parent, holds the tree
-  # that was tested, so the jobs below are skipped. Any doubt (no match, API error) runs everything.
+  # workflow already passed in a run that started after the first parent (the base) existed, holds
+  # the tree that was tested, because main did not move in between; the jobs below are skipped.
+  # Any doubt (no match, API error) runs everything.
   reuse:
     name: reuse
     runs-on: ubuntu-26.04
@@ -43,9 +44,10 @@ jobs:
             parents=$(gh api "repos/$REPO/commits/$SHA" --jq '[.parents[].sha] | join(" ")' || true)
             read -r base head extra <<< "$parents"
             if [ -n "${head:-}" ] && [ -z "${extra:-}" ]; then
-              export BASE="$base"
+              basedate=$(gh api "repos/$REPO/commits/$base" --jq '.commit.committer.date' || true)
+              export BASEDATE="${basedate:-9999}"
               found=$(gh api "repos/$REPO/actions/runs?head_sha=$head&event=pull_request&status=success&per_page=100" \
-                --jq '[.workflow_runs[] | select(.name == $ENV.WORKFLOW and .pull_requests[0].base.sha == $ENV.BASE)] | length' || echo 0)
+                --jq '[.workflow_runs[] | select(.name == $ENV.WORKFLOW and .created_at >= $ENV.BASEDATE)] | length' || echo 0)
               if [ "${found:-0}" -gt 0 ]; then
                 skip=true
                 echo "::notice::Reusing the passed pull request run of $head over base $base."
