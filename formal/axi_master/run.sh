@@ -2,6 +2,7 @@
 # Formal verification of axi_master_bridge with SymbiYosys. Needs ghdl, yosys, sby and the z3 solver
 # (insper-riscv/Infra's toolchain image). Run from the root of the repository:
 #   bash formal/axi_master/run.sh
+# The proofs run side by side (see formal/common.sh).
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -11,10 +12,8 @@ out="$root/build/formal_axi"
 rm -rf "$out"; mkdir -p "$out"; cd "$out"
 
 fail=0
-expect() {
-  if [ "$2" = "$3" ]; then printf '  ok    %-52s %s\n' "$1" "$3"
-  else printf '  WRONG %-52s wanted %s, got %s\n' "$1" "$2" "$3"; fail=1; fi
-}
+# shellcheck source=formal/common.sh
+source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name>
   local work="$out/work_$2"; mkdir -p "$work"
@@ -27,41 +26,28 @@ netlist() {  # <vhdl> <name>
   grep -q dbg_st "$2_dbg.v" || { echo "the netlist has no register named st: the exposure did not apply"; exit 1; }
 }
 
-prove() {  # <netlist> <mode> <depth> <defines> <tag> -> PASS or FAIL
-  cat > "$5.sby" <<EOS
-[options]
-mode $2
-depth $3
-[engines]
-smtbmc z3
-[script]
-read_verilog -formal -sv $4 $1 $props
-prep -top props
-[files]
-$1
-$props
-EOS
-  if sby -f "$5.sby" > "$5.log" 2>&1; then echo PASS; else echo FAIL; fi
-}
-
 echo "axi_master_bridge"
 netlist "$src" bridge
-expect "safety, unbounded (k-induction)"          PASS "$(prove bridge_dbg.v prove 20 ''                      safety)"
-expect "cover: every situation is reachable"       PASS "$(prove bridge_dbg.v cover 40 '-DCOVER'                cover)"
-expect "an access is done within W clocks"         PASS "$(prove bridge_dbg.v bmc   40 "-DFAIRNESS -DW=${W:-20}" live)"
+
+# The longest proof starts first.
+start prove bridge_dbg.v bmc   40 "-DFAIRNESS -DW=${W:-20}" live
+start prove bridge_dbg.v prove 20 ''                       safety
+start prove bridge_dbg.v cover 40 '-DCOVER'                 cover
 
 # Mutants of the VHDL: each defect must make the safety proof fail.
-mutant() {  # <name> <sed expression>
-  sed "$2" "$src" > "$out/mut_$1.vhd"
-  cmp -s "$src" "$out/mut_$1.vhd" && { echo "mutant $1: the edit did not change the file"; exit 1; }
-  netlist "$out/mut_$1.vhd" "mut_$1"
-  expect "mutant $1 is caught" FAIL "$(prove "mut_$1_dbg.v" bmc 30 '' "mut_$1")"
-}
-mutant no_wait_aw   "s/o_m_bready  <= '1' when st = ST_WR and awv = '0' and wv = '0' else '0';/o_m_bready  <= '1' when st = ST_WR else '0';/"
-mutant strb_wrong   "s/strb_l  <= i_byteena;/strb_l  <= \"1111\";/"
-mutant drop_w       "s/if wv = '1' and i_m_wready = '1' then/if wv = '1' then/"
-mutant ready_pulse  "s/if i_mem_advance = '1' then/if true then/"
-mutant wlast_always "s/o_m_wlast   <= '1' when beat = last_b else '0';/o_m_wlast <= '1';/"
-mutant arlen_wrong  "s/o_m_arlen   <= \"00000011\" when last_b = 3 else \"00000000\";/o_m_arlen <= \"00000001\" when last_b = 3 else \"00000000\";/"
+start_mutant no_wait_aw   "s/o_m_bready  <= '1' when st = ST_WR and awv = '0' and wv = '0' else '0';/o_m_bready  <= '1' when st = ST_WR else '0';/"
+start_mutant strb_wrong   "s/strb_l  <= i_byteena;/strb_l  <= \"1111\";/"
+start_mutant drop_w       "s/if wv = '1' and i_m_wready = '1' then/if wv = '1' then/"
+start_mutant ready_pulse  "s/if i_mem_advance = '1' then/if true then/"
+start_mutant wlast_always "s/o_m_wlast   <= '1' when beat = last_b else '0';/o_m_wlast <= '1';/"
+start_mutant arlen_wrong  "s/o_m_arlen   <= \"00000011\" when last_b = 3 else \"00000000\";/o_m_arlen <= \"00000001\" when last_b = 3 else \"00000000\";/"
+wait
+
+expect "safety, unbounded (k-induction)"          PASS safety
+expect "cover: every situation is reachable"       PASS cover
+expect "an access is done within W clocks"         PASS live
+for m in no_wait_aw strb_wrong drop_w ready_pulse wlast_always arlen_wrong; do
+  expect "mutant $m is caught" FAIL "mut_$m"
+done
 
 [ "$fail" -eq 0 ] && echo "formal axi: all expectations met" || { echo "formal axi: FAILED (logs in build/formal_axi)"; exit 1; }
