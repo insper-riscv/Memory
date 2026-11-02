@@ -30,6 +30,7 @@ formal:
 # Every path the configuration lists exists.
 paths:
 	riscv-tools --root . check-paths --manifest paths.yaml
+	riscv-tools --root . check-tree --kind memory --only language-pairs
 
 clean:
 	rm -rf build

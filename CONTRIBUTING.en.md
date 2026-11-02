@@ -206,7 +206,7 @@ Any change to code, configuration, or documentation must pass all commands below
 ```bash
 make check  # Checks the VHDL-2008 syntax of the simulation models
 make test   # Runs the per-entity tests (cocotb + GHDL)
-make paths  # Verifies that every path listed in paths.yaml exists
+make paths  # Verifies the paths of paths.yaml and the repository tree (riscv-tools check-tree)
 ```
 
 The `python-static-analysis` CI job runs `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone`, `semgrep` and `uv audit` over the Python files, and the job name is the check the default-branch ruleset requires, so do not rename it.
