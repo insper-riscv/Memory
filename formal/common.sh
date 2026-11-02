@@ -1,9 +1,17 @@
 # Shared by the formal/*/run.sh scripts (sourced, never run). Runs SymbiYosys proofs side by side, at most
-# FORMAL_JOBS at a time (default: the number of cores, up to 8), and tells a verdict from a failure of the tool.
-# The script that sources it sets out, props, src and fail, and defines netlist <vhdl> <name>.
+# FORMAL_JOBS at a time (default: the number of cores, up to 8), with the engine chosen by FORMAL_ENGINE, tells a
+# verdict from a failure of the tool and records every result for formal/aggregate.sh.
+# The script that sources it sets block, out, props, src and fail, and defines netlist <vhdl> <name>.
 
 formal_jobs="${FORMAL_JOBS:-$(nproc)}"
 [ "$formal_jobs" -gt 8 ] && formal_jobs=8
+
+# The engine of the proofs: an SMT solver run by smtbmc, or the bounded model checker of ABC.
+engine="${FORMAL_ENGINE:-bitwuzla}"
+case "$engine" in
+  yices | bitwuzla | boolector | abc-bmc3) ;;
+  *) echo "FORMAL_ENGINE must be yices, bitwuzla, boolector or abc-bmc3, not '$engine'" >&2; exit 2 ;;
+esac
 
 # The slots are shared by the scripts that run at once: formal/all.sh exports FORMAL_SLOTS, and a script run
 # alone makes its own.
@@ -36,29 +44,33 @@ start() {
 }
 
 # prove <netlist> <mode: prove|bmc|cover> <depth> <defines> <tag>: runs sby and writes the verdict to <tag>.res,
-# PASS (exit code 0), FAIL (2, a counterexample or a goal that cannot be covered) or ERROR (any other code, such
-# as 4 unknown, 8 timeout and 16 error: the tool did not reach a verdict).
+# PASS (exit code 0), FAIL (2, a counterexample or a goal that cannot be covered), ERROR (any other code, such
+# as 4 unknown, 8 timeout and 16 error: the tool did not reach a verdict) or SKIP (the engine cannot run that
+# kind of proof: abc-bmc3 only does bounded checks), and the exit code and the seconds it took to <tag>.info.
 prove() {
-  cat > "$5.sby" << EOS
-[options]
-mode $2
-depth $3
-[engines]
-smtbmc z3
-[script]
-read_verilog -formal -sv $4 $1 $props
-prep -top props
-[files]
-$1
-$props
-EOS
-  local rc=0
+  if [ "$engine" = abc-bmc3 ] && [ "$2" != bmc ]; then
+    echo "SKIP abc-bmc3 runs only bounded checks, not mode $2" > "$5.res"
+    echo "- 0.0" > "$5.info"
+    return
+  fi
+  {
+    printf '%s\n' '[options]' "mode $2" "depth $3"
+    # ABC has no model of its own to rebuild a counterexample with, and gets the netlist as plain logic
+    if [ "$engine" = abc-bmc3 ]; then printf '%s\n' 'aigsmt none' '[engines]' 'abc bmc3'; else printf '%s\n' '[engines]' "smtbmc $engine"; fi
+    printf '%s\n' '[script]' "read_verilog -formal -sv $4 $1 $props" 'prep -top props'
+    if [ "$engine" = abc-bmc3 ]; then printf '%s\n' 'techmap' 'opt -fast' 'setundef -anyseq'; fi
+    printf '%s\n' '[files]' "$1" "$props"
+  } > "$5.sby"
+  local rc=0 t0 t1
+  t0="$(date +%s.%N)"
   sby -f "$5.sby" > "$5.log" 2>&1 || rc=$?
+  t1="$(date +%s.%N)"
   case "$rc" in
     0) echo PASS ;;
     2) echo FAIL ;;
     *) echo "ERROR sby exited with code $rc, not a verdict (see $5.log)" ;;
   esac > "$5.res.tmp"
+  awk -v rc="$rc" -v a="$t0" -v b="$t1" 'BEGIN { printf "%s %.1f\n", rc, b - a }' > "$5.info"
   mv "$5.res.tmp" "$5.res"
 }
 
@@ -76,14 +88,28 @@ mutant_run() {
 # start_mutant <name> <sed expression>: each defect must make the safety proof fail.
 start_mutant() { start mutant_run "$@"; }
 
+# json_text <text>: the text as the content of a JSON string.
+json_text() { printf '%s' "$1" | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g'; }
+
+# record <tag> <label> <wanted: pass|fail> <verdict: pass|fail|error|skip> <detail>: one line of results.jsonl, which
+# formal/aggregate.sh reads to decide, across the engines, whether the proof holds.
+record() {
+  local rc sec
+  read -r rc sec < "$out/$1.info" 2> /dev/null || { rc="-"; sec=0.0; }
+  printf '{"engine":"%s","block":"%s","tag":"%s","label":"%s","expected":"%s","verdict":"%s","rc":"%s","seconds":%s,"detail":"%s"}\n' \
+    "$engine" "$block" "$1" "$(json_text "$2")" "$3" "$4" "$rc" "$sec" "$(json_text "$5")" >> "$out/results.jsonl"
+}
+
 # expect <label> <wanted: PASS|FAIL> <tag>: compares the verdict written by prove with the wanted one. An ERROR
-# never matches, not even a wanted FAIL.
+# never matches, not even a wanted FAIL, and a SKIP is neither right nor wrong: the engine gave no answer.
 expect() {
-  local got
+  local got wanted
   got="$(cat "$out/$3.res" 2> /dev/null || echo 'ERROR no verdict was written')"
+  wanted="$(echo "$2" | tr '[:upper:]' '[:lower:]')"
   case "$got" in
-    ERROR*) printf '  ERROR %-52s %s\n' "$1" "${got#ERROR }"; fail=1 ;;
-    "$2") printf '  ok    %-52s %s\n' "$1" "$got" ;;
-    *) printf '  WRONG %-52s wanted %s, got %s\n' "$1" "$2" "$got"; fail=1 ;;
+    ERROR*) printf '  ERROR %-52s %s\n' "$1" "${got#ERROR }"; record "$3" "$1" "$wanted" error "${got#ERROR }"; fail=1 ;;
+    SKIP*) printf '  skip  %-52s %s\n' "$1" "${got#SKIP }"; record "$3" "$1" "$wanted" skip "${got#SKIP }" ;;
+    "$2") printf '  ok    %-52s %s\n' "$1" "$got"; record "$3" "$1" "$wanted" "$wanted" "" ;;
+    *) printf '  WRONG %-52s wanted %s, got %s\n' "$1" "$2" "$got"; record "$3" "$1" "$wanted" "$(echo "$got" | tr '[:upper:]' '[:lower:]')" ""; fail=1 ;;
   esac
 }

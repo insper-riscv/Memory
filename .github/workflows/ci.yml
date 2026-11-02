@@ -1,7 +1,8 @@
 name: ci
 
 # One run per commit: a pull request (a new commit cancels the run of the previous one) or a push to
-# main. The four jobs have fixed names, which a ruleset of the organization can require as checks.
+# main. The jobs vhdl-syntax, unit-tests, formal and python-static-analysis have fixed names, which a ruleset of
+# the organization can require as checks; the jobs "formal - <engine>" are not required (see formal below).
 on:
   pull_request:
   push:
@@ -105,12 +106,19 @@ jobs:
           path: "**/*.ghw"
           if-no-files-found: ignore
 
-  formal:
-    name: formal
+  formal-engine:
+    # One job by engine, each running every proof (make formal). A broken engine makes its own job fail and
+    # nothing else: the job formal below decides across the engines, and only formal is a required check,
+    # because a ruleset needs every required check to pass.
+    name: formal - ${{ matrix.engine }}
     needs: reuse
     if: ${{ needs.reuse.outputs.skip != 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 45
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        engine: [yices, bitwuzla, boolector, abc-bmc3]
     container:
       image: ghcr.io/insper-riscv/ci-vhdl:latest
 
@@ -119,26 +127,47 @@ jobs:
         with:
           submodules: true
 
-      - name: Prove every make target named formal*
-        # A repository without proofs passes with a message; the proofs join by adding a formal target.
-        run: |
-          targets=$(sed -n 's/^\(formal[a-z-]*\):.*/\1/p' Makefile)
-          if [ -z "$targets" ]; then
-            echo "This repository has no formal proofs yet."
-          fi
-          status=0
-          for target in $targets; do
-            make "$target" || status=1
-          done
-          exit $status
+      - name: Prove with the engine
+        run: make formal FORMAL_ENGINE=${{ matrix.engine }}
 
-      - name: Upload the logs
-        if: failure()
+      - name: Upload the results and the logs
+        if: ${{ always() }}
         uses: actions/upload-artifact@v7
         with:
-          name: formal-logs
-          path: build/formal/**/*.log
+          name: formal-${{ matrix.engine }}
+          path: |
+            build/formal-results/
+            build/formal/**/*.log
+            build/formal_axi/**/*.log
+            build/formal_axi_slave/**/*.log
           if-no-files-found: ignore
+
+  formal:
+    # Decides across the engines (formal/aggregate.sh): every proof needs an answer, the answers must agree and be
+    # the expected one, and an engine that failed or cannot run a kind of proof gives no answer. It runs even when
+    # an engine job failed (always): a job that is skipped would count as passed for the ruleset. When the
+    # result of the pull request is reused (reuse), the engines are skipped and so is this job.
+    name: formal
+    needs: [reuse, formal-engine]
+    if: ${{ always() && needs.reuse.outputs.skip != 'true' }}
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/download-artifact@v8
+        # with no artifact at all, the script below fails with the reason
+        continue-on-error: true
+        with:
+          pattern: formal-*
+          path: formal-results
+
+      - name: Test the aggregation
+        run: bash formal/test-aggregate.sh
+
+      - name: Decide across the engines
+        run: bash formal/aggregate.sh formal-results
 
   python-static-analysis:
     name: python-static-analysis

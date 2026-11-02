@@ -1,11 +1,12 @@
 #!/usr/bin/env bash
-# Formal verification of axi_master_bridge with SymbiYosys. Needs ghdl, yosys, sby and the z3 solver
-# (insper-riscv/Infra's toolchain image). Run from the root of the repository:
+# Formal verification of axi_master_bridge with SymbiYosys. Needs ghdl, yosys, sby and the solver of the
+# engine (FORMAL_ENGINE), all in insper-riscv/Infra's toolchain image. Run from the root of the repository:
 #   bash formal/axi_master/run.sh
 # The proofs run side by side (see formal/common.sh).
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+block=axi_master
 src="$root/external/axi/axi_master_bridge.vhd"
 props="$root/formal/axi_master/props.sv"
 out="$root/build/formal_axi"
