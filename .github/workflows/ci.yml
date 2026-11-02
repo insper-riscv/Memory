@@ -1,8 +1,8 @@
 name: ci
 
 # One run per commit: a pull request (a new commit cancels the run of the previous one) or a push to
-# main. The jobs vhdl-syntax, unit-tests, formal and python-static-analysis have fixed names, which a ruleset of the
-# organization can require as checks; the jobs "formal - <engine>" are not required (see formal below).
+# main. The jobs vhdl-syntax, unit-tests, formal and python-static-analysis have fixed names, which a ruleset of
+# the organization can require as checks; the jobs "formal - <engine>" are not required (see formal below).
 on:
   pull_request:
   push:
@@ -16,8 +16,51 @@ permissions:
   contents: read
 
 jobs:
+  # Reuses the pull request result: a push to main whose merge commit joins a head that this same
+  # workflow already passed in a run that started after the first parent (the base) existed, holds
+  # the tree that was tested, because main did not move in between; the jobs below are skipped.
+  # Any doubt (no match, API error) runs everything.
+  reuse:
+    name: reuse
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      skip: ${{ steps.lookup.outputs.skip }}
+
+    steps:
+      - name: Look for a passed pull request run of the same tree
+        id: lookup
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          SHA: ${{ github.sha }}
+          EVENT: ${{ github.event_name }}
+          WORKFLOW: ${{ github.workflow }}
+        run: |
+          skip=false
+          if [ "$EVENT" = push ]; then
+            parents=$(gh api "repos/$REPO/commits/$SHA" --jq '[.parents[].sha] | join(" ")' || true)
+            read -r base head extra <<< "$parents"
+            if [ -n "${head:-}" ] && [ -z "${extra:-}" ]; then
+              basedate=$(gh api "repos/$REPO/commits/$base" --jq '.commit.committer.date' || true)
+              export BASEDATE="${basedate:-9999}"
+              found=$(gh api "repos/$REPO/actions/runs?head_sha=$head&event=pull_request&status=success&per_page=100" \
+                --jq '[.workflow_runs[] | select(.name == $ENV.WORKFLOW and .created_at >= $ENV.BASEDATE)] | length' || echo 0)
+              if [ "${found:-0}" -gt 0 ]; then
+                skip=true
+                echo "::notice::Reusing the passed pull request run of $head over base $base."
+              fi
+            fi
+          fi
+          echo "skip=$skip" >> "$GITHUB_OUTPUT"
+
   vhdl-syntax:
     name: vhdl-syntax
+    needs: reuse
+    if: ${{ needs.reuse.outputs.skip != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     # GHDL, Yosys, SymbiYosys, z3, uv and riscv-tools of insper-riscv/Infra.
@@ -37,6 +80,8 @@ jobs:
 
   unit-tests:
     name: unit-tests
+    needs: reuse
+    if: ${{ needs.reuse.outputs.skip != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     container:
@@ -66,6 +111,8 @@ jobs:
     # nothing else: the job formal below decides across the engines, and only formal is a required check,
     # because a ruleset needs every required check to pass.
     name: formal - ${{ matrix.engine }}
+    needs: reuse
+    if: ${{ needs.reuse.outputs.skip != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
@@ -98,10 +145,11 @@ jobs:
   formal:
     # Decides across the engines (formal/aggregate.sh): every proof needs an answer, the answers must agree and be
     # the expected one, and an engine that failed or cannot run a kind of proof gives no answer. It runs even when
-    # an engine job failed (always): a job that is skipped would count as passed for the ruleset.
+    # an engine job failed (always): a job that is skipped would count as passed for the ruleset. When the
+    # result of the pull request is reused (reuse), the engines are skipped and so is this job.
     name: formal
-    needs: formal-engine
-    if: ${{ always() }}
+    needs: [reuse, formal-engine]
+    if: ${{ always() && needs.reuse.outputs.skip != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
 
@@ -123,6 +171,8 @@ jobs:
 
   python-static-analysis:
     name: python-static-analysis
+    needs: reuse
+    if: ${{ needs.reuse.outputs.skip != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 15
     # The tools that need no project environment come pinned in the image (pylint, pyright, deptry and uv audit run with `uv run` in the environment `uv sync` builds).
