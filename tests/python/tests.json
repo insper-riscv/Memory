@@ -2,6 +2,7 @@
     "RAM": {
         "toplevel": "ram_simulation",
         "sources": [
+            "Common-Components/src/utils_pkg.vhd",
             "sim/ram_simulation.vhd"
         ],
         "test_module": "tests.python.unittests.sim.ram",
@@ -17,6 +18,7 @@
     "ROM": {
         "toplevel": "rom_simulation",
         "sources": [
+            "Common-Components/src/utils_pkg.vhd",
             "sim/rom_simulation.vhd"
         ],
         "test_module": "tests.python.unittests.sim.rom",
@@ -134,6 +136,7 @@
     "DataCache": {
         "toplevel": "sdram_dcache_system",
         "sources": [
+            "Common-Components/src/utils_pkg.vhd",
             "external/sdram/sdram_pkg.vhd",
             "Common-Components/src/synchronizer.vhd",
             "external/sdram/sdram_ctrl.vhd",
@@ -159,6 +162,7 @@
     "ExtAxiBus": {
         "toplevel": "ext_axi_bus_system",
         "sources": [
+            "Common-Components/src/utils_pkg.vhd",
             "external/bus/jtag_uart.vhd",
             "external/axi/axi_master_bridge.vhd",
             "external/axi/axi_slave_word_bridge.vhd",
@@ -192,6 +196,7 @@
     "ExtAxiCache": {
         "toplevel": "ext_axi_bus_system",
         "sources": [
+            "Common-Components/src/utils_pkg.vhd",
             "external/bus/jtag_uart.vhd",
             "external/axi/axi_master_bridge.vhd",
             "external/axi/axi_slave_word_bridge.vhd",
@@ -212,6 +217,7 @@
     "DataCacheWriteThrough": {
         "toplevel": "sdram_dcache_system",
         "sources": [
+            "Common-Components/src/utils_pkg.vhd",
             "external/sdram/sdram_pkg.vhd",
             "Common-Components/src/synchronizer.vhd",
             "external/sdram/sdram_ctrl.vhd",
@@ -263,6 +269,7 @@
     "InstructionCache": {
         "toplevel": "icache",
         "sources": [
+            "Common-Components/src/utils_pkg.vhd",
             "external/cache/icache.vhd"
         ],
         "test_module": "tests.python.unittests.external.instruction_cache",
@@ -276,6 +283,7 @@
     "FlashChip": {
         "toplevel": "flash_chip",
         "sources": [
+            "Common-Components/src/utils_pkg.vhd",
             "external/cache/flash_chip.vhd"
         ],
         "test_module": "tests.python.unittests.external.flash_chip",
@@ -315,6 +323,7 @@
     "FlashPath": {
         "toplevel": "flash_path_system",
         "sources": [
+            "Common-Components/src/utils_pkg.vhd",
             "external/cache/icache.vhd",
             "external/cache/flash_chip.vhd",
             "external/cache/mem_region_router.vhd",
@@ -332,6 +341,7 @@
     "DataCacheFlash": {
         "toplevel": "dcache",
         "sources": [
+            "Common-Components/src/utils_pkg.vhd",
             "external/cache/dcache.vhd"
         ],
         "test_module": "tests.python.unittests.external.data_cache_flash",
@@ -359,5 +369,71 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "InstructionCacheSmall": {
+        "toplevel": "icache",
+        "sources": [
+            "Common-Components/src/utils_pkg.vhd",
+            "external/cache/icache.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.instruction_cache_small",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "SIZE_BITS": 4096
+        }
+    },
+    "DataCacheSmall": {
+        "toplevel": "dcache",
+        "sources": [
+            "Common-Components/src/utils_pkg.vhd",
+            "external/cache/dcache.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.data_cache_small",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "WRITE_THROUGH": true,
+            "SIZE_BITS": 4096
+        }
+    },
+    "RamChip": {
+        "toplevel": "ram_chip",
+        "sources": [
+            "Common-Components/src/utils_pkg.vhd",
+            "external/cache/ram_chip.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.ram_chip",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "RamChipSmall": {
+        "toplevel": "ram_chip",
+        "sources": [
+            "Common-Components/src/utils_pkg.vhd",
+            "external/cache/ram_chip.vhd"
+        ],
+        "test_module": "tests.python.unittests.external.ram_chip_small",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "SIZE_BYTES": 4096
+        }
     }
 }

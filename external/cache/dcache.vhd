@@ -49,9 +49,12 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.utils_pkg.all;
 
 entity dcache is
   generic (
+    -- Tamanho da cache em bits, uma potência de dois de pelo menos 256 (duas linhas de 128 bits): 32768 é 4 KB e 4096 é 4 kbit.
+    size_bits     : positive := 32768;
     -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória.
     base_sdram    : std_logic_vector(5 downto 0) := "010000";
     -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
@@ -135,22 +138,38 @@ architecture rtl of dcache is
   -- Estado atual da cache.
   signal st : state_t := S_IDLE;
 
-  -- Memória de dados: 1024 palavras, quatro por linha.
-  type lane_t is array (0 to 1023) of std_logic_vector(7 downto 0);
-  -- Memória de tags: uma tag de 14 bits por linha.
-  type tag_t  is array (0 to 255) of std_logic_vector(14 downto 0);
+  -- Bits do índice da linha: o tamanho em bits dividido pelos 128 bits de uma linha, em logaritmo exato (falha se o tamanho não for uma potência de dois).
+  function index_bits_of (bits : positive) return natural is
+  begin
+    assert bits >= 256 report "size_bits must hold at least two lines of 128 bits" severity failure;
+    return log2_exact(bits) - 7;
+  end function index_bits_of;
+
+  -- Bits do índice da linha.
+  constant INDEX_BITS : natural := index_bits_of(size_bits);
+  -- Linhas da cache.
+  constant LINES    : natural := 2 ** INDEX_BITS;
+  -- Bits da tag: a região (bit 29) e os bits 25 até INDEX_BITS + 4.
+  constant TAG_BITS : natural := 23 - INDEX_BITS;
+  -- Primeiro bit da tag no endereço, logo acima do índice e do deslocamento dentro da linha.
+  constant TAG_LOW  : natural := INDEX_BITS + 4;
+
+  -- Memória de dados: quatro palavras por linha, um byte por faixa.
+  type lane_t is array (0 to 4 * LINES - 1) of std_logic_vector(7 downto 0);
+  -- Memória de tags: uma tag por linha.
+  type tag_t  is array (0 to LINES - 1) of std_logic_vector(TAG_BITS - 1 downto 0);
   -- Palavras das 256 linhas.
   -- Tag de cada linha.
   signal tag_ram  : tag_t  := (others => (others => '0'));
   -- Bit de validade de cada linha.
-  signal valid    : std_logic_vector(255 downto 0) := (others => '0');
+  signal valid    : std_logic_vector(LINES - 1 downto 0) := (others => '0');
   -- Bit de linha suja: a linha difere da memória.
-  signal dirty    : std_logic_vector(255 downto 0) := (others => '0');
+  signal dirty    : std_logic_vector(LINES - 1 downto 0) := (others => '0');
 
   -- Endereço de leitura da memória de dados.
-  signal ram_ra : std_logic_vector(9 downto 0);
+  signal ram_ra : std_logic_vector(INDEX_BITS + 1 downto 0);
   -- Endereço de escrita da memória de dados.
-  signal ram_wa : std_logic_vector(9 downto 0);
+  signal ram_wa : std_logic_vector(INDEX_BITS + 1 downto 0);
   -- Palavra lida da memória de dados (leitura registrada).
   signal ram_rd : std_logic_vector(31 downto 0);
   -- Dado de escrita da memória de dados.
@@ -160,22 +179,22 @@ architecture rtl of dcache is
   -- Habilita de escrita da memória de dados.
   signal ram_we         : std_logic;
   -- Endereço de leitura da memória de tags.
-  signal tag_ra : std_logic_vector(7 downto 0);
+  signal tag_ra : std_logic_vector(INDEX_BITS - 1 downto 0);
   -- Endereço de escrita da memória de tags.
-  signal tag_wa : std_logic_vector(7 downto 0);
+  signal tag_wa : std_logic_vector(INDEX_BITS - 1 downto 0);
   -- Tag lida da memória de tags (leitura registrada).
-  signal tag_rd : std_logic_vector(14 downto 0);
+  signal tag_rd : std_logic_vector(TAG_BITS - 1 downto 0);
   -- Tag a escrever.
-  signal tag_wd : std_logic_vector(14 downto 0);
+  signal tag_wd : std_logic_vector(TAG_BITS - 1 downto 0);
   -- Habilita de escrita da memória de tags.
   signal tag_we         : std_logic;
 
   -- Tag do endereço do acesso.
-  signal req_tag  : std_logic_vector(14 downto 0);
+  signal req_tag  : std_logic_vector(TAG_BITS - 1 downto 0);
   -- Índice da linha do endereço do acesso.
-  signal req_idx  : std_logic_vector(7 downto 0);
+  signal req_idx  : std_logic_vector(INDEX_BITS - 1 downto 0);
   -- Linha em processamento.
-  signal cur_idx  : std_logic_vector(7 downto 0);
+  signal cur_idx  : std_logic_vector(INDEX_BITS - 1 downto 0);
   -- Palavra da linha em preenchimento.
   signal cnt      : unsigned(1 downto 0) := (others => '0');
   -- Um flush está em andamento.
@@ -187,7 +206,7 @@ architecture rtl of dcache is
   -- O invalidate está em execução junto com o flush.
   signal inv_run : std_logic := '0';
   -- Linha varrida pelo flush.
-  signal f_idx    : unsigned(7 downto 0) := (others => '0');
+  signal f_idx    : unsigned(INDEX_BITS - 1 downto 0) := (others => '0');
   -- A instrução pedida está na cache.
   signal hit      : std_logic;
 
@@ -216,18 +235,18 @@ architecture rtl of dcache is
 
 begin
 
-  req_tag <= i_addr(29) & i_addr(25 downto 12);
-  req_idx <= i_addr(11 downto 4);
+  req_tag <= i_addr(29) & i_addr(25 downto TAG_LOW);
+  req_idx <= i_addr(INDEX_BITS + 3 downto 4);
   cur_idx <= std_logic_vector(f_idx) when flushing = '1' else req_idx;
   hit     <= valid(to_integer(unsigned(cur_idx))) when tag_rd = req_tag else '0';
 
   -- endereços de leitura: a palavra do acesso enquanto é consultada, a palavra em movimento nos outros casos
-  ram_ra <= i_addr(11 downto 2) when (st = S_IDLE or st = S_LOOK) else cur_idx & std_logic_vector(cnt);
+  ram_ra <= i_addr(INDEX_BITS + 3 downto 2) when (st = S_IDLE or st = S_LOOK) else cur_idx & std_logic_vector(cnt);
   tag_ra <= cur_idx;
 
   -- porta de escrita: um acerto escreve a palavra, um preenchimento escreve a palavra que chegou
   ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1' and i_addr(29) = '0' and i_bypass = '0') or st = S_FILL_GET else '0';
-  ram_wa <= i_addr(11 downto 2) when st = S_LOOK else req_idx & std_logic_vector(cnt);
+  ram_wa <= i_addr(INDEX_BITS + 3 downto 2) when st = S_LOOK else req_idx & std_logic_vector(cnt);
   fill_w <= i_d_rdata when cnt = "00" else
             i_d_rdata_x(31 downto 0)  when cnt = "01" else
             i_d_rdata_x(63 downto 32) when cnt = "10" else
@@ -282,7 +301,7 @@ begin
 
   process (i_clk)
     -- Índice de linha usado no processo.
-    variable ci : integer range 0 to 255;
+    variable ci : integer range 0 to LINES - 1;
   begin
     if rising_edge(i_clk) then
       fd_i <= '0';
@@ -402,10 +421,10 @@ begin
             end if;
 
           when S_WB_REQ =>
-            if tag_rd(14) = '1' then
-              d_addr_i <= base_flash & tag_rd(13 downto 0) & cur_idx & "0000";
+            if tag_rd(TAG_BITS - 1) = '1' then
+              d_addr_i <= base_flash & tag_rd(TAG_BITS - 2 downto 0) & cur_idx & "0000";
             else
-              d_addr_i <= base_sdram & tag_rd(13 downto 0) & cur_idx & "0000";
+              d_addr_i <= base_sdram & tag_rd(TAG_BITS - 2 downto 0) & cur_idx & "0000";
             end if;
             d_wdata_i <= wb_q(31 downto 0);
             d_line_i  <= '1';
@@ -428,9 +447,9 @@ begin
           -- traz a linha: um pedido de linha e depois as palavras para a RAM
           when S_FILL_REQ =>
             if req_tag(14) = '1' then
-              d_addr_i <= base_flash & req_tag(13 downto 0) & req_idx & "0000";
+              d_addr_i <= base_flash & req_tag(TAG_BITS - 2 downto 0) & req_idx & "0000";
             else
-              d_addr_i <= base_sdram & req_tag(13 downto 0) & req_idx & "0000";
+              d_addr_i <= base_sdram & req_tag(TAG_BITS - 2 downto 0) & req_idx & "0000";
             end if;
             d_line_i <= '1';
             d_rden_i <= '1';
@@ -467,7 +486,7 @@ begin
             end if;
 
           when S_FL_NEXT =>
-            if f_idx = 255 then
+            if f_idx = LINES - 1 then
               flushing <= '0';
               fd_i     <= '1';
               if inv_run = '1' then

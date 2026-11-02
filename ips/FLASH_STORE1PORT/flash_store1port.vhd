@@ -26,10 +26,18 @@ USE ieee.std_logic_1164.all;
 LIBRARY altera_mf;
 USE altera_mf.altera_mf_components.all;
 
+LIBRARY work;
+USE work.utils_pkg.all;
+
 ENTITY flash_store1port IS
+	GENERIC
+	(
+		-- Tamanho da memória em bytes, uma potência de dois: é o que ela ocupa na FPGA.
+		size_bytes : POSITIVE := 262144
+	);
 	PORT
 	(
-		address		: IN STD_LOGIC_VECTOR (15 DOWNTO 0);
+		address		: IN STD_LOGIC_VECTOR (log2_exact(size_bytes) - 3 DOWNTO 0);
 		clock		: IN STD_LOGIC  := '1';
 		rden		: IN STD_LOGIC  := '1';
 		wren		: IN STD_LOGIC  := '0';
@@ -54,12 +62,12 @@ BEGIN
 		intended_device_family => "Cyclone V",
 		lpm_hint => "ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME=FLASH",
 		lpm_type => "altsyncram",
-		numwords_a => 33792,
+		numwords_a => size_bytes / 4,
 		operation_mode => "SINGLE_PORT",
 		outdata_aclr_a => "NONE",
 		outdata_reg_a => "UNREGISTERED",
 		read_during_write_mode_port_a => "NEW_DATA_NO_NBE_READ",
-		widthad_a => 16,
+		widthad_a => log2_exact(size_bytes) - 2,
 		width_a => 32,
 		width_byteena_a => 1
 	)

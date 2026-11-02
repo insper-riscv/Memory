@@ -11,6 +11,7 @@ library IEEE;
 use IEEE.std_logic_1164.all;
 use ieee.numeric_std.all;
 use ieee.std_logic_textio.all;
+use work.utils_pkg.all;
 use std.textio.all;
 
 entity ram_simulation is
@@ -19,8 +20,8 @@ entity ram_simulation is
     data_width: natural := 32;
     -- Largura do endereço em bits.
     addr_width: natural := 30;
-    -- Log2 do número de palavras da RAM (9: 512 palavras de 32 bits).
-    memory_addr_width: natural := 9;
+    -- Tamanho da memória em bytes, uma potência de dois (2048 são 512 palavras de 32 bits).
+    size_bytes: positive := 2048;
     -- Arquivo com o conteúdo inicial, uma palavra de 32 bits por linha em hexadecimal (vazio: RAM zerada).
     ram_file: string := ""
   );
@@ -45,20 +46,23 @@ entity ram_simulation is
 end entity;
 
 architecture rtl of ram_simulation is
+
+  -- Bits de endereço das palavras da memória (falha se size_bytes não for uma potência de dois).
+  constant MEMORY_ADDR_WIDTH : natural := log2_exact(size_bytes) - 2;
   -- Vetor de palavras de 32 bits da RAM.
-  type mem_t is array(0 to 2**memory_addr_width - 1) of std_logic_vector(31 downto 0);
+  type mem_t is array(0 to 2**MEMORY_ADDR_WIDTH - 1) of std_logic_vector(31 downto 0);
   -- Conteúdo da RAM.
   signal mem : mem_t := (others => (others => '0'));
 
   -- Índice da palavra, os bits baixos do endereço.
-  signal widx : std_logic_vector(memory_addr_width-1 downto 0):= (others => '0');
+  signal widx : std_logic_vector(MEMORY_ADDR_WIDTH-1 downto 0):= (others => '0');
 
   -- Registrador de saída do dado lido.
   signal data_out_reg : std_logic_vector(31 downto 0) := (others => '0');
 
 begin
-  -- O índice da palavra são os memory_addr_width bits baixos do endereço, de modo que toda a faixa do vetor é acessível.
-  widx <= i_addr(memory_addr_width - 1 downto 0);
+  -- O índice da palavra são os MEMORY_ADDR_WIDTH bits baixos do endereço, de modo que toda a faixa do vetor é acessível.
+  widx <= i_addr(MEMORY_ADDR_WIDTH - 1 downto 0);
 
   -- O mesmo processo carrega a imagem inicial e depois escreve o vetor, então
   -- o vetor tem um único driver. A imagem passa pelo sinal, não por

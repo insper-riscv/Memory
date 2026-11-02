@@ -21,14 +21,15 @@
 -- de palavra (i_line = '0') devolve só a palavra de i_addr em o_rdata. Stores não
 -- chegam aqui: a FLASH ignora escritas do core.
 --
--- Janela: o chip ocupa 2^window_bits bytes. Um pedido cujos bits 25:window_bits
--- não são todos zero está fora da janela e captura zero em todas as palavras, sem
+-- Janela: o chip ocupa size_bytes bytes, uma potência de dois. Um pedido cujos bits 25 até
+-- o fim do tamanho não são todos zero está fora da janela e captura zero em todas as palavras, sem
 -- que o armazenamento importe.
 -- =============================================================================
 
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.utils_pkg.all;
 
 entity flash_chip is
   generic (
@@ -36,8 +37,8 @@ entity flash_chip is
     first_latency : natural := 24;
     -- Bordas entre duas palavras seguidas da mesma linha (mínimo 2).
     next_latency  : natural := 4;
-    -- Tamanho da janela do chip, em bits de endereço (20 = 1 MB).
-    window_bits   : natural := 20
+    -- Tamanho do chip em bytes, uma potência de dois de 16 bytes a 32 MB (1048576 é 1 MB).
+    size_bytes    : positive := 1048576
   );
   port (
     -- Clock do módulo.
@@ -70,6 +71,9 @@ entity flash_chip is
 end entity flash_chip;
 
 architecture rtl of flash_chip is
+
+  -- Bits de endereço da janela do chip (falha se size_bytes não for uma potência de dois).
+  constant WINDOW_BITS : natural := log2_exact(size_bytes);
 
   -- Estados do chip: livre, esperando a palavra, pedido concluído.
   type state_t is (S_IDLE, S_WAIT, S_DONE);
@@ -121,7 +125,7 @@ begin
                 next_base := unsigned(i_addr(31 downto 2)) & "00";
                 last_w    <= 0;
               end if;
-              if unsigned(next_base(25 downto window_bits)) /= 0 then
+              if unsigned(next_base(25 downto WINDOW_BITS)) /= 0 then
                 out_win <= '1';
               else
                 out_win <= '0';

@@ -1,7 +1,8 @@
 -- =============================================================================
 -- Cache de instruções do core
 --
--- 4 KB, mapeamento direto, linhas de 16 bytes (quatro palavras), somente leitura.
+-- Mapeamento direto, linhas de 16 bytes (quatro palavras), somente leitura. O tamanho é o genérico
+-- size_bits, uma potência de dois: 32768 bits (4 KB, 256 linhas) por padrão e 4096 bits (4 kbit, 32 linhas).
 -- Fica no caminho de busca dos endereços da SDRAM (0x40000000) e da FLASH
 -- (0x20000000); a BOOT_ROM não passa por ela. A tag leva o bit 29 do endereço,
 -- que distingue as duas regiões: sem ele, uma linha da FLASH e uma da SDRAM com os
@@ -39,16 +40,20 @@
 -- busca.
 --
 -- Divisão do endereço (64 MB por região): bit 29 região (1 = FLASH), bits 25:12
--- tag, 11:4 linha, 3:2 palavra. Os demais bits acima de 25 não são guardados; o
+-- tag, 11:4 linha, 3:2 palavra (com 256 linhas; o índice ocupa log2 do número de linhas bits a partir do
+-- bit 4 e a tag o que sobra até o bit 25). Os demais bits acima de 25 não são guardados; o
 -- lado da memória acrescenta a base da região neles (base_flash ou base_sdram).
 -- =============================================================================
 
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.utils_pkg.all;
 
 entity icache is
   generic (
+    -- Tamanho da cache em bits, uma potência de dois de pelo menos 256 (duas linhas de 128 bits): 32768 é 4 KB e 4096 é 4 kbit.
+    size_bits  : positive := 32768;
     -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória.
     base_sdram : std_logic_vector(5 downto 0) := "010000";
     -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
@@ -100,21 +105,37 @@ architecture rtl of icache is
   -- Estado atual da cache.
   signal st : state_t := S_IDLE;
 
-  -- Memória de dados: 1024 palavras, quatro por linha.
-  type data_t is array (0 to 1023) of std_logic_vector(31 downto 0);
-  -- Memória de tags: uma tag de 15 bits por linha (região e bits 25:12).
-  type tag_t  is array (0 to 255) of std_logic_vector(14 downto 0);
-  -- Palavras das 256 linhas.
+  -- Bits do índice da linha: o tamanho em bits dividido pelos 128 bits de uma linha, em logaritmo exato (falha se o tamanho não for uma potência de dois).
+  function index_bits_of (bits : positive) return natural is
+  begin
+    assert bits >= 256 report "size_bits must hold at least two lines of 128 bits" severity failure;
+    return log2_exact(bits) - 7;
+  end function index_bits_of;
+
+  -- Bits do índice da linha.
+  constant INDEX_BITS : natural := index_bits_of(size_bits);
+  -- Linhas da cache.
+  constant LINES    : natural := 2 ** INDEX_BITS;
+  -- Bits da tag: a região (bit 29) e os bits 25 até INDEX_BITS + 4.
+  constant TAG_BITS : natural := 23 - INDEX_BITS;
+  -- Primeiro bit da tag no endereço, logo acima do índice e do deslocamento dentro da linha.
+  constant TAG_LOW  : natural := INDEX_BITS + 4;
+
+  -- Memória de dados: quatro palavras por linha.
+  type data_t is array (0 to 4 * LINES - 1) of std_logic_vector(31 downto 0);
+  -- Memória de tags: uma tag por linha (região e bits 25 até o fim do índice).
+  type tag_t  is array (0 to LINES - 1) of std_logic_vector(TAG_BITS - 1 downto 0);
+  -- Palavras das linhas.
   signal data_ram : data_t := (others => (others => '0'));
   -- Tag de cada linha.
   signal tag_ram  : tag_t  := (others => (others => '0'));
   -- Bit de validade de cada linha.
-  signal valid    : std_logic_vector(255 downto 0) := (others => '0');
+  signal valid    : std_logic_vector(LINES - 1 downto 0) := (others => '0');
 
   -- Palavra lida da memória de dados (leitura registrada).
   signal ram_rd   : std_logic_vector(31 downto 0) := (others => '0');
   -- Tag lida da memória de tags (leitura registrada).
-  signal tag_rd   : std_logic_vector(14 downto 0) := (others => '0');
+  signal tag_rd   : std_logic_vector(TAG_BITS - 1 downto 0) := (others => '0');
   -- Validade da linha lida (registrada).
   signal valid_rd : std_logic := '0';
   -- Endereço que estava em addr na última borda.
@@ -128,9 +149,9 @@ architecture rtl of icache is
   signal hit       : std_logic;
 
   -- Tag da linha em preenchimento.
-  signal fill_tag : std_logic_vector(14 downto 0);
+  signal fill_tag : std_logic_vector(TAG_BITS - 1 downto 0);
   -- Índice da linha em preenchimento.
-  signal fill_idx : std_logic_vector(7 downto 0);
+  signal fill_idx : std_logic_vector(INDEX_BITS - 1 downto 0);
   -- Palavra da linha em preenchimento.
   signal cnt      : unsigned(1 downto 0) := (others => '0');
   -- Um invalidate chegou durante o preenchimento, a linha será descartada.
@@ -142,7 +163,7 @@ architecture rtl of icache is
   -- Habilita de escrita da memória de tags.
   signal tag_we : std_logic;
   -- Endereço de escrita da memória de dados.
-  signal ram_wa : std_logic_vector(9 downto 0);
+  signal ram_wa : std_logic_vector(INDEX_BITS + 1 downto 0);
   -- Pedido de leitura ao lado da memória (registrado).
   signal d_rden_i : std_logic := '0';
   -- Pedido de linha ao lado da memória (registrado).
@@ -152,7 +173,7 @@ architecture rtl of icache is
 
 begin
 
-  tag_match <= '1' when tag_rd = (addr_q(29) & addr_q(25 downto 12)) else '0';
+  tag_match <= '1' when tag_rd = (addr_q(29) & addr_q(25 downto TAG_LOW)) else '0';
   hit       <= sel_q and valid_rd and tag_match;
   o_ready     <= hit when addr_q = i_addr else '0';
   o_data      <= ram_rd;
@@ -168,9 +189,9 @@ begin
   process (i_clk)
   begin
     if rising_edge(i_clk) then
-      ram_rd   <= data_ram(to_integer(unsigned(i_addr(11 downto 2))));
-      tag_rd   <= tag_ram(to_integer(unsigned(i_addr(11 downto 4))));
-      valid_rd <= valid(to_integer(unsigned(i_addr(11 downto 4))));
+      ram_rd   <= data_ram(to_integer(unsigned(i_addr(INDEX_BITS + 3 downto 2))));
+      tag_rd   <= tag_ram(to_integer(unsigned(i_addr(INDEX_BITS + 3 downto 4))));
+      valid_rd <= valid(to_integer(unsigned(i_addr(INDEX_BITS + 3 downto 4))));
       addr_q   <= i_addr;
       sel_q    <= i_sel;
       if ram_we = '1' then
@@ -212,16 +233,16 @@ begin
             drop <= '0';
             -- uma falha do endereço que ainda está em addr: traz a sua linha
             if sel_q = '1' and hit = '0' and addr_q = i_addr and i_invalidate = '0' then
-              fill_tag <= addr_q(29) & addr_q(25 downto 12);
-              fill_idx <= addr_q(11 downto 4);
+              fill_tag <= addr_q(29) & addr_q(25 downto TAG_LOW);
+              fill_idx <= addr_q(INDEX_BITS + 3 downto 4);
               st       <= S_FILL_REQ;
             end if;
 
           when S_FILL_REQ =>
-            if fill_tag(14) = '1' then
-              d_addr_i <= base_flash & fill_tag(13 downto 0) & fill_idx & "0000";
+            if fill_tag(TAG_BITS - 1) = '1' then
+              d_addr_i <= base_flash & fill_tag(TAG_BITS - 2 downto 0) & fill_idx & "0000";
             else
-              d_addr_i <= base_sdram & fill_tag(13 downto 0) & fill_idx & "0000";
+              d_addr_i <= base_sdram & fill_tag(TAG_BITS - 2 downto 0) & fill_idx & "0000";
             end if;
             d_line_i <= '1';
             d_rden_i <= '1';
