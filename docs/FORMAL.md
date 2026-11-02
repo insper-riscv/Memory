@@ -10,7 +10,7 @@ Three masters send requests to one controller: A (the core's data bridge, on ano
 
 1. GHDL synthesizes the VHDL into a Verilog netlist (`ghdl --synth --out=verilog`).
 2. Yosys reads the netlist together with the properties, written in SystemVerilog around it.
-3. SymbiYosys runs the SMT solver `z3` on the result.
+3. SymbiYosys runs an engine on the result: an SMT solver (`yices`, `bitwuzla` or `boolector`, through `smtbmc`) or the bounded model checker of ABC (`abc bmc3`). Section 9 says what each engine runs and how the CI decides across them.
 
 A copy of the netlist exposes nine internal registers (the state, the served master and the last served master, as two flags each, and the latched toggle and the synchronizer of A and of I) as outputs. The logic is the same; the registers let the proof state invariants of the arbiter, which the induction needs to rule out states that cannot occur.
 
@@ -54,11 +54,13 @@ The proof by induction has no depth limit. The bounded check covers every run of
 ## 7. Running
 
 ```bash
-bash formal/run.sh   # the arbiter alone
-make formal          # the arbiter and the AXI master and slave bridges, at once
+bash formal/run.sh                         # the arbiter alone
+make formal                                # the arbiter and the AXI master and slave bridges, at once
+make formal FORMAL_ENGINE=yices            # the same, with another engine
+bash formal/test-aggregate.sh              # the tests of the aggregation of section 9
 ```
 
-It needs `ghdl`, `yosys`, `sby` and `z3`, all in the toolchain image of insper-riscv/Infra. The script exits with a failure when any expectation of section 5 changes, including a check that should fail and passes.
+It needs `ghdl`, `yosys`, `sby` and the solver of the engine, all in the toolchain image of insper-riscv/Infra. The script exits with a failure when any expectation of section 5 changes, including a check that should fail and passes.
 
 ## 8. Parallel execution and verdicts
 
@@ -73,3 +75,23 @@ SymbiYosys ends with a code that tells a verdict from a failure of the tool:
 | any other | the tool reached no verdict (4 unknown, 8 timeout, 16 error) | ERROR |
 
 An expected FAIL only holds for the code 2. An ERROR fails the run with the exit code and the log of the proof, so a broken solver or netlist is never taken for a defect that was caught.
+
+## 9. Engines and the decision across them
+
+`FORMAL_ENGINE` chooses what runs the proofs (default `bitwuzla`). The proofs, the depths and the properties are the same for every engine.
+
+| Engine | What it runs | Proofs it does not run |
+| :--- | :--- | :--- |
+| `yices`, `bitwuzla`, `boolector` | an SMT solver, through the `smtbmc` engine of SymbiYosys | none |
+| `abc-bmc3` | the bounded model checker of ABC, with no SMT solver; the netlist goes to it as plain logic, with the undefined values as free inputs | the covers and the proofs by induction, which end as a skip |
+
+Each run writes one line per check to `build/formal-results/result-<engine>.jsonl`, with the proof, the expected result, the verdict (pass, fail, error or skip), the exit code and the seconds. The script `formal/aggregate.sh` reads the files of all the engines and decides each proof. An error (the tool reached no verdict) and a skip are no answer.
+
+| Answers of the engines to a proof | Result |
+| :--- | :--- |
+| at least one, all equal and equal to the expected result | ok |
+| one pass and one fail | DISAGREEMENT |
+| all equal, but different from the expected result | WRONG |
+| none (only errors and skips) | NO ANSWER |
+
+Every proof must be ok, so a broken engine does not stop the others from deciding, and a counterexample found by one engine is never hidden by the pass of another. The table of proofs by engine goes to the summary of the job. In the CI, the jobs `formal - <engine>` run the engines and the job `formal` aggregates their results; only `formal` is a required check, because a required check needs every one of its jobs to pass, which would make a single broken engine block the pull requests.
