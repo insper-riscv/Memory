@@ -10,6 +10,13 @@ Memórias do SoC RISC-V RV32: os blocos de memória que o núcleo lê e escreve.
 - [CONTRIBUTING.md](CONTRIBUTING.md): regras obrigatórias de contribuição, norma VHDL-2008, nomenclatura, cabeçalhos, normas Python e verificação antes de abrir Pull Request.
 - [CITATION.cff](CITATION.cff): metadados para citação do software.
 - [contracts/02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md): protocolo de barramento e de memória compartilhado por todas as famílias.
+- [contrato-de-memoria.md](docs/pt-br/contracts/contrato-de-memoria.md): contrato de uma memória (pinos, tempo, clock e palavra de largura diferente da do core).
+- Documentação por componente, uma por bloco, em português (`docs/pt-br/`) e em inglês (`docs/en/`), agrupada por tipo.
+  - `docs/pt-br/cache/` (caches e roteamento de região): [dcache](docs/pt-br/cache/dcache.md), [icache](docs/pt-br/cache/icache.md), [mem_region_router](docs/pt-br/cache/mem_region_router.md), [flash_arbiter](docs/pt-br/cache/flash_arbiter.md).
+  - `docs/pt-br/ram/` (SDRAM, RAM externa e RAM interna): [sdram_ctrl](docs/pt-br/ram/sdram_ctrl.md), [sdram_arbiter](docs/pt-br/ram/sdram_arbiter.md), [sdram_cpu_bridge](docs/pt-br/ram/sdram_cpu_bridge.md), [sdram_pkg](docs/pt-br/ram/sdram_pkg.md), [sdram_model](docs/pt-br/ram/sdram_model.md), [sdram_bist](docs/pt-br/ram/sdram_bist.md), [sdram_dbg_master](docs/pt-br/ram/sdram_dbg_master.md), [sdram_jtag_core](docs/pt-br/ram/sdram_jtag_core.md), [ram_chip](docs/pt-br/ram/ram_chip.md), [ram1port](docs/pt-br/ram/ram1port.md), [ram_simulation](docs/pt-br/ram/ram_simulation.md).
+  - `docs/pt-br/rom/` (FLASH, BOOT_ROM e modelo da ROM): [flash_chip](docs/pt-br/rom/flash_chip.md), [boot_rom1port](docs/pt-br/rom/boot_rom1port.md), [flash1port](docs/pt-br/rom/flash1port.md), [flash_mem1port](docs/pt-br/rom/flash_mem1port.md), [flash_store1port](docs/pt-br/rom/flash_store1port.md), [rom_simulation](docs/pt-br/rom/rom_simulation.md).
+  - `docs/pt-br/barramento/` (pontes AXI4): [axi_master_bridge](docs/pt-br/barramento/axi_master_bridge.md), [axi_slave_word_bridge](docs/pt-br/barramento/axi_slave_word_bridge.md).
+- Os documentos de projeto de `docs/` (DCACHE_AXI, EXTERNAL_BUS, FORMAL, SDRAM_* e `bugs/`) descrevem o sistema e as decisões, e os documentos por componente linkam para eles.
 
 ## 2. Estrutura do Repositório
 

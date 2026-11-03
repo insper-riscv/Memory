@@ -2,5 +2,5 @@
 #   riscv-tools --root . check-paths --manifest paths.yaml
 references:
   - {name: per-entity tests.json, file: tests/python/tests.json, yaml: "*.sources", base: .}
-  - {name: Quartus IP files, paths: [src/rom/cyclone-v/boot_rom1port.qip, src/rom/cyclone-v/flash1port.qip, src/rom/cyclone-v/flash_mem1port.qip, src/ram/cyclone-v/ram1port.qip]}
+  - {name: Quartus IP files, paths: [src/rom/cyclone-v/boot_rom1port.qip, src/rom/cyclone-v/flash1port.qip, src/rom/cyclone-v/flash_mem1port.qip, src/rom/cyclone-v/flash_store1port.qip, src/ram/cyclone-v/ram1port.qip]}
   - {name: entry points, paths: [tests/python/runner.py, src/cache/soc, src/ram/soc, src/rom/soc, src/barramento/soc, formal/all.sh, formal/common.sh, formal/aggregate.sh, formal/test-aggregate.sh, formal/run.sh, formal/sdram_arbiter/props.sv, formal/axi_master/run.sh, formal/axi_master/props.sv, formal/axi_slave/run.sh, formal/axi_slave/props.sv]}
