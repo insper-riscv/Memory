@@ -1,18 +1,13 @@
--- BOOT_ROM: the fixed, generic bootloader's own memory. Programmed
--- ONCE (initial full Quartus compile, init_file "./boot_rom_init.mif"
--- -- built from tools/riscv_build/boot_rom.S/boot_rom.ld), never
--- JTAG-rewritten per test -- only FLASH (ips/FLASH1PORT/flash1port.vhd)
--- gets that treatment. See rv32im_pipeline_core.vhd's
--- BOOT_ROM_SIZE_BYTES / config.yaml memory.boot_rom_words -- both
--- must agree with numwords_a/widthad_a below (2K = 512 words, 9
--- bits).
---
--- Formerly "ROM1PORT" (this same recipe held the WHOLE combined
--- text+data image before the BOOT_ROM/FLASH/RAM split) -- renamed to
--- make its now-narrower, fixed role explicit. ENABLE_RUNTIME_MOD is
--- kept for consistency/JTAG In-System Memory Content Editor
--- compatibility even though nothing JTAG-rewrites this in normal
--- operation.
+-- ============================================================================
+-- Memória da BOOT_ROM (IP altsyncram de uma porta, 2 KB por padrão)
+-- ============================================================================
+-- Memória do carregador de partida, fixo e genérico. É gravada uma vez, na
+-- compilação completa do Quartus, com o init_file "./boot_rom_init.mif", e
+-- não tem acesso pela JTAG: o IP não declara ENABLE_RUNTIME_MOD, então o
+-- In-System Memory Content Editor não a enxerga, e só a FLASH é regravada a
+-- cada teste. O tamanho precisa concordar com o da BOOT_ROM no core e no
+-- config.yaml da plataforma (2 KB são 512 palavras e 9 bits de endereço).
+-- ============================================================================
 LIBRARY ieee;
 USE ieee.std_logic_1164.all;
 
@@ -53,7 +48,6 @@ BEGIN
 		clock_enable_output_a => "BYPASS",
 		init_file => "./boot_rom_init.mif",
 		intended_device_family => "Cyclone V",
-		lpm_hint => "ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME=BOOT_ROM",
 		lpm_type => "altsyncram",
 		numwords_a => size_bytes / 4,
 		operation_mode => "SINGLE_PORT",
