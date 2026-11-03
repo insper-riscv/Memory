@@ -4,7 +4,7 @@
 
 Ponte entre o estágio de memória do núcleo, no clock do núcleo, e o pedido por alternância do controlador da SDRAM, em outro clock. A ponte recebe um acesso de palavra ou de linha, guarda os campos num registrador, pede o acesso por uma inversão de toggle e devolve ao núcleo um sinal de pronto que permanece em nível alto até o pipeline avançar. O dado lido só muda na borda em que o pipeline avança, porque o load que ainda está no estágio de write-back lê o valor anterior até lá.
 
-A mesma ponte serve ao caminho de dados e ao de instruções, em duas instâncias. O acesso de linha move as quatro palavras de uma linha de cache, como descrito em [SDRAM_LINE.md](../../SDRAM_LINE.md). A seleção de bytes de um load e a geração das habilitações de um store acontecem no núcleo, como explica [SDRAM_SUBWORD_READ.md](../../SDRAM_SUBWORD_READ.md).
+A mesma ponte serve ao caminho de dados e ao de instruções, em duas instâncias. O acesso de linha move as quatro palavras de uma linha de cache, como descrito em [sdram_line.md](sdram_line.md). A seleção de bytes de um load e a geração das habilitações de um store acontecem no núcleo, como explica [sdram_subword_read.md](sdram_subword_read.md).
 
 ## 2. Interface
 

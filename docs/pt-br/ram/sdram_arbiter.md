@@ -4,7 +4,7 @@
 
 Árbitro de três mestres que compartilham a interface de pedido do controlador da SDRAM. Os mestres são a ponte de dados do núcleo (A), a ponte de instruções do núcleo (I) e o mestre da porta de depuração (B). O árbitro atende um pedido por vez, repassa os campos do pedido ao controlador e devolve ao mestre o dado lido e a confirmação. Com vários mestres esperando, eles se revezam, e nenhum espera mais de um acesso de cada um dos outros.
 
-O mestre I é opcional. Sem conexão ele nunca pede. Os mestres A e I podem pedir uma linha de quatro palavras, e o mestre B move uma palavra por vez. O contexto da porta de depuração está em [SDRAM_DEBUG.md](../../SDRAM_DEBUG.md).
+O mestre I é opcional. Sem conexão ele nunca pede. Os mestres A e I podem pedir uma linha de quatro palavras, e o mestre B move uma palavra por vez. O contexto da porta de depuração está em [sdram_debug.md](sdram_debug.md).
 
 ## 2. Interface
 
@@ -75,7 +75,7 @@ Seja $e$ a primeira borda do árbitro que amostra o toggle novo de um mestre, se
 
 O árbitro confirma ao mestre na borda em que vê a resposta do controlador, e só pode escolher de novo na borda seguinte.
 
-Cada pedido ocupa o controlador pelo tempo do seu acesso mais uma borda de troca. As latências do acesso estão em [sdram_ctrl](sdram_ctrl.md). A prova formal de [FORMAL.md](../../FORMAL.md) limita a espera de qualquer mestre a 20 clocks, com um controlador que responde em até 4 clocks.
+Cada pedido ocupa o controlador pelo tempo do seu acesso mais uma borda de troca. As latências do acesso estão em [sdram_ctrl](sdram_ctrl.md). A prova formal de [formal.md](../formal/formal.md) limita a espera de qualquer mestre a 20 clocks, com um controlador que responde em até 4 clocks.
 
 ## 4. Integração
 

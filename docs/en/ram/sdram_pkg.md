@@ -4,7 +4,7 @@
 
 VHDL package that gathers the numbers of the SDRAM chip on the DE0-CV board (32M x 16, 4 banks, 13 row bits and 10 column bits, grade -7, CAS latency 3) and the encoding of its commands. The controller and the chip model read the same values, so the model fails the simulation when the controller violates any time in the package. Changing a time means editing this file only.
 
-The origin of each value in the datasheet and the comparison with the controller's cycle counts are in [SDRAM_TIMINGS.md](../../SDRAM_TIMINGS.md).
+The origin of each value in the datasheet and the comparison with the controller's cycle counts are in [sdram_timings.md](sdram_timings.md).
 
 ## 2. Interface
 
@@ -82,7 +82,7 @@ With $T_{CK} = 7000$ ps, the times of the package become the counts below, which
 
 The controller does not use $T_{RAS}$, because the chip's auto-precharge already waits that time before closing the row. The power-up sequence of the controller issues `INIT_REFRESHES` refreshes, and the chip model requires only two before the mode register, without using that constant.
 
-Every value is equal to or more conservative than the datasheet minimum, as the table of [SDRAM_TIMINGS.md](../../SDRAM_TIMINGS.md) shows. The addressing of the chip comes from its geometry and not from constants of the package, and is described in [sdram_ctrl.md](sdram_ctrl.md).
+Every value is equal to or more conservative than the datasheet minimum, as the table of [sdram_timings.md](sdram_timings.md) shows. The addressing of the chip comes from its geometry and not from constants of the package, and is described in [sdram_ctrl.md](sdram_ctrl.md).
 
 ## 4. Integration
 

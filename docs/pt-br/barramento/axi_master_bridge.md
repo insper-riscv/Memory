@@ -125,7 +125,7 @@ Cada espera do escravo acrescenta um ciclo à fase em que ocorre.
 - O topo de simulação da cache de dados liga a ponte diretamente a um escravo de palavra, sem roteador.
 - O lado do contrato de palavra é o mesmo de uma ponte de memória do core, e o lado AXI é aceito pelo roteador AXI do repositório Insper-RISC-V e por `axi_slave_word_bridge`.
 
-Veja [DCACHE_AXI.md](../../DCACHE_AXI.md) para o caminho completo do dado e [AXI_UNALIGNED_BYTE_STORE.md](../../bugs/AXI_UNALIGNED_BYTE_STORE.md) para o motivo de o endereço sair alinhado à palavra.
+Veja [dcache_axi.md](dcache_axi.md) para o caminho completo do dado e [AXI_UNALIGNED_BYTE_STORE.md](../bugs/AXI_UNALIGNED_BYTE_STORE.md) para o motivo de o endereço sair alinhado à palavra.
 
 ## 5. Verificação
 
@@ -143,7 +143,7 @@ A prova formal usa o netlist sintetizado do VHDL, trata o core e o escravo como 
 5. `o_ready` permanece em nível até `i_mem_advance`, `o_rdata` e `o_rdata_x` só mudam nessa borda e `o_err` implica `o_ready`.
 6. Um acesso termina em até 20 clocks quando o escravo aceita e responde em até 3 clocks por canal e o core avança o pipeline no clock seguinte a `o_ready`.
 
-A prova de segurança é por indução sem limite de profundidade. Sete cenários de cobertura (leitura e escrita de palavra e de linha, W ainda oferecido depois de AW aceito, AW ainda oferecido depois de W aceito e resposta de erro) precisam ser alcançáveis, e seis mutantes do VHDL precisam falhar (B aceito sem esperar AW e W, `wstrb` errado, W sem esperar `wready`, `ready` sem `i_mem_advance`, `wlast` sempre em `'1'` e `arlen` errado). O método geral está em [FORMAL.md](../../FORMAL.md).
+A prova de segurança é por indução sem limite de profundidade. Sete cenários de cobertura (leitura e escrita de palavra e de linha, W ainda oferecido depois de AW aceito, AW ainda oferecido depois de W aceito e resposta de erro) precisam ser alcançáveis, e seis mutantes do VHDL precisam falhar (B aceito sem esperar AW e W, `wstrb` errado, W sem esperar `wready`, `ready` sem `i_mem_advance`, `wlast` sempre em `'1'` e `arlen` errado). O método geral está em [formal.md](../formal/formal.md).
 
 ---
 

@@ -4,7 +4,7 @@
 
 Arbiter of three masters that share the request interface of the SDRAM controller. The masters are the core's data bridge (A), the core's instruction bridge (I) and the master of the debug port (B). The arbiter serves one request at a time, forwards the request fields to the controller and returns the read data and the acknowledge to the master. When several masters wait, they take turns, and none waits for more than one access of each of the others.
 
-Master I is optional. Left unconnected it never requests. Masters A and I may request a line of four words, and master B moves one word at a time. The context of the debug port is in [SDRAM_DEBUG.md](../../SDRAM_DEBUG.md).
+Master I is optional. Left unconnected it never requests. Masters A and I may request a line of four words, and master B moves one word at a time. The context of the debug port is in [sdram_debug.md](sdram_debug.md).
 
 ## 2. Interface
 
@@ -75,7 +75,7 @@ Let $e$ be the first arbiter edge that samples the new toggle of a master, with 
 
 The arbiter acknowledges the master on the edge where it sees the controller response, and can pick again only on the next edge.
 
-Each request occupies the controller for the time of its access plus one exchange edge. The access latencies are in [sdram_ctrl](sdram_ctrl.md). The formal proof of [FORMAL.md](../../FORMAL.md) bounds the wait of any master at 20 clocks, with a controller that answers within 4 clocks.
+Each request occupies the controller for the time of its access plus one exchange edge. The access latencies are in [sdram_ctrl](sdram_ctrl.md). The formal proof of [formal.md](../formal/formal.md) bounds the wait of any master at 20 clocks, with a controller that answers within 4 clocks.
 
 ## 4. Integration
 

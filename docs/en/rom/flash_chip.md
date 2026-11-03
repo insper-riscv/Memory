@@ -78,7 +78,7 @@ The chip occupies $2^{W}$ bytes with $W = \log_2(\text{size\_bytes})$. A request
 
 | Block | Relation to the chip |
 | :--- | :--- |
-| `icache` and `dcache` (`src/cache/`) | Line masters; see [DCACHE_AXI.md](../../DCACHE_AXI.md) for the data cache |
+| `icache` and `dcache` (`src/cache/`) | Line masters; see [dcache_axi.md](../barramento/dcache_axi.md) for the data cache |
 | `mem_region_router` | Splits the request between SDRAM and FLASH, completes stores to the FLASH with no effect and returns zero for reads past the window without waking the chip |
 | `flash_arbiter` | Serializes the two masters over the single chip; a request in progress is never interrupted |
 | Storage | Registered-read memory driven by `o_mem_addr` and `i_mem_data`. On the board it is the IP [flash_store1port](flash_store1port.md); in the modular simulation it is the model [rom_simulation](rom_simulation.md) |

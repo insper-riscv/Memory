@@ -112,7 +112,7 @@ No modo 3 o endereço é formado pelos 24 bits baixos de um gerador de 32 bits d
 | Fala com | o controlador da SDRAM (`sdram_ctrl`) pelo protocolo de alternâncias de pedido e confirmação, a mesma porta que a ponte do core usa através do árbitro |
 | Não passa por | árbitro, ponte do core, mestre de depuração |
 
-O endereço de palavra de 24 bits cobre as $2^{24}$ palavras de 32 bits da SDRAM. Os tempos do chip que o controlador respeita estão em [SDRAM_TIMINGS.md](../../SDRAM_TIMINGS.md), e o caminho de depuração por JTAG, que usa o mesmo chip por outra porta, está em [SDRAM_DEBUG.md](../../SDRAM_DEBUG.md).
+O endereço de palavra de 24 bits cobre as $2^{24}$ palavras de 32 bits da SDRAM. Os tempos do chip que o controlador respeita estão em [sdram_timings.md](sdram_timings.md), e o caminho de depuração por JTAG, que usa o mesmo chip por outra porta, está em [sdram_debug.md](sdram_debug.md).
 
 ## 5. Verificação
 
@@ -131,7 +131,7 @@ Os testes cocotb ficam em `tests/python/unittests/ram/sdram_bist.py` e rodam sob
 | `test_random_addresses` | o modo 3 termina sem falha e move $2 \cdot 2^{8}$ palavras |
 | `test_a_flipped_bit_is_found` | um bit invertido no chip entre a escrita e a leitura é reportado com o endereço e o bit exatos |
 
-O sistema de simulação usa janela de $2^{8}$, varredura de $2^{10}$ e aleatório de $2^{8}$ palavras. Não há prova formal deste bloco, e as provas de [FORMAL.md](../../FORMAL.md) cobrem o árbitro e as pontes AXI.
+O sistema de simulação usa janela de $2^{8}$, varredura de $2^{10}$ e aleatório de $2^{8}$ palavras. Não há prova formal deste bloco, e as provas de [formal.md](../formal/formal.md) cobrem o árbitro e as pontes AXI.
 
 ---
 

@@ -59,7 +59,7 @@ With a non-empty `init_file`, the model reads the file at time zero. Each line w
 
 ### 3.3. Commands
 
-The chip recognizes a command only when `i_cke` is `'1'`, `i_cs_n` is `'0'` and `i_reinit` is `'0'`. The last condition makes the model ignore the command that the controller still carries in its registers on the first edge of a reset, as detailed in [SDRAM_MODEL_RESET_COMMAND.md](../../bugs/SDRAM_MODEL_RESET_COMMAND.md).
+The chip recognizes a command only when `i_cke` is `'1'`, `i_cs_n` is `'0'` and `i_reinit` is `'0'`. The last condition makes the model ignore the command that the controller still carries in its registers on the first edge of a reset, as detailed in [SDRAM_MODEL_RESET_COMMAND.md](../bugs/SDRAM_MODEL_RESET_COMMAND.md).
 
 With `i_reinit` equal to `'1'`, the model restarts the power-up instant, forgets the PRECHARGE and the refreshes seen, closes every bank and clears the refresh check.
 

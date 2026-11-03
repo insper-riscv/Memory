@@ -10,6 +10,8 @@ core port ── split ──┤          ├── axi_master_bridge ── axi
 
 Addresses with bit 31 clear are the SDRAM space and go through the cache, except its last 4 KB (0x43FFF000 to 0x43FFFFFF); addresses with bit 31 set are the peripheral window (bits 30:28 the peripheral, 9:2 the word). Both exceptions go straight to the master, uncached. The last 4 KB hold the words the host shares with the program (tohost, fromhost, stdout), which the host reads and writes through the debug port of the SDRAM, behind the cache. All blocks left of the SDRAM bridge run on the core clock; the bridge crosses to the memory clock as before.
 
+The two bridges (`axi_master_bridge` and `axi_slave_word_bridge`) live in this repository (`src/barramento/soc/`). The router, the peripheral bank and the AXI4 interconnect decode the platform map and know the peripherals, so they live in Insper-RISC-V (`src/interconnect/`).
+
 The core side of the whole is the contract of the private external bus: the access sits on the port while the stage is stopped, `ready` is a level until `mem_advance`, and `rdata` stays on the last completed load until the next one completes, because the load in the last stage still reads it while the next access is on the port. The peripheral side is the same `p_*` port with one pulse per access, so a peripheral (the JTAG UART) is the same VHDL on either bus.
 
 Peripheral 7 (0xF0000000) is the cache's control: a write to its first word starts a flush, and a read gives 1 while a flush is under way, 0 otherwise. With bit 1 of the value set it also drops every line afterwards, which a boot ROM does when a test ends, before the host loads the next program behind the cache. An access that does not use the cache waits while a flush runs; the core's access that already owns the master when a flush starts finishes first, and the flush goes on after it.
@@ -43,15 +45,15 @@ The bus carries the burst fields (length, size, burst type) and the last flags o
 | Peripheral bank | The five channels to the peripheral `p_*` port: one pulse of `p_we` or `p_re` per access, the read data taken in the clock of the pulse. Only a single beat is served; a longer burst is answered with SLVERR, consumed or given as zeros. A window nobody answers reads 0 and a write has no effect, both with OKAY |
 | Router | One master, two slaves, no clock of delay. 0x40000000 to 0x43FFFFFF is the SDRAM, 0x80000000 and above the peripherals, anything else is accepted, all its beats consumed or given as zeros, and answered with DECERR. A W that arrives before its AW waits, and the beats after the first follow the same decision up to the one with wlast; B and R return from the slave that took the request |
 
-The SDRAM controller moves the four words of a line in one opening of the row (see `SDRAM_LINE.md`), so the burst of the bus is one request to the controller, not four.
+The SDRAM controller moves the four words of a line in one opening of the row (see [sdram_line.md](../ram/sdram_line.md)), so the burst of the bus is one request to the controller, not four.
 
 ## 4. Verification
 
 | What | How |
 | :--- | :--- |
 | Cache, bridges and SDRAM together | `make test TEST=DataCache`: reads and writes against a Python copy of the memory, byte enables, hold after ready, evictions, 300 random accesses over conflicting lines, flush; after each flush the chip model must hold exactly the copy |
-| Same tests as the private bus | `make test TEST=ExtAxiBus` runs the tests of the private external bus (UART bytes in order, stopped pipeline pops once, full queues, unmapped window reads 0, load data stays while the next access runs) on this bus, with a word memory behind the SDRAM slave |
-| Router | `make test TEST=AxiRouter`: both slaves for writes and reads, bursts of four beats whole to one slave, W before AW, DECERR below, between and above the windows for single beats and bursts, back-to-back; mutants (DECERR answered OKAY, W taken before its AW, a wrong decode) fail |
+| Same tests as the private bus | In Insper-RISC-V, `make test TEST=ExtAxiBus` runs the tests of the private external bus (UART bytes in order, stopped pipeline pops once, full queues, unmapped window reads 0, load data stays while the next access runs) on this bus, with a word memory behind the SDRAM slave |
+| Router | In Insper-RISC-V, `make test TEST=AxiRouter`: both slaves for writes and reads, bursts of four beats whole to one slave, W before AW, DECERR below, between and above the windows for single beats and bursts, back-to-back; mutants (DECERR answered OKAY, W taken before its AW, a wrong decode) fail |
 | Master bridge protocol | `bash formal/axi_master/run.sh`: valid held until ready with a stable payload, one request per access, burst length and wlast on the right beats, the words after the first are what the core gave, responses only after the request, ready as a level, bounded wait; covers; mutants that must fail (including a wrong wlast and a wrong length). Unbounded proof by induction |
 | Slave bridge protocol | `bash formal/axi_slave/run.sh` (about ten minutes): handshakes, beats and the last flag, one transaction at a time, a request that is not served never reaches the memory, bounded wait; covers; 6 mutants. The safety proof is bounded to 55 clocks from reset (transactions of up to four beats); the payload is checked by the system test below |
 | SDRAM slave with the chip | `make test TEST=AxiSdramSlave`: a line burst is written and read whole, byte strobes of each beat, bursts of 1, 2, 3, 5 and 8 beats aligned or not, WRAP, FIXED, other sizes and unaligned addresses are SLVERR and never reach the chip, a line read is faster than four single reads |
@@ -71,4 +73,4 @@ Measured on the simulation of the SDRAM platform (core clock 30 ns, SDRAM clock 
 
 In the unit simulation (core clock 8 times slower than the SDRAM clock) a read miss takes 24 clocks, against 56 when the line moved as four AXI4-Lite words.
 
-The SDRAM answers a word in about the time of a cache hit at this core clock, so the cache saves little on reads and the bus costs more on every write and every access that skips the cache. Programs that read data they reuse run a little faster; programs that write, or read once, run slower (see `DCACHE_AXI_DECISIONS.md`).
+The SDRAM answers a word in about the time of a cache hit at this core clock, so the cache saves little on reads and the bus costs more on every write and every access that skips the cache. Programs that read data they reuse run a little faster; programs that write, or read once, run slower (see [dcache_axi_decisions.md](dcache_axi_decisions.md)).

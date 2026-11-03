@@ -96,11 +96,11 @@ At time zero, a process reads `init_file` line by line and writes each valid wor
 | :--- | :--- |
 | Instantiated in | `src/simulation/modular/modular_sim_top.vhd` of the Insper-RISC-V repository, when `ram_external` is true, with `init_file` equal to `ram_file`, `latency` equal to `ext_ram_latency`, `size_bytes` equal to `ram_size_bytes` and `base_kib` equal to `ram_base_kib` modulo 65536 |
 | Above it | the data cache (`src/cache/soc/dcache.vhd`), the instruction cache (`src/cache/soc/icache.vhd`) and, when the ROM is also external, the `mem_region_router` router; the line ports carry the cache lines |
-| Contract | the same as the SDRAM bridge (`sdram_cpu_bridge`) and the external port of the core, described in [EXTERNAL_BUS.md](../../EXTERNAL_BUS.md) |
+| Contract | the same as the SDRAM bridge (`sdram_cpu_bridge`) and the external port of the core, described in [ext_interconnect.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/en/interconnect/ext_interconnect.md) |
 | Port list | the same as `sdram_system`, which lets the top swap one for the other |
 | Debug port | in the modular top, the testbench reads the HTIF `tohost` through it when it is in the chip, without going through the caches |
 
-The modular top feeds `ram_base_kib` and `ram_size_bytes` from the platform memory map. In the core map, the internal RAM spans `0x00008000` to `0x3FFFFFFF` by default and the external window starts at `0x40000000`, and the full map is in the bus and memory contract of the Core repository. The line access format, with word 1 in the lowest bits of the `_x` vectors, is that of the real SDRAM, described in [SDRAM_LINE.md](../../SDRAM_LINE.md), and the cache and bus path that leads to the SDRAM is in [DCACHE_AXI.md](../../DCACHE_AXI.md).
+The modular top feeds `ram_base_kib` and `ram_size_bytes` from the platform memory map. In the core map, the internal RAM spans `0x00008000` to `0x3FFFFFFF` by default and the external window starts at `0x40000000`, and the full map is in the bus and memory contract of the Core repository. The line access format, with word 1 in the lowest bits of the `_x` vectors, is that of the real SDRAM, described in [sdram_line.md](sdram_line.md), and the cache and bus path that leads to the SDRAM is in [dcache_axi.md](../barramento/dcache_axi.md).
 
 ## 5. Verification
 

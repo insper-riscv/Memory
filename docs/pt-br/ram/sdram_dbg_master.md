@@ -2,7 +2,7 @@
 
 ## 1. Função do componente no SoC
 
-O mestre de depuração da SDRAM executa, no clock do controlador, os comandos de leitura, escrita e preenchimento que um hospedeiro envia pela porta JTAG. Ele é o mestre B do árbitro da SDRAM, ao lado da ponte de dados e da ponte de instruções do core, e acessa o mesmo chip que o core usa. O hospedeiro pode assim ler e escrever qualquer palavra com o core rodando, parado ou travado. A visão do hospedeiro (registradores JTAG, comandos e limites) está em [SDRAM_DEBUG.md](../../SDRAM_DEBUG.md), e este documento descreve o lado do controlador.
+O mestre de depuração da SDRAM executa, no clock do controlador, os comandos de leitura, escrita e preenchimento que um hospedeiro envia pela porta JTAG. Ele é o mestre B do árbitro da SDRAM, ao lado da ponte de dados e da ponte de instruções do core, e acessa o mesmo chip que o core usa. O hospedeiro pode assim ler e escrever qualquer palavra com o core rodando, parado ou travado. A visão do hospedeiro (registradores JTAG, comandos e limites) está em [sdram_debug.md](sdram_debug.md), e este documento descreve o lado do controlador.
 
 ## 2. Interface
 
@@ -55,7 +55,7 @@ Um comando é uma inversão de `i_cmd_tog`, com `i_op`, `i_be`, `i_addr` e `i_da
 | 6 | escreve `i_data` na palavra seguinte à acessada por último, bytes por `i_be` |
 | 7 a 15 | tratados como o comando 0 |
 
-O valor de `count` é 1 depois do reset e se mantém entre comandos. O registrador tem 25 bits porque o preenchimento da SDRAM inteira vale $2^{24}$, que não cabe em 24 bits (veja [FILL_COUNT_24_BITS.md](../../bugs/FILL_COUNT_24_BITS.md)).
+O valor de `count` é 1 depois do reset e se mantém entre comandos. O registrador tem 25 bits porque o preenchimento da SDRAM inteira vale $2^{24}$, que não cabe em 24 bits (veja [FILL_COUNT_24_BITS.md](../bugs/FILL_COUNT_24_BITS.md)).
 
 ### 3.3. Máquina de estados
 
@@ -71,7 +71,7 @@ Se `i_b_ack_tog` não alcançar `o_b_req_tog` em $\text{timeout\_cycles} + 1$ ci
 
 ### 3.4. Latência
 
-O comando é visto 2 bordas de `i_clk` depois de a inversão de `i_cmd_tog` ser amostrada, pelo sincronizador de dois estágios, e a execução parte da borda seguinte. Cada acesso gasta 1 ciclo para emitir o pedido, o tempo do árbitro e do controlador até a confirmação e 1 ciclo em `ST_NEXT`. A taxa de um preenchimento é a do árbitro com o controlador, em torno de 15 ciclos por palavra segundo [SDRAM_DEBUG.md](../../SDRAM_DEBUG.md).
+O comando é visto 2 bordas de `i_clk` depois de a inversão de `i_cmd_tog` ser amostrada, pelo sincronizador de dois estágios, e a execução parte da borda seguinte. Cada acesso gasta 1 ciclo para emitir o pedido, o tempo do árbitro e do controlador até a confirmação e 1 ciclo em `ST_NEXT`. A taxa de um preenchimento é a do árbitro com o controlador, em torno de 15 ciclos por palavra segundo [sdram_debug.md](sdram_debug.md).
 
 ## 4. Integração
 
@@ -82,7 +82,7 @@ O comando é visto 2 bordas de `i_clk` depois de a inversão de `i_cmd_tog` ser 
 | Entrega pedidos a | a porta do mestre B de `sdram_arbiter`, que os leva ao controlador |
 | Usa | o sincronizador `synchronizer` da biblioteca Common-Components, duas instâncias, uma para `i_cmd_tog` e uma para `i_init_done` |
 
-O mapa de endereços do core vê a SDRAM a partir de `0x40000000`, e um endereço de palavra $a$ do comando corresponde ao endereço de byte $0\text{x}40000000 + 4a$ visto pelo core. O árbitro alterna entre os mestres quando mais de um espera, e o comportamento está em [SDRAM_DEBUG.md](../../SDRAM_DEBUG.md) e na prova de [FORMAL.md](../../FORMAL.md).
+O mapa de endereços do core vê a SDRAM a partir de `0x40000000`, e um endereço de palavra $a$ do comando corresponde ao endereço de byte $0\text{x}40000000 + 4a$ visto pelo core. O árbitro alterna entre os mestres quando mais de um espera, e o comportamento está em [sdram_debug.md](sdram_debug.md) e na prova de [formal.md](../formal/formal.md).
 
 ## 5. Verificação
 
@@ -100,7 +100,7 @@ Os testes cocotb de `tests/python/unittests/ram/sdram_debug_port.py` rodam o sis
 | `test_other_instructions_are_a_bypass` | outra instrução do JTAG não envia nada à memória |
 | `test_the_core_is_not_starved_by_a_long_fill` | um preenchimento longo não atrasa o core além do limite do árbitro |
 
-Não há prova formal deste bloco. A prova de [FORMAL.md](../../FORMAL.md) cobre o árbitro, com o mestre B modelado pelas hipóteses sobre o ambiente.
+Não há prova formal deste bloco. A prova de [formal.md](../formal/formal.md) cobre o árbitro, com o mestre B modelado pelas hipóteses sobre o ambiente.
 
 ---
 

@@ -2,7 +2,7 @@
 
 ## 1. Role of the component in the SoC
 
-The SDRAM debug master runs, on the controller clock, the read, write and fill commands that a host sends through the JTAG port. It is master B of the SDRAM arbiter, next to the data bridge and the instruction bridge of the core, and it accesses the same chip the core uses. The host can thus read and write any word while the core runs, is stopped or hangs. The host view (JTAG registers, commands and limits) is in [SDRAM_DEBUG.md](../../SDRAM_DEBUG.md), and this document describes the controller side.
+The SDRAM debug master runs, on the controller clock, the read, write and fill commands that a host sends through the JTAG port. It is master B of the SDRAM arbiter, next to the data bridge and the instruction bridge of the core, and it accesses the same chip the core uses. The host can thus read and write any word while the core runs, is stopped or hangs. The host view (JTAG registers, commands and limits) is in [sdram_debug.md](sdram_debug.md), and this document describes the controller side.
 
 ## 2. Interface
 
@@ -55,7 +55,7 @@ A command is a flip of `i_cmd_tog`, with `i_op`, `i_be`, `i_addr` and `i_data` s
 | 6 | writes `i_data` to the word after the one accessed last, bytes by `i_be` |
 | 7 to 15 | treated as command 0 |
 
-The value of `count` is 1 after reset and is kept between commands. The register has 25 bits because a fill of the whole SDRAM is $2^{24}$, which does not fit in 24 bits (see [FILL_COUNT_24_BITS.md](../../bugs/FILL_COUNT_24_BITS.md)).
+The value of `count` is 1 after reset and is kept between commands. The register has 25 bits because a fill of the whole SDRAM is $2^{24}$, which does not fit in 24 bits (see [FILL_COUNT_24_BITS.md](../bugs/FILL_COUNT_24_BITS.md)).
 
 ### 3.3. State machine
 
@@ -71,7 +71,7 @@ If `i_b_ack_tog` does not reach `o_b_req_tog` within $\text{timeout\_cycles} + 1
 
 ### 3.4. Latency
 
-The command is seen 2 edges of `i_clk` after the flip of `i_cmd_tog` is sampled, through the two-stage synchronizer, and execution starts on the next edge. Each access costs 1 cycle to issue the request, the arbiter and controller time until the acknowledge, and 1 cycle in `ST_NEXT`. The rate of a fill is that of the arbiter with the controller, around 15 cycles per word according to [SDRAM_DEBUG.md](../../SDRAM_DEBUG.md).
+The command is seen 2 edges of `i_clk` after the flip of `i_cmd_tog` is sampled, through the two-stage synchronizer, and execution starts on the next edge. Each access costs 1 cycle to issue the request, the arbiter and controller time until the acknowledge, and 1 cycle in `ST_NEXT`. The rate of a fill is that of the arbiter with the controller, around 15 cycles per word according to [sdram_debug.md](sdram_debug.md).
 
 ## 4. Integration
 
@@ -82,7 +82,7 @@ The command is seen 2 edges of `i_clk` after the flip of `i_cmd_tog` is sampled,
 | Delivers requests to | the master B port of `sdram_arbiter`, which carries them to the controller |
 | Uses | the `synchronizer` of the Common-Components library, two instances, one for `i_cmd_tog` and one for `i_init_done` |
 
-The core memory map sees the SDRAM from `0x40000000`, and a word address $a$ of the command corresponds to the byte address $0\text{x}40000000 + 4a$ seen by the core. The arbiter alternates between the masters when more than one waits, and its behavior is in [SDRAM_DEBUG.md](../../SDRAM_DEBUG.md) and in the proof of [FORMAL.md](../../FORMAL.md).
+The core memory map sees the SDRAM from `0x40000000`, and a word address $a$ of the command corresponds to the byte address $0\text{x}40000000 + 4a$ seen by the core. The arbiter alternates between the masters when more than one waits, and its behavior is in [sdram_debug.md](sdram_debug.md) and in the proof of [formal.md](../formal/formal.md).
 
 ## 5. Verification
 
@@ -100,7 +100,7 @@ The cocotb tests of `tests/python/unittests/ram/sdram_debug_port.py` run the com
 | `test_other_instructions_are_a_bypass` | another JTAG instruction sends nothing to the memory |
 | `test_the_core_is_not_starved_by_a_long_fill` | a long fill does not delay the core beyond the arbiter bound |
 
-There is no formal proof of this block. The proof in [FORMAL.md](../../FORMAL.md) covers the arbiter, with master B modeled by the assumptions about the environment.
+There is no formal proof of this block. The proof in [formal.md](../formal/formal.md) covers the arbiter, with master B modeled by the assumptions about the environment.
 
 ---
 

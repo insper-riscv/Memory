@@ -4,7 +4,7 @@
 
 Pacote VHDL que reúne os números do chip de SDRAM da placa DE0-CV (32M x 16, 4 bancos, 13 bits de linha e 10 de coluna, grau -7, latência CAS 3) e a codificação dos comandos. O controlador e o modelo do chip leem os mesmos valores, de modo que o modelo reprova a simulação quando o controlador viola qualquer tempo do pacote. Mudar um tempo exige editar só este arquivo.
 
-A origem de cada valor no datasheet e a comparação com os ciclos do controlador estão em [SDRAM_TIMINGS.md](../../SDRAM_TIMINGS.md).
+A origem de cada valor no datasheet e a comparação com os ciclos do controlador estão em [sdram_timings.md](sdram_timings.md).
 
 ## 2. Interface
 
@@ -82,7 +82,7 @@ Com $T_{CK} = 7000$ ps, os tempos do pacote viram as contagens abaixo, que o con
 
 O controlador não usa $T_{RAS}$, porque o auto-precharge do chip já espera esse tempo antes de fechar a linha. A sequência de energização do controlador emite `INIT_REFRESHES` refreshes, e o modelo do chip exige apenas dois antes do registrador de modo, sem usar essa constante.
 
-Todos os valores são iguais ou mais conservadores que o mínimo do datasheet, conforme a tabela de [SDRAM_TIMINGS.md](../../SDRAM_TIMINGS.md). O endereçamento do chip vem da geometria e não de constantes do pacote, e está descrito em [sdram_ctrl.md](sdram_ctrl.md).
+Todos os valores são iguais ou mais conservadores que o mínimo do datasheet, conforme a tabela de [sdram_timings.md](sdram_timings.md). O endereçamento do chip vem da geometria e não de constantes do pacote, e está descrito em [sdram_ctrl.md](sdram_ctrl.md).
 
 ## 4. Integração
 

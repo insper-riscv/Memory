@@ -112,7 +112,7 @@ In mode 3 the address is made of the low 24 bits of a 32-bit xorshift generator,
 | Talks to | the SDRAM controller (`sdram_ctrl`) through the request and acknowledge toggle protocol, the same port the core bridge uses through the arbiter |
 | Does not go through | arbiter, core bridge, debug master |
 
-The 24-bit word address covers the $2^{24}$ 32-bit words of the SDRAM. The chip timings the controller respects are in [SDRAM_TIMINGS.md](../../SDRAM_TIMINGS.md), and the JTAG debug path, which uses the same chip through another port, is in [SDRAM_DEBUG.md](../../SDRAM_DEBUG.md).
+The 24-bit word address covers the $2^{24}$ 32-bit words of the SDRAM. The chip timings the controller respects are in [sdram_timings.md](sdram_timings.md), and the JTAG debug path, which uses the same chip through another port, is in [sdram_debug.md](sdram_debug.md).
 
 ## 5. Verification
 
@@ -131,7 +131,7 @@ The cocotb tests live in `tests/python/unittests/ram/sdram_bist.py` and run over
 | `test_random_addresses` | mode 3 ends without failure and moves $2 \cdot 2^{8}$ words |
 | `test_a_flipped_bit_is_found` | a bit flipped in the chip between the write and the read is reported with the exact address and bit |
 
-The simulation system uses a window of $2^{8}$, a sweep of $2^{10}$ and a random size of $2^{8}$ words. There is no formal proof of this block, and the proofs in [FORMAL.md](../../FORMAL.md) cover the arbiter and the AXI bridges.
+The simulation system uses a window of $2^{8}$, a sweep of $2^{10}$ and a random size of $2^{8}$ words. There is no formal proof of this block, and the proofs in [formal.md](../formal/formal.md) cover the arbiter and the AXI bridges.
 
 ---
 

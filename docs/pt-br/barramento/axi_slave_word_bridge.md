@@ -113,7 +113,7 @@ O acesso fica em `o_addr`, `o_rden` ou `o_wren` até `i_ready`. Depois disso o c
 - O interconector AXI4 do repositório Insper-RISC-V expõe a porta mestre AXI4 do escravo 0 do roteador, e o escravo de palavra é ligado a essa porta fora do interconector.
 - Os topos de simulação da cache de dados e do próprio escravo ligam o componente à ponte da SDRAM, com `axi_master_bridge` ou com um mestre de teste.
 
-Veja [DCACHE_AXI.md](../../DCACHE_AXI.md) para o caminho completo, [SDRAM_LINE.md](../../SDRAM_LINE.md) para o acesso de linha do controlador e [AXI_UNALIGNED_BYTE_STORE.md](../../bugs/AXI_UNALIGNED_BYTE_STORE.md) para o motivo de endereços não alinhados serem recusados.
+Veja [dcache_axi.md](dcache_axi.md) para o caminho completo, [sdram_line.md](../ram/sdram_line.md) para o acesso de linha do controlador e [AXI_UNALIGNED_BYTE_STORE.md](../bugs/AXI_UNALIGNED_BYTE_STORE.md) para o motivo de endereços não alinhados serem recusados.
 
 ## 5. Verificação
 
@@ -140,7 +140,7 @@ A prova formal trata o mestre AXI4 e a memória como entradas livres sujeitas a 
 5. Resposta SLVERR e dado zero em toda transação recusada, OKAY nas demais.
 6. Uma transação de até quatro beats é respondida em até 40 clocks depois de aceita, se o mestre e a memória respondem em até 3 clocks.
 
-A prova de segurança é limitada a 55 clocks a partir do reset, o que cobre transações de até quatro beats. O conteúdo que chega à memória é verificado pelo teste de sistema acima, e não pela prova. Seis cenários de cobertura precisam ser alcançáveis (escrita e leitura de quatro beats, escrita e leitura recusadas, escrita de dois beats por palavra e uma leitura que espera uma escrita), e seis mutantes do VHDL precisam falhar (leitura que passa na frente da escrita, AW aceito duas vezes, `rlast` adiantado, endereço não alinhado atendido, resposta sem esperar `bready` e avanço sem `i_ready`). O método geral está em [FORMAL.md](../../FORMAL.md).
+A prova de segurança é limitada a 55 clocks a partir do reset, o que cobre transações de até quatro beats. O conteúdo que chega à memória é verificado pelo teste de sistema acima, e não pela prova. Seis cenários de cobertura precisam ser alcançáveis (escrita e leitura de quatro beats, escrita e leitura recusadas, escrita de dois beats por palavra e uma leitura que espera uma escrita), e seis mutantes do VHDL precisam falhar (leitura que passa na frente da escrita, AW aceito duas vezes, `rlast` adiantado, endereço não alinhado atendido, resposta sem esperar `bready` e avanço sem `i_ready`). O método geral está em [formal.md](../formal/formal.md).
 
 ---
 

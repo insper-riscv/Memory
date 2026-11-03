@@ -2,7 +2,7 @@
 
 ## 1. Role of the component in the SoC
 
-The JTAG core of the SDRAM debug is the logic behind a Virtual JTAG instance. On the JTAG chain clock, it shifts in a 64-bit command from the host, returns the state of the previous command and hands the command to the debug master (`sdram_dbg_master`), which runs on the controller clock. The Virtual JTAG instance lives in the board wrapper `src/ram/cyclone-v/sdram_jtag_shell.vhd`, and in simulation the testbench drives the ports of the core directly. The registers, the commands and the limits from the host point of view are in [SDRAM_DEBUG.md](../../SDRAM_DEBUG.md).
+The JTAG core of the SDRAM debug is the logic behind a Virtual JTAG instance. On the JTAG chain clock, it shifts in a 64-bit command from the host, returns the state of the previous command and hands the command to the debug master (`sdram_dbg_master`), which runs on the controller clock. The Virtual JTAG instance lives in the board wrapper `src/ram/cyclone-v/sdram_jtag_shell.vhd`, and in simulation the testbench drives the ports of the core directly. The registers, the commands and the limits from the host point of view are in [sdram_debug.md](sdram_debug.md).
 
 ## 2. Interface
 
@@ -78,7 +78,7 @@ At Update-DR with `op` different from 0, the behavior depends on `busy`, which i
 | 0 | clears `overrun`, registers `op`, `be`, `addr` and `data` on the outputs and flips `o_cmd_tog` |
 | 1 | raises `overrun` and drops the command |
 
-A shift with `op` equal to 0 only reads the status and sends nothing. Reading the status therefore creates no command by itself, which prevents every poll from creating a new command that never finishes (see [JTAG_STATUS_POLL.md](../../bugs/JTAG_STATUS_POLL.md)).
+A shift with `op` equal to 0 only reads the status and sends nothing. Reading the status therefore creates no command by itself, which prevents every poll from creating a new command that never finishes (see [JTAG_STATUS_POLL.md](../bugs/JTAG_STATUS_POLL.md)).
 
 ### 3.4. Clock crossing and timing
 
@@ -93,7 +93,7 @@ A shift with `op` equal to 0 only reads the status and sends nothing. Reading th
 | Receives from | `sdram_dbg_master`, through `i_done_tog`, `i_rsp_addr`, `i_rsp_data` and `i_rsp_status` |
 | Host | the Virtual JTAG instance has a 2-bit instruction register, and instruction 1 selects the 64-bit DEBUG |
 
-The JTAG port of the external bus UART is another Virtual JTAG instance, described in [EXTERNAL_BUS.md](../../EXTERNAL_BUS.md).
+The JTAG port of the external bus UART is another Virtual JTAG instance, described in [jtag_uart.md](https://github.com/insper-riscv/Peripherals/blob/main/docs/en/UART/jtag_uart.md).
 
 ## 5. Verification
 
