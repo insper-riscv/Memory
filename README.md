@@ -10,6 +10,7 @@ Memórias do SoC RISC-V RV32: os blocos de memória que o núcleo lê e escreve.
 - [CONTRIBUTING.md](CONTRIBUTING.md): regras obrigatórias de contribuição, norma VHDL-2008, nomenclatura, cabeçalhos, normas Python e verificação antes de abrir Pull Request.
 - [CITATION.cff](CITATION.cff): metadados para citação do software.
 - [contracts/02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md): protocolo de barramento e de memória compartilhado por todas as famílias.
+- [depuracao-de-memoria.md](docs/pt-br/guide/depuracao-de-memoria.md): como o hospedeiro alcança as memórias por JTAG (editor de memória e porta de depuração da SDRAM).
 - [contrato-de-memoria.md](docs/pt-br/contracts/contrato-de-memoria.md): contrato de uma memória (pinos, tempo, clock e palavra de largura diferente da do core).
 - Documentação por componente, uma por bloco, em português (`docs/pt-br/`) e em inglês (`docs/en/`), agrupada por tipo.
   - `docs/pt-br/cache/` (caches e roteamento de região): [dcache](docs/pt-br/cache/dcache.md), [icache](docs/pt-br/cache/icache.md), [mem_region_router](docs/pt-br/cache/mem_region_router.md), [flash_arbiter](docs/pt-br/cache/flash_arbiter.md).

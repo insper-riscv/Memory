@@ -40,12 +40,11 @@ A leitura é feita pela instância `altsyncram` da biblioteca `altera_mf`, que �
 | `init_file` | `./boot_rom_init.mif` |
 | `outdata_reg_a` | `UNREGISTERED` |
 | `read_during_write_mode_port_a` | `NEW_DATA_NO_NBE_READ` |
-| `lpm_hint` | `ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME=BOOT_ROM` |
 | `intended_device_family` | `Cyclone V` |
 
 ### 3.2. Latência de leitura
 
-O endereço é capturado na borda de `clock` e a saída não tem registrador adicional, então a palavra do endereço aplicado numa borda aparece em `q` depois dela, com um ciclo de latência síncrona. A dica de edição em tempo de execução (`ENABLE_RUNTIME_MOD`) mantém a memória visível ao editor de conteúdo em sistema do Quartus, e a instância aparece com o nome `BOOT_ROM`.
+O endereço é capturado na borda de `clock` e a saída não tem registrador adicional, então a palavra do endereço aplicado numa borda aparece em `q` depois dela, com um ciclo de latência síncrona. O IP não declara a dica de edição em tempo de execução (`ENABLE_RUNTIME_MOD`), então o editor de conteúdo em sistema do Quartus não enxerga esta memória, que só muda na compilação. O [guia de depuração de memória](../guide/depuracao-de-memoria.md) lista as memórias que a JTAG alcança.
 
 ### 3.3. Arquivo de inicialização
 

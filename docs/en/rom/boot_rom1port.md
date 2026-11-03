@@ -40,12 +40,11 @@ The read is done by the `altsyncram` instance of the `altera_mf` library, which 
 | `init_file` | `./boot_rom_init.mif` |
 | `outdata_reg_a` | `UNREGISTERED` |
 | `read_during_write_mode_port_a` | `NEW_DATA_NO_NBE_READ` |
-| `lpm_hint` | `ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME=BOOT_ROM` |
 | `intended_device_family` | `Cyclone V` |
 
 ### 3.2. Read latency
 
-The address is captured on the edge of `clock` and the output has no extra register, so the word of the address applied on an edge appears on `q` after it, with one cycle of synchronous latency. The runtime modification hint (`ENABLE_RUNTIME_MOD`) keeps the memory visible to the Quartus In-System Memory Content Editor, and the instance shows up under the name `BOOT_ROM`.
+The address is captured on the edge of `clock` and the output has no extra register, so the word of the address applied on an edge appears on `q` after it, with one cycle of synchronous latency. The IP does not declare the runtime modification hint (`ENABLE_RUNTIME_MOD`), so the Quartus In-System Memory Content Editor does not see this memory, which only changes at compile time. The [memory debug guide](../guide/depuracao-de-memoria.md) lists the memories that JTAG reaches.
 
 ### 3.3. Initialization file
 
