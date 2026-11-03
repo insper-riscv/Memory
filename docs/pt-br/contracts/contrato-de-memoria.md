@@ -29,10 +29,10 @@ Os nomes do contrato seguem o prefixo `i_` e `o_` do CONTRIBUTING. Os IPs do Qua
 | `i_re` | `rden` | `i_re_ram`, junto com `i_en_ram` | `i_re` |
 | `i_we` | `wren` | `i_we_ram` | não tem |
 | `i_data` | `data` | `i_data_in` | não tem |
-| `i_mask` | `byteena`, só no `ram1port` | `i_mask` | não tem |
+| `i_mask` | `byteena`, só no `ram` | `i_mask` | não tem |
 | `o_q` | `q` | `o_data_out` | `o_data` |
 
-Os IPs de ROM (`boot_rom1port` e `flash_store1port`) têm `wren` e `data`, porque o bloco de memória do FPGA é o mesmo de uma RAM, mas o desenho da placa os mantém em zero. O `rom_simulation` tem ainda uma segunda porta de leitura, com `i_addr2`, `i_clk2`, `i_re2` e `o_data2`.
+Os IPs de ROM (`boot_rom` e `flash_store`) têm `wren` e `data`, porque o bloco de memória do FPGA é o mesmo de uma RAM, mas o desenho da placa os mantém em zero. O `rom_simulation` tem ainda uma segunda porta de leitura, com `i_addr2`, `i_clk2`, `i_re2` e `o_data2`.
 
 ## 2. Tempo
 
@@ -110,7 +110,7 @@ Dois agentes que precisam do mesmo dispositivo têm três soluções.
 | Duas cópias de porta única | Dois acessos simultâneos e regravação por JTAG no Quartus Lite | O dobro dos blocos, com o mesmo conteúdo nas duas cópias, regravadas juntas |
 | Um dispositivo de porta única com árbitro | Chip que tem uma só interface, como a SDRAM e o chip de FLASH | Os acessos se serializam, e um mestre espera o outro, como em [sdram_arbiter](../ram/sdram_arbiter.md) e [flash_arbiter](../cache/flash_arbiter.md) |
 
-O Quartus Lite deste projeto não compila um `altsyncram` em `DUAL_PORT` junto com `ENABLE_RUNTIME_MOD=YES`, que é o que dá acesso pela JTAG, o que foi confirmado empiricamente. Por isso a FLASH do desenho de memória interna usa duas cópias físicas de porta única, [flash1port](../rom/flash1port.md) para a busca de instruções e [flash_mem1port](../rom/flash_mem1port.md) para a leitura de dados, com o mesmo conteúdo, regravadas juntas por uma lista de duas instâncias JTAG.
+O Quartus Lite deste projeto não compila um `altsyncram` em `DUAL_PORT` junto com `ENABLE_RUNTIME_MOD=YES`, que é o que dá acesso pela JTAG, o que foi confirmado empiricamente. Por isso a FLASH do desenho de memória interna usa duas cópias físicas de porta única, [flash](../rom/flash.md) para a busca de instruções e [flash_mem](../rom/flash_mem.md) para a leitura de dados, com o mesmo conteúdo, regravadas juntas por uma lista de duas instâncias JTAG.
 
 ## 6. Largura da palavra guardada diferente da palavra do core
 
@@ -175,7 +175,7 @@ Uma palavra larga permite mover várias palavras do core de uma vez. A cache de 
 
 | Tipo | Blocos |
 | :--- | :--- |
-| Memória de um ciclo | [ram1port](../ram/ram1port.md), [ram_simulation](../ram/ram_simulation.md), [boot_rom1port](../rom/boot_rom1port.md), [flash_store1port](../rom/flash_store1port.md), [rom_simulation](../rom/rom_simulation.md) |
+| Memória de um ciclo | [ram](../ram/ram.md), [ram_simulation](../ram/ram_simulation.md), [boot_rom](../rom/boot_rom.md), [flash_store](../rom/flash_store.md), [rom_simulation](../rom/rom_simulation.md) |
 | Memória de latência variável | [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md), [sdram_ctrl](../ram/sdram_ctrl.md) |
 | Memória de duas portas | [rom_simulation](../rom/rom_simulation.md) (duas leituras) e [ram_chip](../ram/ram_chip.md) (dados, instruções e depuração) |
 

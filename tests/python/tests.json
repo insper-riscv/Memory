@@ -3,7 +3,7 @@
         "toplevel": "ram_simulation",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/ram/soc/ram_simulation.vhd"
+            "src/RAM/SoC/ram_simulation.vhd"
         ],
         "test_module": "tests.python.unittests.ram.ram_simulation",
         "build_args": [
@@ -19,7 +19,7 @@
         "toplevel": "rom_simulation",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/rom/soc/rom_simulation.vhd"
+            "src/ROM/SoC/rom_simulation.vhd"
         ],
         "test_module": "tests.python.unittests.rom.rom_simulation",
         "parameters": {
@@ -37,15 +37,15 @@
     "SdramSystem": {
         "toplevel": "sdram_system",
         "sources": [
-            "src/ram/soc/sdram_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
-            "src/ram/soc/sdram_ctrl.vhd",
-            "src/ram/soc/sdram_cpu_bridge.vhd",
-            "src/ram/soc/sdram_arbiter.vhd",
-            "src/ram/soc/sdram_dbg_master.vhd",
-            "src/ram/soc/sdram_jtag_core.vhd",
-            "src/ram/soc/sim/sdram_model.vhd",
-            "src/ram/soc/sim/sdram_system.vhd"
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
+            "src/RAM/SoC/sdram/sdram_arbiter.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "src/RAM/SoC/sim/sdram_system.vhd"
         ],
         "test_module": "tests.python.unittests.ram.sdram_system",
         "build_args": [
@@ -56,14 +56,14 @@
         ]
     },
     "SdramBist": {
-        "toplevel": "sdram_bist_system",
+        "toplevel": "teste_sdram_system",
         "sources": [
-            "src/ram/soc/sdram_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
-            "src/ram/soc/sdram_ctrl.vhd",
-            "src/ram/soc/sdram_bist.vhd",
-            "src/ram/soc/sim/sdram_model.vhd",
-            "src/ram/soc/sim/sdram_bist_system.vhd"
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/tests/teste_sdram.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "src/tests/teste_sdram_system.vhd"
         ],
         "test_module": "tests.python.unittests.ram.sdram_bist",
         "parameters": {
@@ -77,14 +77,14 @@
         ]
     },
     "SdramBistRegisteredPins": {
-        "toplevel": "sdram_bist_system",
+        "toplevel": "teste_sdram_system",
         "sources": [
-            "src/ram/soc/sdram_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
-            "src/ram/soc/sdram_ctrl.vhd",
-            "src/ram/soc/sdram_bist.vhd",
-            "src/ram/soc/sim/sdram_model.vhd",
-            "src/ram/soc/sim/sdram_bist_system.vhd"
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/tests/teste_sdram.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "src/tests/teste_sdram_system.vhd"
         ],
         "test_module": "tests.python.unittests.ram.sdram_bist",
         "parameters": {
@@ -100,15 +100,15 @@
     "SdramDebugPort": {
         "toplevel": "sdram_system",
         "sources": [
-            "src/ram/soc/sdram_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
-            "src/ram/soc/sdram_ctrl.vhd",
-            "src/ram/soc/sdram_cpu_bridge.vhd",
-            "src/ram/soc/sdram_arbiter.vhd",
-            "src/ram/soc/sdram_dbg_master.vhd",
-            "src/ram/soc/sdram_jtag_core.vhd",
-            "src/ram/soc/sim/sdram_model.vhd",
-            "src/ram/soc/sim/sdram_system.vhd"
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
+            "src/RAM/SoC/sdram/sdram_arbiter.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "src/RAM/SoC/sim/sdram_system.vhd"
         ],
         "test_module": "tests.python.unittests.ram.sdram_debug_port",
         "build_args": [
@@ -122,19 +122,19 @@
         "toplevel": "sdram_dcache_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/ram/soc/sdram_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
-            "src/ram/soc/sdram_ctrl.vhd",
-            "src/ram/soc/sdram_cpu_bridge.vhd",
-            "src/ram/soc/sdram_arbiter.vhd",
-            "src/ram/soc/sdram_dbg_master.vhd",
-            "src/ram/soc/sdram_jtag_core.vhd",
-            "src/ram/soc/sim/sdram_model.vhd",
-            "src/ram/soc/sim/sdram_system.vhd",
-            "src/barramento/soc/axi_master_bridge.vhd",
-            "src/barramento/soc/axi_slave_word_bridge.vhd",
-            "src/cache/soc/dcache.vhd",
-            "src/cache/soc/sim/sdram_dcache_system.vhd"
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
+            "src/RAM/SoC/sdram/sdram_arbiter.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "src/RAM/SoC/sim/sdram_system.vhd",
+            "src/barramento/SoC/axi_master_bridge.vhd",
+            "src/barramento/SoC/axi_slave_word_bridge.vhd",
+            "src/cache/SoC/dcache.vhd",
+            "src/cache/SoC/sim/sdram_dcache_system.vhd"
         ],
         "test_module": "tests.python.unittests.cache.data_cache",
         "build_args": [
@@ -148,19 +148,19 @@
         "toplevel": "sdram_dcache_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/ram/soc/sdram_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
-            "src/ram/soc/sdram_ctrl.vhd",
-            "src/ram/soc/sdram_cpu_bridge.vhd",
-            "src/ram/soc/sdram_arbiter.vhd",
-            "src/ram/soc/sdram_dbg_master.vhd",
-            "src/ram/soc/sdram_jtag_core.vhd",
-            "src/ram/soc/sim/sdram_model.vhd",
-            "src/ram/soc/sim/sdram_system.vhd",
-            "src/barramento/soc/axi_master_bridge.vhd",
-            "src/barramento/soc/axi_slave_word_bridge.vhd",
-            "src/cache/soc/dcache.vhd",
-            "src/cache/soc/sim/sdram_dcache_system.vhd"
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
+            "src/RAM/SoC/sdram/sdram_arbiter.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "src/RAM/SoC/sim/sdram_system.vhd",
+            "src/barramento/SoC/axi_master_bridge.vhd",
+            "src/barramento/SoC/axi_slave_word_bridge.vhd",
+            "src/cache/SoC/dcache.vhd",
+            "src/cache/SoC/sim/sdram_dcache_system.vhd"
         ],
         "test_module": "tests.python.unittests.cache.data_cache_write_through",
         "build_args": [
@@ -176,17 +176,17 @@
     "AxiSdramSlave": {
         "toplevel": "axi_sdram_slave_system",
         "sources": [
-            "src/ram/soc/sdram_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
-            "src/ram/soc/sdram_ctrl.vhd",
-            "src/ram/soc/sdram_cpu_bridge.vhd",
-            "src/ram/soc/sdram_arbiter.vhd",
-            "src/ram/soc/sdram_dbg_master.vhd",
-            "src/ram/soc/sdram_jtag_core.vhd",
-            "src/ram/soc/sim/sdram_model.vhd",
-            "src/ram/soc/sim/sdram_system.vhd",
-            "src/barramento/soc/axi_slave_word_bridge.vhd",
-            "src/barramento/soc/sim/axi_sdram_slave_system.vhd"
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
+            "src/RAM/SoC/sdram/sdram_arbiter.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "src/RAM/SoC/sim/sdram_system.vhd",
+            "src/barramento/SoC/axi_slave_word_bridge.vhd",
+            "src/barramento/SoC/sim/axi_sdram_slave_system.vhd"
         ],
         "test_module": "tests.python.unittests.barramento.axi_sdram_slave",
         "build_args": [
@@ -200,7 +200,7 @@
         "toplevel": "icache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/cache/soc/icache.vhd"
+            "src/cache/SoC/icache.vhd"
         ],
         "test_module": "tests.python.unittests.cache.instruction_cache",
         "build_args": [
@@ -214,7 +214,7 @@
         "toplevel": "flash_chip",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/cache/soc/flash_chip.vhd"
+            "src/cache/SoC/flash_chip.vhd"
         ],
         "test_module": "tests.python.unittests.cache.flash_chip",
         "build_args": [
@@ -227,7 +227,7 @@
     "MemRegionRouter": {
         "toplevel": "mem_region_router",
         "sources": [
-            "src/cache/soc/mem_region_router.vhd"
+            "src/cache/SoC/mem_region_router.vhd"
         ],
         "test_module": "tests.python.unittests.cache.mem_region_router",
         "build_args": [
@@ -240,7 +240,7 @@
     "MemRegionRouterLow": {
         "toplevel": "mem_region_router",
         "sources": [
-            "src/cache/soc/mem_region_router.vhd"
+            "src/cache/SoC/mem_region_router.vhd"
         ],
         "test_module": "tests.python.unittests.cache.mem_region_router_low",
         "parameters": {
@@ -258,7 +258,7 @@
     "FlashArbiter": {
         "toplevel": "flash_arbiter",
         "sources": [
-            "src/cache/soc/flash_arbiter.vhd"
+            "src/cache/SoC/flash_arbiter.vhd"
         ],
         "test_module": "tests.python.unittests.cache.flash_arbiter",
         "build_args": [
@@ -272,11 +272,11 @@
         "toplevel": "flash_path_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/cache/soc/icache.vhd",
-            "src/cache/soc/flash_chip.vhd",
-            "src/cache/soc/mem_region_router.vhd",
-            "src/cache/soc/flash_arbiter.vhd",
-            "src/cache/soc/sim/flash_path_system.vhd"
+            "src/cache/SoC/icache.vhd",
+            "src/cache/SoC/flash_chip.vhd",
+            "src/cache/SoC/mem_region_router.vhd",
+            "src/cache/SoC/flash_arbiter.vhd",
+            "src/cache/SoC/sim/flash_path_system.vhd"
         ],
         "test_module": "tests.python.unittests.cache.flash_path",
         "build_args": [
@@ -290,7 +290,7 @@
         "toplevel": "dcache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/cache/soc/dcache.vhd"
+            "src/cache/SoC/dcache.vhd"
         ],
         "test_module": "tests.python.unittests.cache.data_cache_flash",
         "build_args": [
@@ -307,7 +307,7 @@
         "toplevel": "icache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/cache/soc/icache.vhd"
+            "src/cache/SoC/icache.vhd"
         ],
         "test_module": "tests.python.unittests.cache.instruction_cache_small",
         "build_args": [
@@ -324,7 +324,7 @@
         "toplevel": "dcache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/cache/soc/dcache.vhd"
+            "src/cache/SoC/dcache.vhd"
         ],
         "test_module": "tests.python.unittests.cache.data_cache_small",
         "build_args": [
@@ -342,7 +342,7 @@
         "toplevel": "ram_chip",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/ram/soc/ram_chip.vhd"
+            "src/RAM/SoC/ram_chip.vhd"
         ],
         "test_module": "tests.python.unittests.ram.ram_chip",
         "build_args": [
@@ -356,7 +356,7 @@
         "toplevel": "ram_chip",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/ram/soc/ram_chip.vhd"
+            "src/RAM/SoC/ram_chip.vhd"
         ],
         "test_module": "tests.python.unittests.ram.ram_chip_small",
         "build_args": [
@@ -373,7 +373,7 @@
         "toplevel": "ram_chip",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/ram/soc/ram_chip.vhd"
+            "src/RAM/SoC/ram_chip.vhd"
         ],
         "test_module": "tests.python.unittests.ram.ram_chip_offset",
         "build_args": [

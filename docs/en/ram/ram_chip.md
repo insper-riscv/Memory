@@ -95,7 +95,7 @@ At time zero, a process reads `init_file` line by line and writes each valid wor
 | Item | Description |
 | :--- | :--- |
 | Instantiated in | `src/simulation/modular/modular_sim_top.vhd` of the Insper-RISC-V repository, when `ram_external` is true, with `init_file` equal to `ram_file`, `latency` equal to `ext_ram_latency`, `size_bytes` equal to `ram_size_bytes` and `base_kib` equal to `ram_base_kib` modulo 65536 |
-| Above it | the data cache (`src/cache/soc/dcache.vhd`), the instruction cache (`src/cache/soc/icache.vhd`) and, when the ROM is also external, the `mem_region_router` router; the line ports carry the cache lines |
+| Above it | the data cache (`src/cache/SoC/dcache.vhd`), the instruction cache (`src/cache/SoC/icache.vhd`) and, when the ROM is also external, the `mem_region_router` router; the line ports carry the cache lines |
 | Contract | the same as the SDRAM bridge (`sdram_cpu_bridge`) and the external port of the core, described in [ext_interconnect.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/en/interconnect/ext_interconnect.md) |
 | Port list | the same as `sdram_system`, which lets the top swap one for the other |
 | Debug port | in the modular top, the testbench reads the HTIF `tohost` through it when it is in the chip, without going through the caches |

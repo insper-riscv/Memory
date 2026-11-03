@@ -2,7 +2,7 @@
 
 ## 1. Função do componente no SoC
 
-O modelo de simulação da RAM de dados faz, nas simulações com GHDL, o papel da RAM interna do core. É uma memória de uma porta com leitura e escrita síncronas e habilita de bytes, equivalente em contrato ao IP da placa descrito em [ram1port.md](ram1port.md). O conteúdo inicial pode vir de um arquivo, que é como a simulação carrega o programa e os dados.
+O modelo de simulação da RAM de dados faz, nas simulações com GHDL, o papel da RAM interna do core. É uma memória de uma porta com leitura e escrita síncronas e habilita de bytes, equivalente em contrato ao IP da placa descrito em [ram.md](ram.md). O conteúdo inicial pode vir de um arquivo, que é como a simulação carrega o programa e os dados.
 
 ## 2. Interface
 

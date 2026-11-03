@@ -146,5 +146,5 @@ A leitura não tem máscara, então ela sempre move 32 bits e a seleção aconte
 | :--- | :--- |
 | Seleção e extensão do load (seções 2 e 3) | [`extender_ram.vhd`](https://github.com/insper-riscv/Core/blob/main/src/I/extender_ram.vhd) |
 | Faixa do store e habilitações de byte (seção 6) | [`store_manager.vhd`](https://github.com/insper-riscv/Core/blob/main/src/I/store_manager.vhd) |
-| Habilitações de byte para as máscaras de dado do chip, e os dois beats de uma palavra (seções 1 e 6) | [`sdram_ctrl.vhd`](../../../src/ram/soc/sdram_ctrl.vhd) |
-| Endereço de palavra e cruzamento de clock entre o core e o controlador (seção 1) | [`sdram_cpu_bridge.vhd`](../../../src/ram/soc/sdram_cpu_bridge.vhd) |
+| Habilitações de byte para as máscaras de dado do chip, e os dois beats de uma palavra (seções 1 e 6) | [`sdram_ctrl.vhd`](../../../src/RAM/SoC/sdram/sdram_ctrl.vhd) |
+| Endereço de palavra e cruzamento de clock entre o core e o controlador (seção 1) | [`sdram_cpu_bridge.vhd`](../../../src/RAM/SoC/sdram/sdram_cpu_bridge.vhd) |

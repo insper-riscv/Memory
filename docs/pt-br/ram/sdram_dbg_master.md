@@ -77,8 +77,8 @@ O comando é visto 2 bordas de `i_clk` depois de a inversão de `i_cmd_tog` ser 
 
 | Item | Descrição |
 | :--- | :--- |
-| Instanciado em | `src/cyclone-v/de0-cv/de0-cv_top.vhd` do repositório Insper-RISC-V (instância `SDRAM_DEBUG`, no clock do controlador) e `src/ram/soc/sim/sdram_system.vhd` (instância `u_dbg`) |
-| Recebe comandos de | `sdram_jtag_core`, direto na simulação e pelo invólucro `src/ram/cyclone-v/sdram_jtag_shell.vhd` (que contém o Virtual JTAG) na placa |
+| Instanciado em | `src/cyclone-v/de0-cv/de0-cv_top.vhd` do repositório Insper-RISC-V (instância `SDRAM_DEBUG`, no clock do controlador) e `src/RAM/SoC/sim/sdram_system.vhd` (instância `u_dbg`) |
+| Recebe comandos de | `sdram_jtag_core`, direto na simulação e pelo invólucro `Insper-RISC-V/src/cyclone-v/de0-cv/sdram_jtag_shell.vhd` (que contém o Virtual JTAG) na placa |
 | Entrega pedidos a | a porta do mestre B de `sdram_arbiter`, que os leva ao controlador |
 | Usa | o sincronizador `synchronizer` da biblioteca Common-Components, duas instâncias, uma para `i_cmd_tog` e uma para `i_init_done` |
 

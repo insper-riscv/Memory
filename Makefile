@@ -6,13 +6,13 @@ WDIR  := build/ghdl
 .PHONY: check test paths formal clean
 
 # GHDL syntax check of the simulation models and of the memories (the SDRAM
-# controller, its bridge, the caches and the chip models). The Quartus IPs (src/*/cyclone-v/) need
+# controller, its bridge, the caches and the chip models). The Quartus IPs (src/*/Cyclone-V/) need
 # Intel's altera_mf library, which the toolchain image does not carry: they are
 # analyzed by the hardware-top simulation in the Tests repository. The clock-domain
 # synchronizer comes from the Common-Components repository, in src/common.
 check:
 	@mkdir -p $(WDIR)
-	@$(GHDL) -a $(STD) --work=work --workdir=$(WDIR) $$(riscv-tools vhdl-sort src/common/src/utils_pkg.vhd src/common/src/synchronizer.vhd src/*/soc/*.vhd src/*/soc/sim/*.vhd)
+	@$(GHDL) -a $(STD) --work=work --workdir=$(WDIR) $$(riscv-tools vhdl-sort src/common/src/utils_pkg.vhd src/common/src/synchronizer.vhd src/*/SoC/*.vhd src/*/SoC/sim/*.vhd src/RAM/SoC/sdram/*.vhd src/tests/*.vhd src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd)
 	@echo "VHDL syntax check passed"
 
 # Per-entity cocotb tests; `make test TEST=RAM` for one entry of tests/python/tests.json.

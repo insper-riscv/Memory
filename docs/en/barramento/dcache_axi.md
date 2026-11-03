@@ -10,7 +10,7 @@ core port ── split ──┤          ├── axi_master_bridge ── axi
 
 Addresses with bit 31 clear are the SDRAM space and go through the cache, except its last 4 KB (0x43FFF000 to 0x43FFFFFF); addresses with bit 31 set are the peripheral window (bits 30:28 the peripheral, 9:2 the word). Both exceptions go straight to the master, uncached. The last 4 KB hold the words the host shares with the program (tohost, fromhost, stdout), which the host reads and writes through the debug port of the SDRAM, behind the cache. All blocks left of the SDRAM bridge run on the core clock; the bridge crosses to the memory clock as before.
 
-The two bridges (`axi_master_bridge` and `axi_slave_word_bridge`) live in this repository (`src/barramento/soc/`). The router, the peripheral bank and the AXI4 interconnect decode the platform map and know the peripherals, so they live in Insper-RISC-V (`src/interconnect/`).
+The two bridges (`axi_master_bridge` and `axi_slave_word_bridge`) live in this repository (`src/barramento/SoC/`). The router, the peripheral bank and the AXI4 interconnect decode the platform map and know the peripherals, so they live in Insper-RISC-V (`src/interconnect/`).
 
 The core side of the whole is the contract of the private external bus: the access sits on the port while the stage is stopped, `ready` is a level until `mem_advance`, and `rdata` stays on the last completed load until the next one completes, because the load in the last stage still reads it while the next access is on the port. The peripheral side is the same `p_*` port with one pulse per access, so a peripheral (the JTAG UART) is the same VHDL on either bus.
 

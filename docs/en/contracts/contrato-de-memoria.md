@@ -29,10 +29,10 @@ The names of the contract follow the `i_` and `o_` prefix of the CONTRIBUTING. T
 | `i_re` | `rden` | `i_re_ram`, together with `i_en_ram` | `i_re` |
 | `i_we` | `wren` | `i_we_ram` | none |
 | `i_data` | `data` | `i_data_in` | none |
-| `i_mask` | `byteena`, only in `ram1port` | `i_mask` | none |
+| `i_mask` | `byteena`, only in `ram` | `i_mask` | none |
 | `o_q` | `q` | `o_data_out` | `o_data` |
 
-The ROM IPs (`boot_rom1port` and `flash_store1port`) have `wren` and `data`, because the FPGA memory block is the same as a RAM one, but the board design keeps them at zero. The `rom_simulation` also has a second read port, with `i_addr2`, `i_clk2`, `i_re2` and `o_data2`.
+The ROM IPs (`boot_rom` and `flash_store`) have `wren` and `data`, because the FPGA memory block is the same as a RAM one, but the board design keeps them at zero. The `rom_simulation` also has a second read port, with `i_addr2`, `i_clk2`, `i_re2` and `o_data2`.
 
 ## 2. Timing
 
@@ -110,7 +110,7 @@ Two agents that need the same device have three solutions.
 | Two single-port copies | Two simultaneous accesses and JTAG rewriting in Quartus Lite | Twice the blocks, with the same content in both copies, rewritten together |
 | A single-port device with an arbiter | A chip that has a single interface, such as the SDRAM and the FLASH chip | Accesses are serialized, and one master waits for the other, as in [sdram_arbiter](../ram/sdram_arbiter.md) and [flash_arbiter](../cache/flash_arbiter.md) |
 
-The Quartus Lite of this project does not compile an `altsyncram` in `DUAL_PORT` together with `ENABLE_RUNTIME_MOD=YES`, which is what gives access through JTAG, as confirmed empirically. So the FLASH of the internal memory design uses two physical single-port copies, [flash1port](../rom/flash1port.md) for instruction fetch and [flash_mem1port](../rom/flash_mem1port.md) for data reads, with the same content, rewritten together through a list of two JTAG instances.
+The Quartus Lite of this project does not compile an `altsyncram` in `DUAL_PORT` together with `ENABLE_RUNTIME_MOD=YES`, which is what gives access through JTAG, as confirmed empirically. So the FLASH of the internal memory design uses two physical single-port copies, [flash](../rom/flash.md) for instruction fetch and [flash_mem](../rom/flash_mem.md) for data reads, with the same content, rewritten together through a list of two JTAG instances.
 
 ## 6. Stored word width different from the core word
 
@@ -175,7 +175,7 @@ A wide word allows moving several core words at once. The data cache uses this i
 
 | Type | Blocks |
 | :--- | :--- |
-| One-cycle memory | [ram1port](../ram/ram1port.md), [ram_simulation](../ram/ram_simulation.md), [boot_rom1port](../rom/boot_rom1port.md), [flash_store1port](../rom/flash_store1port.md), [rom_simulation](../rom/rom_simulation.md) |
+| One-cycle memory | [ram](../ram/ram.md), [ram_simulation](../ram/ram_simulation.md), [boot_rom](../rom/boot_rom.md), [flash_store](../rom/flash_store.md), [rom_simulation](../rom/rom_simulation.md) |
 | Variable-latency memory | [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md), [sdram_ctrl](../ram/sdram_ctrl.md) |
 | Dual-port memory | [rom_simulation](../rom/rom_simulation.md) (two reads) and [ram_chip](../ram/ram_chip.md) (data, instructions and debug) |
 

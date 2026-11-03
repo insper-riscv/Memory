@@ -2,7 +2,7 @@
 
 ## 1. Role of the component in the SoC
 
-The data RAM simulation model plays, in GHDL simulations, the role of the internal RAM of the core. It is a single-port memory with synchronous read and write and byte enables, equivalent in contract to the board IP described in [ram1port.md](ram1port.md). The initial content can come from a file, which is how the simulation loads the program and the data.
+The data RAM simulation model plays, in GHDL simulations, the role of the internal RAM of the core. It is a single-port memory with synchronous read and write and byte enables, equivalent in contract to the board IP described in [ram.md](ram.md). The initial content can come from a file, which is how the simulation loads the program and the data.
 
 ## 2. Interface
 

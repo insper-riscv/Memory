@@ -152,7 +152,7 @@ A varredura de uma cache sem linhas sujas leva $3 \cdot 2^I$ ciclos, mais o cicl
 | Instância | Arquivo | Conexão |
 | :--- | :--- | :--- |
 | `u_cache` | `ext_axi_interconnect` do repositório Insper-RISC-V | Lado da memória ligado ao mestre AXI4 (`axi_master_bridge`) por um multiplexador com o acesso direto do core; `i_flush` recebe o pedido do periférico 7 e `i_invalidate` o bit 1 do dado escrito nele; `i_bypass` fica no padrão |
-| `u_cache` | `src/cache/soc/sim/sdram_dcache_system.vhd` | Lado da memória ligado a `axi_master_bridge`, `axi_slave_word_bridge` e ao controlador de SDRAM, para simulação |
+| `u_cache` | `src/cache/SoC/sim/sdram_dcache_system.vhd` | Lado da memória ligado a `axi_master_bridge`, `axi_slave_word_bridge` e ao controlador de SDRAM, para simulação |
 
 No interconector, os generics de região ficam nos padrões e apenas `base_sdram` e `write_through` são repassados. Os acessos a periféricos e à última janela de 4 KB da SDRAM não chegam à cache, pois o interconector os desvia. O arranjo completo do caminho está em [dcache_axi.md](../barramento/dcache_axi.md), e a disputa pelo mestre AXI4 entre a cache e o acesso direto do core em [CACHE_MASTER_SHARING.md](../bugs/CACHE_MASTER_SHARING.md).
 

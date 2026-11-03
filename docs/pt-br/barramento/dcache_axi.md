@@ -10,7 +10,7 @@ porta do core ── split ──┤          ├── axi_master_bridge ──
 
 Os endereços com o bit 31 em zero são o espaço da SDRAM e passam pela cache, exceto os últimos 4 KB (0x43FFF000 a 0x43FFFFFF). Os endereços com o bit 31 em um são a janela de periféricos (os bits 30:28 escolhem o periférico e os bits 9:2 a palavra). As duas exceções vão direto ao mestre, sem cache. Os últimos 4 KB guardam as palavras que o hospedeiro compartilha com o programa (tohost, fromhost, stdout), que o hospedeiro lê e escreve pela porta de depuração da SDRAM, atrás da cache. Todos os blocos à esquerda da ponte da SDRAM rodam no clock do core, e a ponte cruza para o clock da memória como antes.
 
-As duas pontes (`axi_master_bridge` e `axi_slave_word_bridge`) ficam neste repositório (`src/barramento/soc/`). O roteador, o banco de periféricos e o interconector AXI4 decodificam o mapa da plataforma e conhecem os periféricos, então ficam no Insper-RISC-V (`src/interconnect/`).
+As duas pontes (`axi_master_bridge` e `axi_slave_word_bridge`) ficam neste repositório (`src/barramento/SoC/`). O roteador, o banco de periféricos e o interconector AXI4 decodificam o mapa da plataforma e conhecem os periféricos, então ficam no Insper-RISC-V (`src/interconnect/`).
 
 O lado do core do conjunto é o contrato do barramento externo privado. O acesso fica na porta enquanto o estágio está parado, `ready` é um nível até `mem_advance`, e `rdata` fica no último load concluído até o próximo terminar, porque o load do último estágio ainda o lê enquanto o acesso seguinte está na porta. O lado do periférico é a mesma porta `p_*` com um pulso por acesso, então um periférico (a UART sobre JTAG) é o mesmo VHDL em qualquer dos dois barramentos.
 

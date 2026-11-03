@@ -1,4 +1,4 @@
-# flash_store1port
+# flash_store
 
 IP interno de ROM de uma porta que serve de armazenamento do chip de FLASH externa.
 
@@ -8,7 +8,7 @@ Este IP é a memória de bloco da FPGA que o [flash_chip](flash_chip.md) comanda
 
 ### 1.1. Diferença entre os três IPs de FLASH
 
-A tabela comparativa está em [flash1port](flash1port.md). Em relação aos outros dois, este IP tem 256 KB por padrão (contra 32 KB), outro arquivo de inicialização (`./flash_init.mif`) e atende o chip, não o núcleo. Não há segunda cópia, porque o chip é o único leitor e as duas leituras do núcleo (instrução e dado) passam pelo chip.
+A tabela comparativa está em [flash](flash.md). Em relação aos outros dois, este IP tem 256 KB por padrão (contra 32 KB), outro arquivo de inicialização (`./flash_init.mif`) e atende o chip, não o núcleo. Não há segunda cópia, porque o chip é o único leitor e as duas leituras do núcleo (instrução e dado) passam pelo chip.
 
 ## 2. Interface
 
@@ -16,18 +16,18 @@ A tabela comparativa está em [flash1port](flash1port.md). Em relação aos outr
 
 | Generic | Tipo | Padrão | Significado |
 | :--- | :--- | :--- | :--- |
-| `size_bytes` | `positive` | 262144 | Tamanho em bytes, potência de dois (256 KB por padrão); define a largura de `address` e o número de palavras |
+| `size_bytes` | `positive` | 262144 | Tamanho em bytes, potência de dois (256 KB por padrão); define a largura de `i_address` e o número de palavras |
 
 ### 2.2. Portas
 
 | Porta | Direção | Largura | Padrão | Significado |
 | :--- | :--- | ---: | :--- | :--- |
-| `address` | entrada | $\log_2(\text{size\_bytes}) - 2$ (16 com o padrão) | | Índice da palavra (endereço de byte sem os dois bits baixos) |
-| `clock` | entrada | 1 | `'1'` | Clock da memória |
-| `rden` | entrada | 1 | `'1'` | Habilita a leitura |
-| `wren` | entrada | 1 | `'0'` | Habilita a escrita |
-| `data` | entrada | 32 | zeros | Dado de escrita |
-| `q` | saída | 32 | | Palavra lida |
+| `i_address` | entrada | $\log_2(\text{size\_bytes}) - 2$ (16 com o padrão) | | Índice da palavra (endereço de byte sem os dois bits baixos) |
+| `i_clk` | entrada | 1 | `'1'` | Clock da memória |
+| `i_rden` | entrada | 1 | `'1'` | Habilita a leitura |
+| `i_wren` | entrada | 1 | `'0'` | Habilita a escrita |
+| `i_data` | entrada | 32 | zeros | Dado de escrita |
+| `o_q` | saída | 32 | | Palavra lida |
 
 ## 3. Comportamento
 
@@ -49,15 +49,15 @@ A leitura é feita pela instância `altsyncram` da biblioteca `altera_mf`, que �
 
 ### 3.2. Latência de leitura
 
-O endereço é capturado na borda de `clock` e a saída não tem registrador adicional, então a palavra do endereço aplicado numa borda aparece em `q` depois dela, com um ciclo de latência síncrona. A dica `ENABLE_RUNTIME_MOD` mantém a memória visível ao editor de conteúdo em sistema do Quartus, e a instância aparece com o nome `FLASH`, o que permite regravar o conteúdo por JTAG sem recompilar.
+O endereço é capturado na borda de `i_clk` e a saída não tem registrador adicional, então a palavra do endereço aplicado numa borda aparece em `o_q` depois dela, com um ciclo de latência síncrona. A dica `ENABLE_RUNTIME_MOD` mantém a memória visível ao editor de conteúdo em sistema do Quartus, e a instância aparece com o nome `FLASH`, o que permite regravar o conteúdo por JTAG sem recompilar.
 
 ## 4. Integração
 
-O arquivo `src/rom/cyclone-v/flash_store1port.qip` registra o IP como "ROM: 1-PORT", versão 20.1, família Cyclone V, e aponta para o VHDL.
+O arquivo `src/ROM/Cyclone-V/flash_store.qip` registra o IP como "ROM: 1-PORT", versão 20.1, família Cyclone V, e aponta para o VHDL.
 
 | Topo | Instância | Ligação |
 | :--- | :--- | :--- |
-| Topo da placa DE0-CV (Insper-RISC-V) | `FLASH_STORE` | `address` nos bits 17 a 2 de `o_mem_addr` do chip, `clock` no mesmo clock do chip, `rden` em `'1'`, `wren` em `'0'`, `q` em `i_mem_data` do chip |
+| Topo da placa DE0-CV (Insper-RISC-V) | `FLASH_STORE` | `i_address` nos bits 17 a 2 de `o_mem_addr` do chip, `i_clk` no mesmo clock do chip, `i_rden` em `'1'`, `i_wren` em `'0'`, `o_q` em `i_mem_data` do chip |
 
 No mesmo topo o chip é instanciado com `size_bytes` de 262144, igual ao tamanho padrão deste IP. Na simulação modular o armazenamento do chip é o modelo [rom_simulation](rom_simulation.md).
 

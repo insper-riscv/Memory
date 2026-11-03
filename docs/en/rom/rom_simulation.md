@@ -4,7 +4,7 @@ Simulation model of the ROM with two synchronous read ports over the same word v
 
 ## 1. Role of the component in the SoC
 
-In GHDL simulations the model replaces the board ROM IPs ([boot_rom1port](boot_rom1port.md), [flash1port](flash1port.md) and [flash_mem1port](flash_mem1port.md)), which depend on the Quartus `altera_mf` library. Port 1 plays the instruction fetch access and port 2, with its own clock, plays the data access of the MEM stage (the second physical FLASH copy in hardware). The vector is written in plain VHDL so that cocotb can read it.
+In GHDL simulations the model replaces the board ROM IPs ([boot_rom](boot_rom.md), [flash](flash.md) and [flash_mem](flash_mem.md)), which depend on the Quartus `altera_mf` library. Port 1 plays the instruction fetch access and port 2, with its own clock, plays the data access of the MEM stage (the second physical FLASH copy in hardware). The vector is written in plain VHDL so that cocotb can read it.
 
 ## 2. Interface
 

@@ -111,7 +111,7 @@ A pulse on `i_invalidate` clears the valid vector in one `i_clk_cpu` cycle. If t
 
 | Instance | File | Connection |
 | :--- | :--- | :--- |
-| `ICACHE` | `src/cache/soc/sim/flash_path_system.vhd` | `i_clk` and `i_clk_cpu` wired to the same clock; memory side wired to a [mem_region_router](mem_region_router.md), whose FLASH output goes to master A of the [flash_arbiter](flash_arbiter.md) |
+| `ICACHE` | `src/cache/SoC/sim/flash_path_system.vhd` | `i_clk` and `i_clk_cpu` wired to the same clock; memory side wired to a [mem_region_router](mem_region_router.md), whose FLASH output goes to master A of the [flash_arbiter](flash_arbiter.md) |
 
 The icache request is always a line read. In the simulation system, the SDRAM output of the icache's router has no slave.
 

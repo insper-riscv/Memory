@@ -1,4 +1,4 @@
-# flash1port
+# flash
 
 IP interno de ROM de uma porta que guarda o programa de teste (a FLASH interna) lido pelo estágio de busca de instruções.
 
@@ -10,9 +10,9 @@ A FLASH interna começa logo depois da BOOT_ROM e vai até o início da RAM (`0x
 
 | IP | Papel | Tamanho padrão | Arquivo de inicialização | Nome da instância |
 | :--- | :--- | ---: | :--- | :--- |
-| [flash1port](flash1port.md) | Cópia lida pelo estágio IF do núcleo | 32 KB | `./init.mif` | `FLASH` |
-| [flash_mem1port](flash_mem1port.md) | Segunda cópia física, lida pelo estágio MEM como dado | 32 KB | `./init.mif` | `FLASH_MEM` |
-| [flash_store1port](flash_store1port.md) | Armazenamento atrás do chip [flash_chip](flash_chip.md) | 256 KB | `./flash_init.mif` | `FLASH` |
+| [flash](flash.md) | Cópia lida pelo estágio IF do núcleo | 32 KB | `./init.mif` | `FLASH` |
+| [flash_mem](flash_mem.md) | Segunda cópia física, lida pelo estágio MEM como dado | 32 KB | `./init.mif` | `FLASH_MEM` |
+| [flash_store](flash_store.md) | Armazenamento atrás do chip [flash_chip](flash_chip.md) | 256 KB | `./flash_init.mif` | `FLASH` |
 
 Os três usam a mesma receita de `altsyncram`. As duas cópias internas precisam ter sempre o mesmo conteúdo, e o nome de instância distinto é o que faz o editor de conteúdo tratar cada uma como instância JTAG separada.
 
@@ -22,18 +22,18 @@ Os três usam a mesma receita de `altsyncram`. As duas cópias internas precisam
 
 | Generic | Tipo | Padrão | Significado |
 | :--- | :--- | :--- | :--- |
-| `size_bytes` | `positive` | 32768 | Tamanho em bytes, potência de dois (32 KB por padrão); define a largura de `address` e o número de palavras |
+| `size_bytes` | `positive` | 32768 | Tamanho em bytes, potência de dois (32 KB por padrão); define a largura de `i_address` e o número de palavras |
 
 ### 2.2. Portas
 
 | Porta | Direção | Largura | Padrão | Significado |
 | :--- | :--- | ---: | :--- | :--- |
-| `address` | entrada | $\log_2(\text{size\_bytes}) - 2$ (13 com o padrão) | | Índice da palavra (endereço de byte sem os dois bits baixos) |
-| `clock` | entrada | 1 | `'1'` | Clock da memória |
-| `rden` | entrada | 1 | `'1'` | Habilita a leitura |
-| `wren` | entrada | 1 | `'0'` | Habilita a escrita |
-| `data` | entrada | 32 | zeros | Dado de escrita |
-| `q` | saída | 32 | | Palavra lida |
+| `i_address` | entrada | $\log_2(\text{size\_bytes}) - 2$ (13 com o padrão) | | Índice da palavra (endereço de byte sem os dois bits baixos) |
+| `i_clk` | entrada | 1 | `'1'` | Clock da memória |
+| `i_rden` | entrada | 1 | `'1'` | Habilita a leitura |
+| `i_wren` | entrada | 1 | `'0'` | Habilita a escrita |
+| `i_data` | entrada | 32 | zeros | Dado de escrita |
+| `o_q` | saída | 32 | | Palavra lida |
 
 ## 3. Comportamento
 
@@ -55,17 +55,17 @@ A leitura é feita pela instância `altsyncram` da biblioteca `altera_mf`, que �
 
 ### 3.2. Latência de leitura
 
-O endereço é capturado na borda de `clock` e a saída não tem registrador adicional, então a palavra do endereço aplicado numa borda aparece em `q` depois dela, com um ciclo de latência síncrona. A dica `ENABLE_RUNTIME_MOD` mantém a memória visível ao editor de conteúdo em sistema do Quartus, e a instância aparece com o nome `FLASH`, o que permite regravar o conteúdo por JTAG sem recompilar.
+O endereço é capturado na borda de `i_clk` e a saída não tem registrador adicional, então a palavra do endereço aplicado numa borda aparece em `o_q` depois dela, com um ciclo de latência síncrona. A dica `ENABLE_RUNTIME_MOD` mantém a memória visível ao editor de conteúdo em sistema do Quartus, e a instância aparece com o nome `FLASH`, o que permite regravar o conteúdo por JTAG sem recompilar.
 
 ## 4. Integração
 
-O arquivo `src/rom/cyclone-v/flash1port.qip` registra o IP como "ROM: 1-PORT", versão 20.1, família Cyclone V, e aponta para o VHDL.
+O arquivo `src/ROM/Cyclone-V/flash.qip` registra o IP como "ROM: 1-PORT", versão 20.1, família Cyclone V, e aponta para o VHDL.
 
 | Topo | Instância | Ligação |
 | :--- | :--- | :--- |
-| Topo de teste de FPGA da plataforma de memória interna (Insper-RISC-V) | `FLASH` | `address` nos bits 14 a 2 do endereço de busca, `clock` no clock do estágio IF, `rden` na habilitação de busca, `wren` em `'0'`, `q` no dado de instrução da FLASH |
+| Topo de teste de FPGA da plataforma de memória interna (Insper-RISC-V) | `FLASH` | `i_address` nos bits 14 a 2 do endereço de busca, `i_clk` no clock do estágio IF, `i_rden` na habilitação de busca, `i_wren` em `'0'`, `o_q` no dado de instrução da FLASH |
 
-A ferramenta de carga regrava este IP e o [flash_mem1port](flash_mem1port.md) pelo editor de conteúdo em sistema a cada troca de teste, segundo o cabeçalho do VHDL. Na simulação em GHDL o modelo equivalente é [rom_simulation](rom_simulation.md).
+A ferramenta de carga regrava este IP e o [flash_mem](flash_mem.md) pelo editor de conteúdo em sistema a cada troca de teste, segundo o cabeçalho do VHDL. Na simulação em GHDL o modelo equivalente é [rom_simulation](rom_simulation.md).
 
 ## 5. Verificação
 
