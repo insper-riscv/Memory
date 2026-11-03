@@ -152,7 +152,7 @@ The sweep of a cache with no dirty lines takes $3 \cdot 2^I$ cycles, plus the st
 | Instance | File | Connection |
 | :--- | :--- | :--- |
 | `u_cache` | `ext_axi_interconnect` of the Insper-RISC-V repository | Memory side wired to the AXI4 master (`axi_master_bridge`) through a multiplexer shared with the core's direct access; `i_flush` takes the request of peripheral 7 and `i_invalidate` takes bit 1 of the data written to it; `i_bypass` stays at its default |
-| `u_cache` | `src/cache/soc/sim/sdram_dcache_system.vhd` | Memory side wired to `axi_master_bridge`, `axi_slave_word_bridge` and the SDRAM controller, for simulation |
+| `u_cache` | `src/cache/SoC/sim/sdram_dcache_system.vhd` | Memory side wired to `axi_master_bridge`, `axi_slave_word_bridge` and the SDRAM controller, for simulation |
 
 In the interconnect, the region generics keep their defaults and only `base_sdram` and `write_through` are passed on. Accesses to peripherals and to the last 4 KB window of the SDRAM do not reach the cache, because the interconnect diverts them. The full layout of the path is in [dcache_axi.md](../barramento/dcache_axi.md), and the contention for the AXI4 master between the cache and the core's direct access is in [CACHE_MASTER_SHARING.md](../bugs/CACHE_MASTER_SHARING.md).
 

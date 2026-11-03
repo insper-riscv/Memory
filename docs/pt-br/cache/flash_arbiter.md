@@ -70,7 +70,7 @@ A concessão custa um ciclo entre o primeiro `i_*_rden` visto e o dono assumir o
 
 | Instância | Arquivo | Conexão |
 | :--- | :--- | :--- |
-| `ARBITER` | `src/cache/soc/sim/flash_path_system.vhd` | Mestre A ligado à saída da FLASH do roteador da icache; mestre B ligado à saída da FLASH do roteador da porta B; saída ligada ao chip `flash_chip` |
+| `ARBITER` | `src/cache/SoC/sim/flash_path_system.vhd` | Mestre A ligado à saída da FLASH do roteador da icache; mestre B ligado à saída da FLASH do roteador da porta B; saída ligada ao chip `flash_chip` |
 
 Os roteadores que alimentam o árbitro são o [mem_region_router](mem_region_router.md). O árbitro não conhece escritas, pois o roteador conclui qualquer escrita à FLASH sem repassá-la.
 

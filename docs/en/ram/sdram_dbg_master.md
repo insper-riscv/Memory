@@ -77,8 +77,8 @@ The command is seen 2 edges of `i_clk` after the flip of `i_cmd_tog` is sampled,
 
 | Item | Description |
 | :--- | :--- |
-| Instantiated in | `src/cyclone-v/de0-cv/de0-cv_top.vhd` of the Insper-RISC-V repository (instance `SDRAM_DEBUG`, on the controller clock) and `src/ram/soc/sim/sdram_system.vhd` (instance `u_dbg`) |
-| Receives commands from | `sdram_jtag_core`, directly in simulation and through the wrapper `src/ram/cyclone-v/sdram_jtag_shell.vhd` (which holds the Virtual JTAG) on the board |
+| Instantiated in | `src/cyclone-v/de0-cv/de0-cv_top.vhd` of the Insper-RISC-V repository (instance `SDRAM_DEBUG`, on the controller clock) and `src/RAM/SoC/sim/sdram_system.vhd` (instance `u_dbg`) |
+| Receives commands from | `sdram_jtag_core`, directly in simulation and through the wrapper `Insper-RISC-V/src/cyclone-v/de0-cv/sdram_jtag_shell.vhd` (which holds the Virtual JTAG) on the board |
 | Delivers requests to | the master B port of `sdram_arbiter`, which carries them to the controller |
 | Uses | the `synchronizer` of the Common-Components library, two instances, one for `i_cmd_tog` and one for `i_init_done` |
 

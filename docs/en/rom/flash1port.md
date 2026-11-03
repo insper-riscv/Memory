@@ -59,7 +59,7 @@ The address is captured on the edge of `clock` and the output has no extra regis
 
 ## 4. Integration
 
-The file `src/rom/cyclone-v/flash1port.qip` registers the IP as "ROM: 1-PORT", version 20.1, family Cyclone V, and points to the VHDL.
+The file `src/ROM/Cyclone-V/flash1port.qip` registers the IP as "ROM: 1-PORT", version 20.1, family Cyclone V, and points to the VHDL.
 
 | Top | Instance | Wiring |
 | :--- | :--- | :--- |

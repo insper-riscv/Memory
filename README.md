@@ -23,18 +23,18 @@ Memórias do SoC RISC-V RV32: os blocos de memória que o núcleo lê e escreve.
 | Caminho | Conteúdo |
 | :--- | :--- |
 | `src/common/` | Submódulo Common-Components, editado só na origem |
-| `src/cache/soc/` | Cache de instruções e cache de dados da SDRAM, roteador por região, árbitro da FLASH e modelo do chip de FLASH; `sim/` guarda os sistemas de teste das caches |
-| `src/ram/soc/` | Controlador da SDRAM da placa (32M x 16, 64 MB), ponte entre o clock do núcleo e o do controlador, autoteste que dirige o controlador sozinho (modos rápido, padrões, varredura do chip inteiro e aleatório), árbitro e mestre de depuração que deixam um hospedeiro ler e escrever a SDRAM por JTAG enquanto um núcleo a usa ([docs/pt-br/ram/sdram_debug.md](docs/pt-br/ram/sdram_debug.md); `src/ram/cyclone-v/` guarda a casca Virtual JTAG, só para a placa) e um pacote com os tempos do chip. `src/ram/soc/sim/` guarda o modelo do chip, que reprova a simulação quando o controlador quebra uma regra dele, e um topo que liga os três |
-| `src/ram/cyclone-v/` | IP Quartus `RAM1PORT` e a casca Virtual JTAG do controle de depuração da SDRAM, só para a placa |
-| `src/rom/soc/` | Modelo de simulação da ROM em VHDL puro com array que o cocotb consegue ler (`rom_simulation`) |
-| `src/rom/cyclone-v/` | IPs Quartus (`altsyncram`) da ROM: `BOOT_ROM1PORT` (gravada uma vez), `FLASH1PORT` e `FLASH_MEM1PORT` (as duas cópias físicas da FLASH, reescritas por JTAG a cada teste) e `FLASH_STORE1PORT`. Também simulam no GHDL pelos modelos `altera_mf` da Intel |
-| `src/barramento/soc/` | As duas pontes AXI4 genéricas, que só dependem do contrato de memória do core: o mestre (`axi_master_bridge`, do core para um escravo AXI4) e o escravo de palavra (`axi_slave_word_bridge`, AXI4 na frente de uma memória), com o sistema de teste em `sim/`. O interconector externo, o roteador AXI4 e o banco de periféricos decodificam o mapa da plataforma e conhecem os periféricos, então ficam no Insper-RISC-V, em `src/interconnect/` |
+| `src/cache/SoC/` | Cache de instruções e cache de dados da SDRAM, roteador por região, árbitro da FLASH e modelo do chip de FLASH; `sim/` guarda os sistemas de teste das caches |
+| `src/RAM/SoC/` | Controlador da SDRAM da placa (32M x 16, 64 MB), ponte entre o clock do núcleo e o do controlador, autoteste que dirige o controlador sozinho (modos rápido, padrões, varredura do chip inteiro e aleatório), árbitro e mestre de depuração que deixam um hospedeiro ler e escrever a SDRAM por JTAG enquanto um núcleo a usa ([docs/pt-br/ram/sdram_debug.md](docs/pt-br/ram/sdram_debug.md); `src/RAM/FPGA/Cyclone-V/` guarda a casca Virtual JTAG, só para a placa) e um pacote com os tempos do chip. `src/RAM/SoC/sim/` guarda o modelo do chip, que reprova a simulação quando o controlador quebra uma regra dele, e um topo que liga os três |
+| `src/RAM/FPGA/Cyclone-V/` | IP Quartus `RAM1PORT` e a casca Virtual JTAG do controle de depuração da SDRAM, só para a placa |
+| `src/ROM/SoC/` | Modelo de simulação da ROM em VHDL puro com array que o cocotb consegue ler (`rom_simulation`) |
+| `src/ROM/Cyclone-V/` | IPs Quartus (`altsyncram`) da ROM: `BOOT_ROM1PORT` (gravada uma vez), `FLASH1PORT` e `FLASH_MEM1PORT` (as duas cópias físicas da FLASH, reescritas por JTAG a cada teste) e `FLASH_STORE1PORT`. Também simulam no GHDL pelos modelos `altera_mf` da Intel |
+| `src/barramento/SoC/` | As duas pontes AXI4 genéricas, que só dependem do contrato de memória do core: o mestre (`axi_master_bridge`, do core para um escravo AXI4) e o escravo de palavra (`axi_slave_word_bridge`, AXI4 na frente de uma memória), com o sistema de teste em `sim/`. O interconector externo, o roteador AXI4 e o banco de periféricos decodificam o mapa da plataforma e conhecem os periféricos, então ficam no Insper-RISC-V, em `src/interconnect/` |
 | `tests/python/` | Testes por entidade em cocotb, em `unittests/{cache,ram,rom,barramento}`, e o catálogo (`tests.json`) que os conduz |
 
 ## 3. Famílias de Memória
 
 
-Há três famílias que compartilham uma única interface de escravo: modelos de simulação, IPs internos da FPGA e memória externa (RAM fora da FPGA, com controladores de vários ciclos), esta última em `src/ram/soc/`, onde a SDRAM é a primeira. Toda memória interna responde em um ciclo; o sinal `ready` só integra a interface com a memória externa. Os tempos do chip em `src/ram/soc/sdram_pkg.vhd` são os da folha de dados do chip, listados em `docs/pt-br/ram/sdram_timings.md`.
+Há três famílias que compartilham uma única interface de escravo: modelos de simulação, IPs internos da FPGA e memória externa (RAM fora da FPGA, com controladores de vários ciclos), esta última em `src/RAM/SoC/`, onde a SDRAM é a primeira. Toda memória interna responde em um ciclo; o sinal `ready` só integra a interface com a memória externa. Os tempos do chip em `src/RAM/SoC/sdram/sdram_pkg.vhd` são os da folha de dados do chip, listados em `docs/pt-br/ram/sdram_timings.md`.
 
 Os tamanhos dos IPs devem coincidir com o mapa de memória da plataforma (`Tests/platforms/internal-mem.yaml`), verificado por `riscv-tools check-memory-map`.
 

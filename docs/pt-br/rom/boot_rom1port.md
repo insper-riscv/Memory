@@ -53,7 +53,7 @@ O `.mif` é gerado pelo fluxo de compilação da placa a partir do código de bo
 
 ## 4. Integração
 
-O arquivo `.qip` (`src/rom/cyclone-v/boot_rom1port.qip`) registra o IP como "ROM: 1-PORT", versão 20.1, família Cyclone V, e aponta para o VHDL.
+O arquivo `.qip` (`src/ROM/Cyclone-V/boot_rom1port.qip`) registra o IP como "ROM: 1-PORT", versão 20.1, família Cyclone V, e aponta para o VHDL.
 
 | Topo | Instância | Ligação |
 | :--- | :--- | :--- |

@@ -95,7 +95,7 @@ No instante zero, um processo lê `init_file` linha a linha e grava cada palavra
 | Item | Descrição |
 | :--- | :--- |
 | Instanciado em | `src/simulation/modular/modular_sim_top.vhd` do repositório Insper-RISC-V, quando `ram_external` é verdadeiro, com `init_file` igual a `ram_file`, `latency` igual a `ext_ram_latency`, `size_bytes` igual a `ram_size_bytes` e `base_kib` igual ao módulo 65536 de `ram_base_kib` |
-| Acima dele | a cache de dados (`src/cache/soc/dcache.vhd`), a cache de instruções (`src/cache/soc/icache.vhd`) e, quando a ROM também é externa, o roteador `mem_region_router`; as portas de linha carregam as linhas das caches |
+| Acima dele | a cache de dados (`src/cache/SoC/dcache.vhd`), a cache de instruções (`src/cache/SoC/icache.vhd`) e, quando a ROM também é externa, o roteador `mem_region_router`; as portas de linha carregam as linhas das caches |
 | Contrato | o mesmo da ponte da SDRAM (`sdram_cpu_bridge`) e da porta externa do core, descrito em [ext_interconnect.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/interconnect/ext_interconnect.md) |
 | Lista de portas | a mesma de `sdram_system`, o que deixa o topo trocar um pelo outro |
 | Porta de depuração | no topo modular, o testbench lê por ela o `tohost` do HTIF quando ele está no chip, sem passar pelas caches |
