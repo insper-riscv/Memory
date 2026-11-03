@@ -102,7 +102,7 @@ for the READ. For the WRITE, $t_{cmd} + 2\,T_{CK}$ is replaced by $t_{cmd} + T_{
 | Instance | Where | Connection |
 | :--- | :--- | :--- |
 | `u_chip` in `sdram_system` | simulation top of the subsystem | `tck_ps` and `init_file` from the top generics, `i_reinit` tied to the controller-side reset, debug ports taken to the top port |
-| `u_chip` in `sdram_bist_system` | simulation top of the self test | default generics and `i_reinit` tied to the self-test reset |
+| `u_chip` in `teste_sdram_system` | simulation top of the self test | default generics and `i_reinit` tied to the self-test reset |
 
 The top joins the DQ pins. The [sdram_ctrl](sdram_ctrl.md) drives them when `o_dram_dq_oe` is `'1'`, and the model drives them otherwise. The top of the subsystem is in turn used by the tops of the data cache and of the AXI slave.
 

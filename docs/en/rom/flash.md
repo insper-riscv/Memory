@@ -1,4 +1,4 @@
-# flash1port
+# flash
 
 Single-port internal ROM IP that holds the test program (the internal FLASH) read by the instruction fetch stage.
 
@@ -10,9 +10,9 @@ The internal FLASH starts right after the BOOT_ROM and runs to the start of the 
 
 | IP | Role | Default size | Initialization file | Instance name |
 | :--- | :--- | ---: | :--- | :--- |
-| [flash1port](flash1port.md) | Copy read by the core IF stage | 32 KB | `./init.mif` | `FLASH` |
-| [flash_mem1port](flash_mem1port.md) | Second physical copy, read by the MEM stage as data | 32 KB | `./init.mif` | `FLASH_MEM` |
-| [flash_store1port](flash_store1port.md) | Storage behind the [flash_chip](flash_chip.md) chip | 256 KB | `./flash_init.mif` | `FLASH` |
+| [flash](flash.md) | Copy read by the core IF stage | 32 KB | `./init.mif` | `FLASH` |
+| [flash_mem](flash_mem.md) | Second physical copy, read by the MEM stage as data | 32 KB | `./init.mif` | `FLASH_MEM` |
+| [flash_store](flash_store.md) | Storage behind the [flash_chip](flash_chip.md) chip | 256 KB | `./flash_init.mif` | `FLASH` |
 
 All three use the same `altsyncram` recipe. The two internal copies must always hold the same content, and the distinct instance name is what makes the content editor treat each as a separate JTAG instance.
 
@@ -22,18 +22,18 @@ All three use the same `altsyncram` recipe. The two internal copies must always 
 
 | Generic | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `size_bytes` | `positive` | 32768 | Size in bytes, a power of two (32 KB by default); sets the width of `address` and the word count |
+| `size_bytes` | `positive` | 32768 | Size in bytes, a power of two (32 KB by default); sets the width of `i_address` and the word count |
 
 ### 2.2. Ports
 
 | Port | Direction | Width | Default | Meaning |
 | :--- | :--- | ---: | :--- | :--- |
-| `address` | input | $\log_2(\text{size\_bytes}) - 2$ (13 by default) | | Word index (byte address without the two low bits) |
-| `clock` | input | 1 | `'1'` | Memory clock |
-| `rden` | input | 1 | `'1'` | Read enable |
-| `wren` | input | 1 | `'0'` | Write enable |
-| `data` | input | 32 | zeros | Write data |
-| `q` | output | 32 | | Word read |
+| `i_address` | input | $\log_2(\text{size\_bytes}) - 2$ (13 by default) | | Word index (byte address without the two low bits) |
+| `i_clk` | input | 1 | `'1'` | Memory clock |
+| `i_rden` | input | 1 | `'1'` | Read enable |
+| `i_wren` | input | 1 | `'0'` | Write enable |
+| `i_data` | input | 32 | zeros | Write data |
+| `o_q` | output | 32 | | Word read |
 
 ## 3. Behavior
 
@@ -55,17 +55,17 @@ The read is done by the `altsyncram` instance of the `altera_mf` library, which 
 
 ### 3.2. Read latency
 
-The address is captured on the edge of `clock` and the output has no extra register, so the word of the address applied on an edge appears on `q` after it, with one cycle of synchronous latency. The `ENABLE_RUNTIME_MOD` hint keeps the memory visible to the Quartus In-System Memory Content Editor, and the instance shows up under the name `FLASH`, which lets the content be rewritten over JTAG without recompiling.
+The address is captured on the edge of `i_clk` and the output has no extra register, so the word of the address applied on an edge appears on `o_q` after it, with one cycle of synchronous latency. The `ENABLE_RUNTIME_MOD` hint keeps the memory visible to the Quartus In-System Memory Content Editor, and the instance shows up under the name `FLASH`, which lets the content be rewritten over JTAG without recompiling.
 
 ## 4. Integration
 
-The file `src/ROM/Cyclone-V/flash1port.qip` registers the IP as "ROM: 1-PORT", version 20.1, family Cyclone V, and points to the VHDL.
+The file `src/ROM/Cyclone-V/flash.qip` registers the IP as "ROM: 1-PORT", version 20.1, family Cyclone V, and points to the VHDL.
 
 | Top | Instance | Wiring |
 | :--- | :--- | :--- |
-| FPGA test top of the internal-memory platform (Insper-RISC-V) | `FLASH` | `address` on bits 14 to 2 of the fetch address, `clock` on the IF stage clock, `rden` on the fetch enable, `wren` at `'0'`, `q` on the FLASH instruction data |
+| FPGA test top of the internal-memory platform (Insper-RISC-V) | `FLASH` | `i_address` on bits 14 to 2 of the fetch address, `i_clk` on the IF stage clock, `i_rden` on the fetch enable, `i_wren` at `'0'`, `o_q` on the FLASH instruction data |
 
-The load tool rewrites this IP and [flash_mem1port](flash_mem1port.md) through the In-System Memory Content Editor on every test change, according to the VHDL header. In GHDL simulation the equivalent model is [rom_simulation](rom_simulation.md).
+The load tool rewrites this IP and [flash_mem](flash_mem.md) through the In-System Memory Content Editor on every test change, according to the VHDL header. In GHDL simulation the equivalent model is [rom_simulation](rom_simulation.md).
 
 ## 5. Verification
 
