@@ -71,15 +71,56 @@ The clock is a separate pin, and the block only sees the edge it receives. There
 
 The crossing by toggling is what the bridge [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md) and the arbiter [sdram_arbiter](../ram/sdram_arbiter.md) use. A block must never receive `i_re`, `i_we` or `i_addr` from a clock domain other than its own without going through this synchronization.
 
-## 5. Stored word width different from the core word
+## 5. Dual-port memory
+
+A dual-port memory has two independent sets of access pins, and each port serves one access per cycle at the same time as the other. The contract of sections 1 and 2 holds for each port, and port 2 repeats the pins of port 1 with the suffix `2`, as in the `rom_simulation`.
+
+| Port 1 | Port 2 | Function |
+| :--- | :--- | :--- |
+| `i_clk` | `i_clk2` | Clock of the port, which can differ from the clock of the other port |
+| `i_addr` | `i_addr2` | Address of the word |
+| `i_re` | `i_re2` | Enables the read |
+| `i_we` | `i_we2` | Enables the write, only on the ports that write |
+| `i_data` | `i_data2` | Write data |
+| `i_mask` | `i_mask2` | Byte mask of the write |
+| `o_q` | `o_q2` | Read data |
+
+There are three arrangements of ports, and the repository uses two of them.
+
+| Arrangement | Ports | Where it appears |
+| :--- | :--- | :--- |
+| Two reads | Both only read | The `rom_simulation` reads the same array through two ports, each with its own clock. The Core uses the second one to read FLASH constants in the MEM stage (`o_flash_addr2` and `o_flash_rden2`) while the IF stage fetches instructions |
+| One read and write and one read only | Port 1 reads and writes, and port 2 only reads | The `ram_chip` has the data port of the core, the instruction port (`i_ins_*`) and the per-word debug port (`i_dbg_word_addr`), all with `o_ready` and `advance` |
+| Two read and write | Both read and write | No block of the repository. Every Quartus IP uses `SINGLE_PORT` |
+
+The usage rules are these.
+
+1. Each port meets the timing of section 2 with its own clock. If the clocks of the ports differ, whoever drives each port crosses the domain as section 4 describes.
+2. Two reads of the same word, one on each port, do not interfere with each other.
+3. A write on one port and a read of the same word on the other, in the same cycle, have a result that the contract does not define. Whoever uses the memory must avoid the case. In the `ram_chip`, a read requested after a write has already completed sees the new data, including a store of the data port seen by the instruction port.
+4. Two writes to the same word, one on each port, in the same cycle, are also undefined and must be avoided.
+
+### 5.1. When there are no two ports
+
+Two agents that need the same device have three solutions.
+
+| Solution | When to use | Cost |
+| :--- | :--- | :--- |
+| Dual-port memory | Two simultaneous accesses in an FPGA memory block | One block with two ports |
+| Two single-port copies | Two simultaneous accesses and JTAG rewriting in Quartus Lite | Twice the blocks, with the same content in both copies, rewritten together |
+| A single-port device with an arbiter | A chip that has a single interface, such as the SDRAM and the FLASH chip | Accesses are serialized, and one master waits for the other, as in [sdram_arbiter](../ram/sdram_arbiter.md) and [flash_arbiter](../cache/flash_arbiter.md) |
+
+The Quartus Lite of this project does not compile an `altsyncram` in `DUAL_PORT` together with `ENABLE_RUNTIME_MOD=YES`, which is what gives access through JTAG, as confirmed empirically. So the FLASH of the internal memory design uses two physical single-port copies, [flash1port](../rom/flash1port.md) for instruction fetch and [flash_mem1port](../rom/flash_mem1port.md) for data reads, with the same content, rewritten together through a list of two JTAG instances.
+
+## 6. Stored word width different from the core word
 
 The core speaks in 32-bit words, with a 4-bit mask (one bit per byte) and a byte address. When the device stores words of $W \neq 32$ bits, an adapter between the two reconciles the difference. The adapter only sees the byte mask on a write and a whole 32-bit word on a read. It never receives the width of the instruction, because the selection of a byte or halfword and the sign extension happen in the WB stage of the core. The complete treatment is in [MEMORY_WIDTH.md](https://github.com/insper-riscv/Core/blob/main/docs/en/MEMORY_WIDTH.md), and this section summarizes the rules.
 
-### 5.1. Address
+### 6.1. Address
 
 The adapter drops the two low bits of the byte address and works with the word index of the core. Misaligned accesses that cross the word arrive as two independent accesses, each with the address of an aligned word, and the adapter treats each one as an ordinary access.
 
-### 5.2. Narrower memory ($W < 32$)
+### 6.2. Narrower memory ($W < 32$)
 
 Let $n = 32 / W$ be the number of slices of a core word.
 
@@ -102,7 +143,7 @@ $$
 
 The SDRAM chip of the board is the example of the serial case. It has 16 bits, so $n = 2$. A 32-bit word is a burst of two 16-bit beats, the first with the low half and the second with the high half, and a line of four words is a burst of eight beats. The mask of each beat is the complement of the two bits of the core mask for that half, because the `dqm` pins of the chip mask at `'1'`. The read uses no mask.
 
-### 5.3. Wider memory ($W > 32$)
+### 6.3. Wider memory ($W > 32$)
 
 Let $m = W / 32$ be the number of core words in each word of the device. The address bits just above the two low ones choose the 32-bit lane.
 
@@ -120,7 +161,7 @@ On a read, the adapter returns only the chosen lane, without shifting it. On a w
 
 A wide word allows moving several core words at once. The data cache uses this in its 16-byte lines, moved by a single request to the SDRAM controller.
 
-### 5.4. Summary of the decisions
+### 6.4. Summary of the decisions
 
 | Situation | Solution |
 | :--- | :--- |
@@ -130,12 +171,13 @@ A wide word allows moving several core words at once. The data cache uses this i
 | No byte mask on the device | Read, merge and write, only on the external bus |
 | The device needs more than one cycle | External bus with `o_ready`, never the internal memory |
 
-## 6. Blocks that meet the contract
+## 7. Blocks that meet the contract
 
 | Type | Blocks |
 | :--- | :--- |
 | One-cycle memory | [ram1port](../ram/ram1port.md), [ram_simulation](../ram/ram_simulation.md), [boot_rom1port](../rom/boot_rom1port.md), [flash_store1port](../rom/flash_store1port.md), [rom_simulation](../rom/rom_simulation.md) |
 | Variable-latency memory | [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md), [sdram_ctrl](../ram/sdram_ctrl.md) |
+| Dual-port memory | [rom_simulation](../rom/rom_simulation.md) (two reads) and [ram_chip](../ram/ram_chip.md) (data, instructions and debug) |
 
 ---
 

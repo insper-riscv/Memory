@@ -71,15 +71,56 @@ O clock é um pino separado, e o bloco só enxerga a borda que recebe. Há dois 
 
 O cruzamento por inversão é o que a ponte [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md) e o árbitro [sdram_arbiter](../ram/sdram_arbiter.md) usam. Um bloco nunca deve receber `i_re`, `i_we` ou `i_addr` de um domínio de clock que não seja o seu sem passar por essa sincronização.
 
-## 5. Largura da palavra guardada diferente da palavra do core
+## 5. Memória de duas portas
+
+Uma memória de duas portas tem dois conjuntos independentes de pinos de acesso, e cada porta atende um acesso por ciclo ao mesmo tempo que a outra. O contrato das seções 1 e 2 vale para cada porta, e a porta 2 repete os pinos da porta 1 com o sufixo `2`, como no `rom_simulation`.
+
+| Porta 1 | Porta 2 | Função |
+| :--- | :--- | :--- |
+| `i_clk` | `i_clk2` | Clock da porta, que pode ser diferente do da outra porta |
+| `i_addr` | `i_addr2` | Endereço da palavra |
+| `i_re` | `i_re2` | Habilita a leitura |
+| `i_we` | `i_we2` | Habilita a escrita, só nas portas que escrevem |
+| `i_data` | `i_data2` | Dado de escrita |
+| `i_mask` | `i_mask2` | Máscara de bytes da escrita |
+| `o_q` | `o_q2` | Dado lido |
+
+Há três arranjos de portas, e o repositório usa dois deles.
+
+| Arranjo | Portas | Onde aparece |
+| :--- | :--- | :--- |
+| Duas leituras | As duas só leem | O `rom_simulation` lê o mesmo vetor por duas portas, cada uma com o seu clock. O Core usa a segunda para ler constantes da FLASH no estágio MEM (`o_flash_addr2` e `o_flash_rden2`) enquanto o estágio IF busca instruções |
+| Uma leitura e escrita e uma só leitura | A porta 1 lê e escreve, e a porta 2 só lê | O `ram_chip` tem a porta de dados do core, a porta de instruções (`i_ins_*`) e a porta de depuração por palavra (`i_dbg_word_addr`), todas com `o_ready` e `advance` |
+| Duas de leitura e escrita | As duas leem e escrevem | Nenhum bloco do repositório. Todos os IPs do Quartus usam `SINGLE_PORT` |
+
+As regras de uso são estas.
+
+1. Cada porta cumpre o tempo da seção 2 com o seu próprio clock. Se os clocks das portas diferem, quem aciona cada porta atravessa o domínio como descreve a seção 4.
+2. Duas leituras da mesma palavra, uma em cada porta, não interferem entre si.
+3. Uma escrita numa porta e uma leitura da mesma palavra na outra, no mesmo ciclo, têm resultado que o contrato não define. Quem usa a memória deve evitar o caso. No `ram_chip`, uma leitura pedida depois de uma escrita já completa vê o dado novo, inclusive um store da porta de dados visto pela porta de instruções.
+4. Duas escritas na mesma palavra, uma em cada porta, no mesmo ciclo, também não são definidas e devem ser evitadas.
+
+### 5.1. Quando não há duas portas
+
+Dois agentes que precisam do mesmo dispositivo têm três soluções.
+
+| Solução | Quando usar | Custo |
+| :--- | :--- | :--- |
+| Memória de duas portas | Dois acessos simultâneos num bloco de memória do FPGA | Um bloco com duas portas |
+| Duas cópias de porta única | Dois acessos simultâneos e regravação por JTAG no Quartus Lite | O dobro dos blocos, com o mesmo conteúdo nas duas cópias, regravadas juntas |
+| Um dispositivo de porta única com árbitro | Chip que tem uma só interface, como a SDRAM e o chip de FLASH | Os acessos se serializam, e um mestre espera o outro, como em [sdram_arbiter](../ram/sdram_arbiter.md) e [flash_arbiter](../cache/flash_arbiter.md) |
+
+O Quartus Lite deste projeto não compila um `altsyncram` em `DUAL_PORT` junto com `ENABLE_RUNTIME_MOD=YES`, que é o que dá acesso pela JTAG, o que foi confirmado empiricamente. Por isso a FLASH do desenho de memória interna usa duas cópias físicas de porta única, [flash1port](../rom/flash1port.md) para a busca de instruções e [flash_mem1port](../rom/flash_mem1port.md) para a leitura de dados, com o mesmo conteúdo, regravadas juntas por uma lista de duas instâncias JTAG.
+
+## 6. Largura da palavra guardada diferente da palavra do core
 
 O core fala em palavras de 32 bits, com uma máscara de 4 bits (um bit por byte) e endereço de byte. Quando o dispositivo guarda palavras de $W \neq 32$ bits, um adaptador entre os dois reconcilia a diferença. O adaptador só vê a máscara de bytes na escrita e uma palavra inteira de 32 bits na leitura. Ele nunca recebe a largura da instrução, porque a seleção de byte ou meia palavra e a extensão de sinal acontecem no estágio WB do core. O tratamento completo está em [MEMORY_WIDTH.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/MEMORY_WIDTH.md), e esta seção resume as regras.
 
-### 5.1. Endereço
+### 6.1. Endereço
 
 O adaptador descarta os dois bits baixos do endereço de byte e trabalha com o índice de palavra do core. Os acessos desalinhados que cruzam a palavra chegam como dois acessos independentes, cada um com o endereço de uma palavra alinhada, e o adaptador trata cada um como um acesso comum.
 
-### 5.2. Memória mais estreita ($W < 32$)
+### 6.2. Memória mais estreita ($W < 32$)
 
 Seja $n = 32 / W$ o número de fatias de uma palavra do core.
 
@@ -102,7 +143,7 @@ $$
 
 O chip de SDRAM da placa é o exemplo do caso em série. Ele tem 16 bits, então $n = 2$. Uma palavra de 32 bits é uma rajada de dois beats de 16 bits, o primeiro com a metade baixa e o segundo com a alta, e uma linha de quatro palavras é uma rajada de oito beats. A máscara de cada beat é o complemento dos dois bits da máscara do core para aquela metade, porque os pinos `dqm` do chip mascaram em `'1'`. A leitura não usa máscara.
 
-### 5.3. Memória mais larga ($W > 32$)
+### 6.3. Memória mais larga ($W > 32$)
 
 Seja $m = W / 32$ o número de palavras do core em cada palavra do dispositivo. Os bits de endereço logo acima dos dois baixos escolhem a faixa de 32 bits.
 
@@ -120,7 +161,7 @@ Na leitura, o adaptador devolve só a faixa escolhida, sem deslocá-la. Na escri
 
 Uma palavra larga permite mover várias palavras do core de uma vez. A cache de dados usa isso nas linhas de 16 bytes, movidas por um único pedido ao controlador da SDRAM.
 
-### 5.4. Resumo das decisões
+### 6.4. Resumo das decisões
 
 | Situação | Solução |
 | :--- | :--- |
@@ -130,12 +171,13 @@ Uma palavra larga permite mover várias palavras do core de uma vez. A cache de 
 | Sem máscara de bytes no dispositivo | Ler, misturar e escrever, só no barramento externo |
 | O dispositivo precisa de mais de um ciclo | Barramento externo com `o_ready`, nunca a memória interna |
 
-## 6. Blocos que cumprem o contrato
+## 7. Blocos que cumprem o contrato
 
 | Tipo | Blocos |
 | :--- | :--- |
 | Memória de um ciclo | [ram1port](../ram/ram1port.md), [ram_simulation](../ram/ram_simulation.md), [boot_rom1port](../rom/boot_rom1port.md), [flash_store1port](../rom/flash_store1port.md), [rom_simulation](../rom/rom_simulation.md) |
 | Memória de latência variável | [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md), [sdram_ctrl](../ram/sdram_ctrl.md) |
+| Memória de duas portas | [rom_simulation](../rom/rom_simulation.md) (duas leituras) e [ram_chip](../ram/ram_chip.md) (dados, instruções e depuração) |
 
 ---
 
