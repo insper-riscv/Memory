@@ -4,7 +4,7 @@
 
 Bridge between the core's memory stage, on the core clock, and the toggle request of the SDRAM controller, on another clock. The bridge receives a word or line access, stores the fields in a register, requests the access by flipping a toggle and returns to the core a ready signal that stays high until the pipeline advances. The read data changes only on the edge where the pipeline advances, because the load still in the write-back stage reads the previous value until then.
 
-The same bridge serves the data path and the instruction path, in two instances. The line access moves the four words of a cache line, as described in [SDRAM_LINE.md](../../SDRAM_LINE.md). The byte selection of a load and the generation of the enables of a store happen in the core, as [SDRAM_SUBWORD_READ.md](../../SDRAM_SUBWORD_READ.md) explains.
+The same bridge serves the data path and the instruction path, in two instances. The line access moves the four words of a cache line, as described in [sdram_line.md](sdram_line.md). The byte selection of a load and the generation of the enables of a store happen in the core, as [sdram_subword_read.md](sdram_subword_read.md) explains.
 
 ## 2. Interface
 

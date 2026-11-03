@@ -4,7 +4,7 @@
 
 Controlador da SDRAM SDR de 32M x 16 (64 MB) da placa DE0-CV. Recebe pedidos de uma palavra de 32 bits, ou de uma linha de quatro palavras (16 bytes), por um handshake de alternância e gera a sequência de comandos do chip. A política é de página fechada. Todo acesso ativa a sua linha e lê ou escreve com auto-precharge, de modo que nenhuma linha fica aberta e a ordem dos comandos não depende do acesso anterior. O controlador também executa a sequência de energização e emite os refreshes periódicos.
 
-Os tempos do chip vêm de [sdram_pkg](sdram_pkg.md) e estão comparados com o datasheet em [SDRAM_TIMINGS.md](../../SDRAM_TIMINGS.md). O pedido de linha está descrito do ponto de vista do sistema em [SDRAM_LINE.md](../../SDRAM_LINE.md).
+Os tempos do chip vêm de [sdram_pkg](sdram_pkg.md) e estão comparados com o datasheet em [sdram_timings.md](sdram_timings.md). O pedido de linha está descrito do ponto de vista do sistema em [sdram_line.md](sdram_line.md).
 
 ## 2. Interface
 
@@ -150,7 +150,7 @@ Com `capture_extra` igual a 1, o topo do autoteste registra os pinos de dados um
 
 ## 5. Verificação
 
-O modelo do chip reprova a simulação em qualquer violação de tempo, ordem de comandos, energização ou intervalo de refresh. Por isso um teste que passa também prova que o controlador obedece ao chip. Não há prova formal do controlador, e a de [FORMAL.md](../../FORMAL.md) cobre só o árbitro.
+O modelo do chip reprova a simulação em qualquer violação de tempo, ordem de comandos, energização ou intervalo de refresh. Por isso um teste que passa também prova que o controlador obedece ao chip. Não há prova formal do controlador, e a de [formal.md](../formal/formal.md) cobre só o árbitro.
 
 | Entrada de `tests.json` | Módulo de teste | O que exercita no controlador |
 | :--- | :--- | :--- |

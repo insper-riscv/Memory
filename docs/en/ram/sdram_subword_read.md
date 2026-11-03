@@ -144,7 +144,7 @@ The read has no mask, so a read always moves 32 bits and the selection happens a
 
 | Part | VHDL |
 | :--- | :--- |
-| Load selection and extension (sections 2 and 3) | [`ExtenderRAM.vhd`](https://github.com/insper-riscv/Core/blob/main/I/ExtenderRAM.vhd) |
-| Store lane and byte enables (section 6) | [`StoreManager.vhd`](https://github.com/insper-riscv/Core/blob/main/I/StoreManager.vhd) |
-| Byte enables to the chip's data masks, and the two beats of a word (sections 1 and 6) | [`sdram_ctrl.vhd`](../src/ram/soc/sdram_ctrl.vhd) |
-| Word address and clock crossing between the core and the controller (section 1) | [`sdram_cpu_bridge.vhd`](../src/ram/soc/sdram_cpu_bridge.vhd) |
+| Load selection and extension (sections 2 and 3) | [`extender_ram.vhd`](https://github.com/insper-riscv/Core/blob/main/src/I/extender_ram.vhd) |
+| Store lane and byte enables (section 6) | [`store_manager.vhd`](https://github.com/insper-riscv/Core/blob/main/src/I/store_manager.vhd) |
+| Byte enables to the chip's data masks, and the two beats of a word (sections 1 and 6) | [`sdram_ctrl.vhd`](../../../src/ram/soc/sdram_ctrl.vhd) |
+| Word address and clock crossing between the core and the controller (section 1) | [`sdram_cpu_bridge.vhd`](../../../src/ram/soc/sdram_cpu_bridge.vhd) |

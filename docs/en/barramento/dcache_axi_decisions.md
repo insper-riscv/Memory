@@ -7,7 +7,7 @@
 | Bus for the core | AXI4, one master, one transaction in flight, INCR bursts of four beats for lines, IDs of width 0 | Third-party IP speaks AXI; with one master there is no need for IDs or reordering; a burst is one request to the controller | Every single access pays for five channels |
 | Router | No clock of delay, W waits for its AW, DECERR where no slave is mapped | The core pays no extra clock per access; a bad address answers instead of hanging | One transaction per direction |
 | Cache organization | 4 KB, direct-mapped, 16-byte lines | One block RAM for the tags and four for the data in the FPGA; a line is four words | Conflict misses between addresses 4 KB apart |
-| Write policy of the platform | Write-through, write-around | The host reads the SDRAM behind the cache with no flush (see `bugs/CACHE_HOST_COHERENCE.md`) | A store takes the full SDRAM write |
+| Write policy of the platform | Write-through, write-around | The host reads the SDRAM behind the cache with no flush (see [CACHE_HOST_COHERENCE.md](../bugs/CACHE_HOST_COHERENCE.md)) | A store takes the full SDRAM write |
 | Write policy of the module | Write-back is the default of the `dcache` module | It is what a core without a debug port behind the cache would use | Needs a flush before anything else reads the memory |
 | Uncached addresses | The peripheral window and the last 4 KB of the SDRAM | Peripherals have side effects on reads; the shared window is read and written by the host | Words there never hit |
 | Cache control | Peripheral 7: a write flushes, bit 1 also invalidates, a read gives busy | No new instruction or CSR in the core | The program or the boot ROM must write it |

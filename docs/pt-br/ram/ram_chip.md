@@ -96,11 +96,11 @@ No instante zero, um processo lê `init_file` linha a linha e grava cada palavra
 | :--- | :--- |
 | Instanciado em | `src/simulation/modular/modular_sim_top.vhd` do repositório Insper-RISC-V, quando `ram_external` é verdadeiro, com `init_file` igual a `ram_file`, `latency` igual a `ext_ram_latency`, `size_bytes` igual a `ram_size_bytes` e `base_kib` igual ao módulo 65536 de `ram_base_kib` |
 | Acima dele | a cache de dados (`src/cache/soc/dcache.vhd`), a cache de instruções (`src/cache/soc/icache.vhd`) e, quando a ROM também é externa, o roteador `mem_region_router`; as portas de linha carregam as linhas das caches |
-| Contrato | o mesmo da ponte da SDRAM (`sdram_cpu_bridge`) e da porta externa do core, descrito em [EXTERNAL_BUS.md](../../EXTERNAL_BUS.md) |
+| Contrato | o mesmo da ponte da SDRAM (`sdram_cpu_bridge`) e da porta externa do core, descrito em [ext_interconnect.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/interconnect/ext_interconnect.md) |
 | Lista de portas | a mesma de `sdram_system`, o que deixa o topo trocar um pelo outro |
 | Porta de depuração | no topo modular, o testbench lê por ela o `tohost` do HTIF quando ele está no chip, sem passar pelas caches |
 
-O topo modular alimenta `ram_base_kib` e `ram_size_bytes` a partir do mapa de memória da plataforma. No mapa do core, a RAM interna ocupa de `0x00008000` a `0x3FFFFFFF` por padrão e a janela externa começa em `0x40000000`, e o mapa completo está no contrato de barramento e memória do repositório Core. O formato do acesso de linha, com a palavra 1 nos bits mais baixos dos vetores `_x`, é o da SDRAM real, descrito em [SDRAM_LINE.md](../../SDRAM_LINE.md), e o caminho de cache e barramento que leva a SDRAM está em [DCACHE_AXI.md](../../DCACHE_AXI.md).
+O topo modular alimenta `ram_base_kib` e `ram_size_bytes` a partir do mapa de memória da plataforma. No mapa do core, a RAM interna ocupa de `0x00008000` a `0x3FFFFFFF` por padrão e a janela externa começa em `0x40000000`, e o mapa completo está no contrato de barramento e memória do repositório Core. O formato do acesso de linha, com a palavra 1 nos bits mais baixos dos vetores `_x`, é o da SDRAM real, descrito em [sdram_line.md](sdram_line.md), e o caminho de cache e barramento que leva a SDRAM está em [dcache_axi.md](../barramento/dcache_axi.md).
 
 ## 5. Verificação
 

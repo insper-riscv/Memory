@@ -2,7 +2,7 @@
 
 ## 1. Função do componente no SoC
 
-O núcleo JTAG da depuração da SDRAM é a lógica atrás de uma instância do Virtual JTAG. No clock da cadeia JTAG, ele desloca um comando de 64 bits vindo do hospedeiro, devolve o estado do comando anterior e entrega o comando ao mestre de depuração (`sdram_dbg_master`), que roda no clock do controlador. A instância do Virtual JTAG fica no invólucro de placa `src/ram/cyclone-v/sdram_jtag_shell.vhd`, e em simulação o testbench conduz as portas do núcleo diretamente. Os registradores, os comandos e os limites do ponto de vista do hospedeiro estão em [SDRAM_DEBUG.md](../../SDRAM_DEBUG.md).
+O núcleo JTAG da depuração da SDRAM é a lógica atrás de uma instância do Virtual JTAG. No clock da cadeia JTAG, ele desloca um comando de 64 bits vindo do hospedeiro, devolve o estado do comando anterior e entrega o comando ao mestre de depuração (`sdram_dbg_master`), que roda no clock do controlador. A instância do Virtual JTAG fica no invólucro de placa `src/ram/cyclone-v/sdram_jtag_shell.vhd`, e em simulação o testbench conduz as portas do núcleo diretamente. Os registradores, os comandos e os limites do ponto de vista do hospedeiro estão em [sdram_debug.md](sdram_debug.md).
 
 ## 2. Interface
 
@@ -78,7 +78,7 @@ No Update-DR com `op` diferente de 0, o comportamento depende de `busy`, que val
 | 0 | limpa `overrun`, registra `op`, `be`, `addr` e `data` nas saídas e inverte `o_cmd_tog` |
 | 1 | sobe `overrun` e descarta o comando |
 
-Um deslocamento com `op` igual a 0 só lê o status e não envia nada. A leitura do status então não gera comando por si, o que impede que cada consulta crie um novo comando que nunca termina (veja [JTAG_STATUS_POLL.md](../../bugs/JTAG_STATUS_POLL.md)).
+Um deslocamento com `op` igual a 0 só lê o status e não envia nada. A leitura do status então não gera comando por si, o que impede que cada consulta crie um novo comando que nunca termina (veja [JTAG_STATUS_POLL.md](../bugs/JTAG_STATUS_POLL.md)).
 
 ### 3.4. Travessia de clock e temporização
 
@@ -93,7 +93,7 @@ Um deslocamento com `op` igual a 0 só lê o status e não envia nada. A leitura
 | Recebe de | `sdram_dbg_master`, por `i_done_tog`, `i_rsp_addr`, `i_rsp_data` e `i_rsp_status` |
 | Hospedeiro | a instância do Virtual JTAG tem registrador de instrução de 2 bits, e a instrução 1 seleciona o DEBUG de 64 bits |
 
-A porta JTAG da UART do barramento externo é outra instância do Virtual JTAG, descrita em [EXTERNAL_BUS.md](../../EXTERNAL_BUS.md).
+A porta JTAG da UART do barramento externo é outra instância do Virtual JTAG, descrita em [jtag_uart.md](https://github.com/insper-riscv/Peripherals/blob/main/docs/pt-br/UART/jtag_uart.md).
 
 ## 5. Verificação
 

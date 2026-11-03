@@ -11,7 +11,7 @@ bytes, so the store never reached the memory.
 | Symptom | 3 of 89 programs failed on the platform with the cache: the stdout buffer held each character in its own word, one test signalled FAIL, and one read zeros |
 | Cause | the core's `sb` and `sh` put the byte address on the port with the byte enable of the lane; the bridge passed the address as it was |
 | Fix | the master bridge sends the address aligned to the word; the byte enables say which bytes |
-| Test | `ExtAxiCache.test_a_byte_store_at_an_unaligned_address_changes_only_its_byte` fails without the fix; the formal proof of the master states the aligned address |
+| Test | In Insper-RISC-V, `ExtAxiCache.test_a_byte_store_at_an_unaligned_address_changes_only_its_byte` fails without the fix; the formal proof of the master states the aligned address |
 
 ## 2. The mechanism
 

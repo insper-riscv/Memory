@@ -59,7 +59,7 @@ Com `init_file` não vazio, o modelo lê o arquivo no instante zero. Cada linha 
 
 ### 3.3. Comandos
 
-O chip só reconhece um comando quando `i_cke` vale `'1'`, `i_cs_n` vale `'0'` e `i_reinit` vale `'0'`. A última condição faz o modelo ignorar o comando que o controlador ainda leva nos registradores na primeira borda de um reset, como detalha [SDRAM_MODEL_RESET_COMMAND.md](../../bugs/SDRAM_MODEL_RESET_COMMAND.md).
+O chip só reconhece um comando quando `i_cke` vale `'1'`, `i_cs_n` vale `'0'` e `i_reinit` vale `'0'`. A última condição faz o modelo ignorar o comando que o controlador ainda leva nos registradores na primeira borda de um reset, como detalha [SDRAM_MODEL_RESET_COMMAND.md](../bugs/SDRAM_MODEL_RESET_COMMAND.md).
 
 Em `i_reinit` igual a `'1'`, o modelo reinicia o instante de energização, esquece o PRECHARGE e os refreshes vistos, fecha todos os bancos e zera a verificação de refresh.
 

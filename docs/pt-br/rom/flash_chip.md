@@ -78,7 +78,7 @@ O chip ocupa $2^{W}$ bytes com $W = \log_2(\text{size\_bytes})$. Um pedido cujos
 
 | Bloco | Relação com o chip |
 | :--- | :--- |
-| `icache` e `dcache` (`src/cache/`) | Mestres de linha; ver [DCACHE_AXI.md](../../DCACHE_AXI.md) para a cache de dados |
+| `icache` e `dcache` (`src/cache/`) | Mestres de linha; ver [dcache_axi.md](../barramento/dcache_axi.md) para a cache de dados |
 | `mem_region_router` | Separa o pedido entre SDRAM e FLASH, conclui stores à FLASH sem efeito e devolve zero para leituras além da janela sem acordar o chip |
 | `flash_arbiter` | Serializa os dois mestres sobre o único chip; um pedido em andamento nunca é interrompido |
 | Armazenamento | Memória de leitura registrada comandada por `o_mem_addr` e `i_mem_data`. Na placa é o IP [flash_store1port](flash_store1port.md); na simulação modular é o modelo [rom_simulation](rom_simulation.md) |

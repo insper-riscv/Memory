@@ -12,7 +12,7 @@ A dcache é a cache de dados do core. Fica no caminho de memória dos endereços
 | Regiões atendidas | SDRAM e FLASH, distinguidas por um bit da tag |
 | Leitura das RAMs | Registrada, como nas RAMs de bloco da FPGA |
 
-A visão geral do caminho do core até a SDRAM, as medições de custo e as escolhas de projeto estão em [DCACHE_AXI.md](../../DCACHE_AXI.md) e [DCACHE_AXI_DECISIONS.md](../../DCACHE_AXI_DECISIONS.md). O motivo da política write-through nas plataformas com porta de debug está em [CACHE_HOST_COHERENCE.md](../../bugs/CACHE_HOST_COHERENCE.md).
+A visão geral do caminho do core até a SDRAM, as medições de custo e as escolhas de projeto estão em [dcache_axi.md](../barramento/dcache_axi.md) e [dcache_axi_decisions.md](../barramento/dcache_axi_decisions.md). O motivo da política write-through nas plataformas com porta de debug está em [CACHE_HOST_COHERENCE.md](../bugs/CACHE_HOST_COHERENCE.md).
 
 ## 2. Interface
 
@@ -154,7 +154,7 @@ A varredura de uma cache sem linhas sujas leva $3 \cdot 2^I$ ciclos, mais o cicl
 | `u_cache` | `ext_axi_interconnect` do repositório Insper-RISC-V | Lado da memória ligado ao mestre AXI4 (`axi_master_bridge`) por um multiplexador com o acesso direto do core; `i_flush` recebe o pedido do periférico 7 e `i_invalidate` o bit 1 do dado escrito nele; `i_bypass` fica no padrão |
 | `u_cache` | `src/cache/soc/sim/sdram_dcache_system.vhd` | Lado da memória ligado a `axi_master_bridge`, `axi_slave_word_bridge` e ao controlador de SDRAM, para simulação |
 
-No interconector, os generics de região ficam nos padrões e apenas `base_sdram` e `write_through` são repassados. Os acessos a periféricos e à última janela de 4 KB da SDRAM não chegam à cache, pois o interconector os desvia. O arranjo completo do caminho está em [DCACHE_AXI.md](../../DCACHE_AXI.md), e a disputa pelo mestre AXI4 entre a cache e o acesso direto do core em [CACHE_MASTER_SHARING.md](../../bugs/CACHE_MASTER_SHARING.md).
+No interconector, os generics de região ficam nos padrões e apenas `base_sdram` e `write_through` são repassados. Os acessos a periféricos e à última janela de 4 KB da SDRAM não chegam à cache, pois o interconector os desvia. O arranjo completo do caminho está em [dcache_axi.md](../barramento/dcache_axi.md), e a disputa pelo mestre AXI4 entre a cache e o acesso direto do core em [CACHE_MASTER_SHARING.md](../bugs/CACHE_MASTER_SHARING.md).
 
 Para a FLASH, o lado da memória da cache pode passar por um [mem_region_router](mem_region_router.md), que separa SDRAM e FLASH e conclui sem efeito os stores à FLASH. A busca de instruções usa a [icache](icache.md).
 

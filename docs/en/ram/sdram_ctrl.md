@@ -4,7 +4,7 @@
 
 Controller of the 32M x 16 SDR SDRAM (64 MB) of the DE0-CV board. It receives requests for one 32-bit word, or for one line of four words (16 bytes), through a toggle handshake and generates the chip's command sequence. The policy is closed page. Every access activates its row and reads or writes with auto-precharge, so no row stays open and the order of the commands does not depend on the previous access. The controller also runs the power-up sequence and issues the periodic refreshes.
 
-The chip times come from [sdram_pkg](sdram_pkg.md) and are compared with the datasheet in [SDRAM_TIMINGS.md](../../SDRAM_TIMINGS.md). The line request is described from the system's point of view in [SDRAM_LINE.md](../../SDRAM_LINE.md).
+The chip times come from [sdram_pkg](sdram_pkg.md) and are compared with the datasheet in [sdram_timings.md](sdram_timings.md). The line request is described from the system's point of view in [sdram_line.md](sdram_line.md).
 
 ## 2. Interface
 
@@ -150,7 +150,7 @@ With `capture_extra` equal to 1, the top of the self test registers the data pin
 
 ## 5. Verification
 
-The chip model fails the simulation on any violation of timing, command order, power-up or refresh interval. A test that passes therefore also proves that the controller obeys the chip. There is no formal proof of the controller, and the one in [FORMAL.md](../../FORMAL.md) covers only the arbiter.
+The chip model fails the simulation on any violation of timing, command order, power-up or refresh interval. A test that passes therefore also proves that the controller obeys the chip. There is no formal proof of the controller, and the one in [formal.md](../formal/formal.md) covers only the arbiter.
 
 | `tests.json` entry | Test module | What it exercises in the controller |
 | :--- | :--- | :--- |

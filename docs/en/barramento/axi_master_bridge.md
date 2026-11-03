@@ -125,7 +125,7 @@ Each wait of the slave adds one cycle to the phase in which it occurs.
 - The simulation top of the data cache connects the bridge directly to a word slave, with no router.
 - The word contract side is the same as that of a core memory bridge, and the AXI side is accepted by the AXI router of the Insper-RISC-V repository and by `axi_slave_word_bridge`.
 
-See [DCACHE_AXI.md](../../DCACHE_AXI.md) for the full data path and [AXI_UNALIGNED_BYTE_STORE.md](../../bugs/AXI_UNALIGNED_BYTE_STORE.md) for why the address leaves aligned to the word.
+See [dcache_axi.md](dcache_axi.md) for the full data path and [AXI_UNALIGNED_BYTE_STORE.md](../bugs/AXI_UNALIGNED_BYTE_STORE.md) for why the address leaves aligned to the word.
 
 ## 5. Verification
 
@@ -143,7 +143,7 @@ The formal proof uses the netlist synthesized from the VHDL, treats the core and
 5. `o_ready` stays as a level until `i_mem_advance`, `o_rdata` and `o_rdata_x` change only on that edge, and `o_err` implies `o_ready`.
 6. An access ends within 20 clocks when the slave accepts and answers within 3 clocks per channel and the core advances the pipeline the clock after `o_ready`.
 
-The safety proof is by induction with no depth limit. Seven cover scenarios (word and line reads and writes, W still offered after AW is accepted, AW still offered after W is accepted, and an error response) must be reachable, and six mutants of the VHDL must fail (B accepted without waiting for AW and W, wrong `wstrb`, W without waiting for `wready`, `ready` without `i_mem_advance`, `wlast` always at `'1'` and wrong `arlen`). The general method is in [FORMAL.md](../../FORMAL.md).
+The safety proof is by induction with no depth limit. Seven cover scenarios (word and line reads and writes, W still offered after AW is accepted, AW still offered after W is accepted, and an error response) must be reachable, and six mutants of the VHDL must fail (B accepted without waiting for AW and W, wrong `wstrb`, W without waiting for `wready`, `ready` without `i_mem_advance`, `wlast` always at `'1'` and wrong `arlen`). The general method is in [formal.md](../formal/formal.md).
 
 ---
 

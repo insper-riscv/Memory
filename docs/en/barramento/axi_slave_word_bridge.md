@@ -113,7 +113,7 @@ The access stays on `o_addr`, `o_rden` or `o_wren` until `i_ready`. After that t
 - The AXI4 interconnect of the Insper-RISC-V repository exposes the AXI4 master port of slave 0 of the router, and the word slave is connected to that port outside the interconnect.
 - The simulation tops of the data cache and of the slave itself connect the component to the SDRAM bridge, with `axi_master_bridge` or with a test master.
 
-See [DCACHE_AXI.md](../../DCACHE_AXI.md) for the full path, [SDRAM_LINE.md](../../SDRAM_LINE.md) for the line access of the controller and [AXI_UNALIGNED_BYTE_STORE.md](../../bugs/AXI_UNALIGNED_BYTE_STORE.md) for why unaligned addresses are refused.
+See [dcache_axi.md](dcache_axi.md) for the full path, [sdram_line.md](../ram/sdram_line.md) for the line access of the controller and [AXI_UNALIGNED_BYTE_STORE.md](../bugs/AXI_UNALIGNED_BYTE_STORE.md) for why unaligned addresses are refused.
 
 ## 5. Verification
 
@@ -140,7 +140,7 @@ The formal proof treats the AXI4 master and the memory as free inputs bound by c
 5. SLVERR response and zero data on every refused transaction, OKAY on the others.
 6. A transaction of up to four beats is answered within 40 clocks after being accepted, if the master and the memory answer within 3 clocks.
 
-The safety proof is bounded to 55 clocks from reset, which covers transactions of up to four beats. The content that reaches the memory is checked by the system test above, not by the proof. Six cover scenarios must be reachable (four-beat write and read, refused write and read, a two-beat write done word by word and a read that waits for a write), and six mutants of the VHDL must fail (a read that goes ahead of a write, AW accepted twice, early `rlast`, an unaligned address served, a response without waiting for `bready` and an advance without `i_ready`). The general method is in [FORMAL.md](../../FORMAL.md).
+The safety proof is bounded to 55 clocks from reset, which covers transactions of up to four beats. The content that reaches the memory is checked by the system test above, not by the proof. Six cover scenarios must be reachable (four-beat write and read, refused write and read, a two-beat write done word by word and a read that waits for a write), and six mutants of the VHDL must fail (a read that goes ahead of a write, AW accepted twice, early `rlast`, an unaligned address served, a response without waiting for `bready` and an advance without `i_ready`). The general method is in [formal.md](../formal/formal.md).
 
 ---
 

@@ -12,7 +12,7 @@ control tests.
 | Symptom | a flush never ended, a read that waited for a flush never completed, and the core saw `ready` for accesses it had not made |
 | Cause | the master's owner followed the core's address, not who had an access under way |
 | Fix | the core owns the master only while it has an access on the port and either already owns it or no flush runs; the cache's `d_ready` and the core's `ready` are each gated by the owner |
-| Test | `ExtAxiCache`: the four tests hung or failed before the fix and pass after |
+| Test | In Insper-RISC-V, `ExtAxiCache`: the four tests hung or failed before the fix and pass after |
 
 ## 2. The three failures
 
