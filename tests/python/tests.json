@@ -56,14 +56,14 @@
         ]
     },
     "SdramBist": {
-        "toplevel": "sdram_bist_system",
+        "toplevel": "teste_sdram_system",
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
-            "src/tests/sdram_bist.vhd",
+            "src/tests/teste_sdram.vhd",
             "src/RAM/SoC/sim/sdram_model.vhd",
-            "src/tests/sdram_bist_system.vhd"
+            "src/tests/teste_sdram_system.vhd"
         ],
         "test_module": "tests.python.unittests.ram.sdram_bist",
         "parameters": {
@@ -77,14 +77,14 @@
         ]
     },
     "SdramBistRegisteredPins": {
-        "toplevel": "sdram_bist_system",
+        "toplevel": "teste_sdram_system",
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
-            "src/tests/sdram_bist.vhd",
+            "src/tests/teste_sdram.vhd",
             "src/RAM/SoC/sim/sdram_model.vhd",
-            "src/tests/sdram_bist_system.vhd"
+            "src/tests/teste_sdram_system.vhd"
         ],
         "test_module": "tests.python.unittests.ram.sdram_bist",
         "parameters": {

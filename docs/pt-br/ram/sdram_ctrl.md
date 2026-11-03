@@ -144,7 +144,7 @@ Com os valores padrão o período é de 1006 clocks, cerca de 7,04 µs, e o mode
 | Instância | Onde | Como liga o controlador |
 | :--- | :--- | :--- |
 | `u_ctrl` em `sdram_system` | topo de simulação do subsistema | atrás de [sdram_arbiter](sdram_arbiter.md), com `sync_req` falso e `tck_ps`, `init_cycles` e `refresh_cycles` repassados dos generics do topo |
-| `u_ctrl` em `sdram_bist_system` | topo de simulação do autoteste | ligado direto ao autoteste, com `sync_req` padrão e `capture_extra` vindo do generic do topo |
+| `u_ctrl` em `teste_sdram_system` | topo de simulação do autoteste | ligado direto ao autoteste, com `sync_req` padrão e `capture_extra` vindo do generic do topo |
 
 Com `capture_extra` igual a 1, o topo do autoteste registra os pinos de dados uma vez antes de entrarem no controlador. Os pinos DQ são resolvidos fora do controlador. O topo coloca `o_dram_dq_out` nos pinos quando `o_dram_dq_oe` vale `'1'`, e o modelo do chip ([sdram_model](sdram_model.md)) dirige os pinos nos demais casos. O sincronizador instanciado vem de Common-Components (`src/common/src/synchronizer.vhd`), que os testes compilam antes do controlador.
 

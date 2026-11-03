@@ -1,4 +1,4 @@
-# ram1port
+# ram
 
 ## 1. Role of the component in the SoC
 
@@ -18,13 +18,13 @@ With $S$ equal to `size_bytes`, the memory has $S / 4$ 32-bit words, and the wor
 
 | Port | Direction | Width | Meaning |
 | :--- | :--- | ---: | :--- |
-| `address` | input | $\log_2 S - 2$ | word address |
-| `byteena` | input | 4 | byte enables of the write, default `1111` |
-| `clock` | input | 1 | single memory clock, default `'1'` |
-| `data` | input | 32 | write data |
-| `rden` | input | 1 | read enable, default `'1'` |
-| `wren` | input | 1 | write enable |
-| `q` | output | 32 | read data |
+| `i_address` | input | $\log_2 S - 2$ | word address |
+| `i_byteena` | input | 4 | byte enables of the write, default `1111` |
+| `i_clk` | input | 1 | single memory clock, default `'1'` |
+| `i_data` | input | 32 | write data |
+| `i_rden` | input | 1 | read enable, default `'1'` |
+| `i_wren` | input | 1 | write enable |
+| `o_q` | output | 32 | read data |
 
 With the default 256 KB, the address has 16 bits.
 
@@ -49,7 +49,7 @@ With the default 256 KB, the address has 16 bits.
 
 ### 3.2. Latency
 
-The address, the data and the enables are captured on the rising edge of `clock`, and the output has no register, so `q` presents the read word right after that edge, which makes the read latency 1 cycle. The core contract expects the internal RAM data in the cycle after the request (see the bus and memory contract of the Core repository).
+The address, the data and the enables are captured on the rising edge of `i_clk`, and the output has no register, so `o_q` presents the read word right after that edge, which makes the read latency 1 cycle. The core contract expects the internal RAM data in the cycle after the request (see the bus and memory contract of the Core repository).
 
 ### 3.3. Initialization
 
@@ -61,8 +61,8 @@ The parameters `NUMWORDS_A` equal to 4096 and `WidthAddr` equal to 12 that the I
 
 | File | Content |
 | :--- | :--- |
-| `ram1port.vhd` | the entity and the `altsyncram` instance |
-| `ram1port.qip` | lists `ram1port.vhd` and `ram1port.cmp` for Quartus, with the tool name `RAM: 1-PORT` |
+| `ram.vhd` | the entity and the `altsyncram` instance |
+| `ram.qip` | lists `ram.vhd` and `ram.cmp` for Quartus, with the tool name `RAM: 1-PORT` |
 | `init.mif` | image of zeros, referenced neither by the `.qip` nor by the `.vhd` |
 
 ## 4. Integration
@@ -71,10 +71,10 @@ The parameters `NUMWORDS_A` equal to 4096 and `WidthAddr` equal to 12 that the I
 | :--- | :--- |
 | Instantiated in | `src/simulation/internal-mem/quartus/core_fpga_test.vhd` of the Insper-RISC-V repository, instance `RAM`, on the `pll_clk_idexmem` clock |
 | Address | the byte address of the core RAM minus the RAM base (`0x00008000`), in words, truncated to 16 bits |
-| Enables | `rden` and `wren` are those of the core RAM combined with the RAM enable and the negation of the UART selection, so a UART access does not reach the RAM |
-| Data | `data` and `byteena` come from the RAM write signals of the core, and `q` returns to the core as read data |
+| Enables | `i_rden` and `i_wren` are those of the core RAM combined with the RAM enable and the negation of the UART selection, so a UART access does not reach the RAM |
+| Data | `i_data` and `i_byteena` come from the RAM write signals of the core, and `o_q` returns to the core as read data |
 
-The memory map, the internal RAM range (`0x00008000` to `0x3FFFFFFF` by default) and the ready contract of the bus are in the bus and memory contract of the Core repository. The instantiation order matters for the JTAG instance index of `RAM`, and `core_fpga_test` instantiates `FLASH_MEM1PORT` after it so as not to change the RAM index.
+The memory map, the internal RAM range (`0x00008000` to `0x3FFFFFFF` by default) and the ready contract of the bus are in the bus and memory contract of the Core repository. The instantiation order matters for the JTAG instance index of `RAM`, and `core_fpga_test` instantiates `FLASH_MEM` after it so as not to change the RAM index.
 
 ## 5. Verification
 
