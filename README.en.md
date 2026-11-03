@@ -10,6 +10,13 @@ Memories of the RISC-V RV32 SoC: the memory blocks that the core reads and write
 - [CONTRIBUTING.en.md](CONTRIBUTING.en.md): mandatory contribution rules, VHDL-2008 standard, naming, headers, Python standards, and verification before opening a Pull Request.
 - [CITATION.cff](CITATION.cff): software citation metadata.
 - [contracts/02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/en/contracts/02-barramento-e-memoria.md): bus and memory protocol shared by every family.
+- [contrato-de-memoria.md](docs/en/contracts/contrato-de-memoria.md): memory contract (pins, timing, clock and a word of a width different from the core one).
+- Per-component documentation, one per block, in Portuguese (`docs/pt-br/`) and in English (`docs/en/`), grouped by type.
+  - `docs/en/cache/` (caches and region routing): [dcache](docs/en/cache/dcache.md), [icache](docs/en/cache/icache.md), [mem_region_router](docs/en/cache/mem_region_router.md), [flash_arbiter](docs/en/cache/flash_arbiter.md).
+  - `docs/en/ram/` (SDRAM, external RAM and internal RAM): [sdram_ctrl](docs/en/ram/sdram_ctrl.md), [sdram_arbiter](docs/en/ram/sdram_arbiter.md), [sdram_cpu_bridge](docs/en/ram/sdram_cpu_bridge.md), [sdram_pkg](docs/en/ram/sdram_pkg.md), [sdram_model](docs/en/ram/sdram_model.md), [sdram_bist](docs/en/ram/sdram_bist.md), [sdram_dbg_master](docs/en/ram/sdram_dbg_master.md), [sdram_jtag_core](docs/en/ram/sdram_jtag_core.md), [ram_chip](docs/en/ram/ram_chip.md), [ram1port](docs/en/ram/ram1port.md), [ram_simulation](docs/en/ram/ram_simulation.md).
+  - `docs/en/rom/` (FLASH, BOOT_ROM and the ROM model): [flash_chip](docs/en/rom/flash_chip.md), [boot_rom1port](docs/en/rom/boot_rom1port.md), [flash1port](docs/en/rom/flash1port.md), [flash_mem1port](docs/en/rom/flash_mem1port.md), [flash_store1port](docs/en/rom/flash_store1port.md), [rom_simulation](docs/en/rom/rom_simulation.md).
+  - `docs/en/barramento/` (AXI4 bridges): [axi_master_bridge](docs/en/barramento/axi_master_bridge.md), [axi_slave_word_bridge](docs/en/barramento/axi_slave_word_bridge.md).
+- The design documents in `docs/` (DCACHE_AXI, EXTERNAL_BUS, FORMAL, SDRAM_* and `bugs/`) describe the system and the decisions, and the per-component documents link to them.
 
 ## 2. Repository Structure
 
