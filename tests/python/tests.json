@@ -386,5 +386,75 @@
             "SIZE_BYTES": 4096,
             "BASE_KIB": 8
         }
+    },
+    "IfetchBridge": {
+        "toplevel": "ifetch_bridge",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/ifetch_bridge.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.ifetch_bridge",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "IfetchBridgeWord": {
+        "toplevel": "ifetch_bridge",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/ifetch_bridge.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.ifetch_bridge_word",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "FETCH_LINE": false
+        }
+    },
+    "IfetchPath": {
+        "toplevel": "ifetch_path_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/ifetch_bridge.vhd",
+            "src/cache/SoC/flash_chip.vhd",
+            "src/cache/SoC/mem_region_router.vhd",
+            "src/cache/SoC/flash_arbiter.vhd",
+            "src/cache/SoC/sim/ifetch_path_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.ifetch_path",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "IfetchPathWord": {
+        "toplevel": "ifetch_path_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/ifetch_bridge.vhd",
+            "src/cache/SoC/flash_chip.vhd",
+            "src/cache/SoC/mem_region_router.vhd",
+            "src/cache/SoC/flash_arbiter.vhd",
+            "src/cache/SoC/sim/ifetch_path_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.ifetch_path_word",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "FETCH_LINE": false
+        }
     }
 }
