@@ -10,9 +10,10 @@ O IP interno da RAM é a memória de dados do core quando a RAM fica dentro da F
 
 | Generic | Tipo | Padrão | Significado |
 | :--- | :--- | ---: | :--- |
-| `size_bytes` | positive | 262144 | tamanho da memória em bytes, uma potência de dois, que é o que ela ocupa na FPGA |
+| `size_bytes` | positive | 262144 | tamanho da janela endereçável em bytes, uma potência de dois |
+| `word_count` | positive | 65536 | quantidade de palavras de 32 bits fisicamente implementadas |
 
-Com $S$ igual a `size_bytes`, a memória tem $S / 4$ palavras de 32 bits, e o endereço de palavra tem $\log_2 S - 2$ bits.
+Com $S$ igual a `size_bytes`, o endereço de palavra tem $\log_2 S - 2$ bits. Com $N$ igual a `word_count`, a memória implementa $N$ palavras e exige $N \le S / 4$. Essa separação permite uma profundidade física que não seja potência de dois sem reduzir a largura do endereço.
 
 ### 2.2. Portas
 
@@ -36,7 +37,7 @@ Com o padrão de 256 KB, o endereço tem 16 bits.
 | :--- | :--- | :--- |
 | `operation_mode` | `SINGLE_PORT` | uma porta de leitura e escrita |
 | `width_a` | 32 | largura do dado |
-| `numwords_a` | `size_bytes / 4` | quantidade de palavras |
+| `numwords_a` | `word_count` | quantidade de palavras fisicamente implementadas |
 | `widthad_a` | $\log_2$ `size_bytes` $- 2$ | largura do endereço |
 | `width_byteena_a` e `byte_size` | 4 e 8 | quatro faixas de byte de 8 bits |
 | `outdata_reg_a` | `UNREGISTERED` | a saída não tem registrador adicional |
@@ -55,7 +56,7 @@ O endereço, o dado e os habilitas são capturados na borda de subida de `i_clk`
 
 O gerador não referencia nenhum arquivo de inicialização (`MIFfilename` vazio no cabeçalho do IP) e o `.qip` não lista nenhum. A pasta contém um `init.mif` de 4096 palavras de 32 bits cujo conteúdo declarado é zero nos endereços `00A` a `FFF`, que não é usado pelo IP. Com `power_up_uninitialized` em `FALSE`, a RAM inicia com zeros, e o `ENABLE_RUNTIME_MOD` permite reescrever o conteúdo por JTAG depois da configuração da FPGA.
 
-Os parâmetros `NUMWORDS_A` igual a 4096 e `WidthAddr` igual a 12 que o cabeçalho do IP ainda registra são da configuração do assistente, e a instância usa o generic `size_bytes`.
+Os parâmetros `NUMWORDS_A` igual a 4096 e `WidthAddr` igual a 12 que o cabeçalho do IP ainda registra são da configuração do assistente. A instância usa `word_count` para a profundidade física e `size_bytes` para a largura do endereço.
 
 ### 3.4. Arquivos do IP
 
@@ -71,6 +72,7 @@ Os parâmetros `NUMWORDS_A` igual a 4096 e `WidthAddr` igual a 12 que o cabeçal
 | :--- | :--- |
 | Instanciado em | `src/simulation/internal-mem/quartus/core_fpga_test.vhd` do repositório Insper-RISC-V, instância `RAM`, no clock `pll_clk_idexmem` |
 | Endereço | o endereço de byte da RAM do core menos a base da RAM (`0x00008000`), em palavras, truncado a 16 bits |
+| Profundidade | `size_bytes` preserva os 16 bits de endereço e `word_count` recebe a quantidade de palavras da faixa de RAM definida pelo mapa da plataforma |
 | Habilitas | `i_rden` e `i_wren` são os da RAM do core combinados com o habilita da RAM e com a negação da seleção da UART, de modo que um acesso à UART não alcança a RAM |
 | Dado | `i_data` e `i_byteena` vêm dos sinais de escrita da RAM do core, e `o_q` volta ao core como dado lido |
 

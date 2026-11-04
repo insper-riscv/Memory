@@ -23,8 +23,10 @@ use work.utils_pkg.all;
 
 entity ram is
 	generic (
-		-- Tamanho da memória em bytes, uma potência de dois: é o que ela ocupa na FPGA.
-		size_bytes : positive := 262144
+		-- Tamanho da janela endereçável em bytes, uma potência de dois.
+		size_bytes : positive := 262144;
+		-- Quantidade de palavras de 32 bits fisicamente implementadas.
+		word_count : positive := 65536
 	);
 	port (
 		-- Índice da palavra (endereço de byte sem os dois bits baixos).
@@ -46,6 +48,9 @@ end entity ram;
 
 architecture rtl of ram is
 begin
+	assert word_count <= size_bytes / 4
+		report "word_count exceeds the addressable window"
+		severity failure;
 
 	u_altsyncram : altsyncram
 	generic map (
@@ -55,7 +60,7 @@ begin
 		intended_device_family => "Cyclone V",
 		lpm_hint => "ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME=RAM",
 		lpm_type => "altsyncram",
-		numwords_a => size_bytes / 4,
+		numwords_a => word_count,
 		operation_mode => "SINGLE_PORT",
 		outdata_aclr_a => "NONE",
 		outdata_reg_a => "UNREGISTERED",

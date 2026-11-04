@@ -10,9 +10,10 @@ The internal RAM IP is the data memory of the core when the RAM sits inside the 
 
 | Generic | Type | Default | Meaning |
 | :--- | :--- | ---: | :--- |
-| `size_bytes` | positive | 262144 | memory size in bytes, a power of two, which is what it occupies in the FPGA |
+| `size_bytes` | positive | 262144 | addressable window size in bytes, a power of two |
+| `word_count` | positive | 65536 | number of physically implemented 32-bit words |
 
-With $S$ equal to `size_bytes`, the memory has $S / 4$ 32-bit words, and the word address has $\log_2 S - 2$ bits.
+With $S$ equal to `size_bytes`, the word address has $\log_2 S - 2$ bits. With $N$ equal to `word_count`, the memory implements $N$ words and requires $N \le S / 4$. This separation allows a physical depth that is not a power of two without reducing the address width.
 
 ### 2.2. Ports
 
@@ -36,7 +37,7 @@ With the default 256 KB, the address has 16 bits.
 | :--- | :--- | :--- |
 | `operation_mode` | `SINGLE_PORT` | one read and write port |
 | `width_a` | 32 | data width |
-| `numwords_a` | `size_bytes / 4` | number of words |
+| `numwords_a` | `word_count` | number of physically implemented words |
 | `widthad_a` | $\log_2$ `size_bytes` $- 2$ | address width |
 | `width_byteena_a` and `byte_size` | 4 and 8 | four byte lanes of 8 bits |
 | `outdata_reg_a` | `UNREGISTERED` | the output has no extra register |
@@ -55,7 +56,7 @@ The address, the data and the enables are captured on the rising edge of `i_clk`
 
 The generator references no initialization file (`MIFfilename` is empty in the IP header) and the `.qip` lists none. The folder holds an `init.mif` of 4096 32-bit words whose declared content is zero at addresses `00A` to `FFF`, which the IP does not use. With `power_up_uninitialized` at `FALSE`, the RAM starts with zeros, and `ENABLE_RUNTIME_MOD` allows the content to be rewritten over JTAG after the FPGA is configured.
 
-The parameters `NUMWORDS_A` equal to 4096 and `WidthAddr` equal to 12 that the IP header still records come from the wizard configuration, and the instance uses the `size_bytes` generic.
+The parameters `NUMWORDS_A` equal to 4096 and `WidthAddr` equal to 12 that the IP header still records come from the wizard configuration. The instance uses `word_count` for the physical depth and `size_bytes` for the address width.
 
 ### 3.4. IP files
 
@@ -71,6 +72,7 @@ The parameters `NUMWORDS_A` equal to 4096 and `WidthAddr` equal to 12 that the I
 | :--- | :--- |
 | Instantiated in | `src/simulation/internal-mem/quartus/core_fpga_test.vhd` of the Insper-RISC-V repository, instance `RAM`, on the `pll_clk_idexmem` clock |
 | Address | the byte address of the core RAM minus the RAM base (`0x00008000`), in words, truncated to 16 bits |
+| Depth | `size_bytes` preserves the 16-bit address and `word_count` receives the number of words in the RAM range defined by the platform map |
 | Enables | `i_rden` and `i_wren` are those of the core RAM combined with the RAM enable and the negation of the UART selection, so a UART access does not reach the RAM |
 | Data | `i_data` and `i_byteena` come from the RAM write signals of the core, and `o_q` returns to the core as read data |
 
