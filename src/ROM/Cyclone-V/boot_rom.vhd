@@ -1,12 +1,12 @@
 -- =============================================================================
--- Memória da BOOT_ROM (IP altsyncram de uma porta, 2 KB por padrão)
+-- Memória da BOOT_ROM (IP altsyncram de uma porta, 4 KB por padrão)
 --
 -- Memória do carregador de partida, fixo e genérico. É gravada uma vez, na
 -- compilação completa do Quartus, com o init_file "./boot_rom_init.mif", e não tem
 -- acesso pela JTAG: o IP não declara ENABLE_RUNTIME_MOD, então o In-System Memory
 -- Content Editor não a enxerga, e só a FLASH é regravada a cada teste. O tamanho
--- precisa concordar com o da BOOT_ROM no core e no config.yaml da plataforma (2 KB
--- são 512 palavras e 9 bits de endereço).
+-- precisa concordar com o da BOOT_ROM no core e no config.yaml da plataforma (4 KB
+-- são 1024 palavras e 10 bits de endereço).
 -- =============================================================================
 
 library ieee;
@@ -21,7 +21,7 @@ use work.utils_pkg.all;
 entity boot_rom is
 	generic (
 		-- Tamanho da memória em bytes, uma potência de dois: é o que ela ocupa na FPGA.
-		size_bytes : positive := 2048
+		size_bytes : positive := 4096
 	);
 	port (
 		-- Índice da palavra (endereço de byte sem os dois bits baixos).
