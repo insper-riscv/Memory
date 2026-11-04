@@ -4,7 +4,7 @@ IP interno de ROM de uma porta que guarda o programa de inicialização do SoC (
 
 ## 1. Função do componente no SoC
 
-A BOOT_ROM ocupa o início do espaço de endereços (`0x00000000` até `0x000007FF` no mapa padrão, ver [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)) e entrega ao estágio de busca a instrução do PC quando ele aponta para essa faixa. O conteúdo vem do arquivo de inicialização gravado na compilação completa do Quartus; segundo o cabeçalho do VHDL, nenhum teste o regrava por JTAG, ao contrário da FLASH ([flash](flash.md)). A BOOT_ROM não passa pela cache de instruções.
+A BOOT_ROM ocupa o início do espaço de endereços (`0x00000000` até `0x00000FFF` no mapa padrão, ver [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)) e entrega ao estágio de busca a instrução do PC quando ele aponta para essa faixa. O conteúdo vem do arquivo de inicialização gravado na compilação completa do Quartus; segundo o cabeçalho do VHDL, nenhum teste o regrava por JTAG, ao contrário da FLASH ([flash](flash.md)). A BOOT_ROM não passa pela cache de instruções.
 
 ## 2. Interface
 
@@ -12,7 +12,7 @@ A BOOT_ROM ocupa o início do espaço de endereços (`0x00000000` até `0x000007
 
 | Generic | Tipo | Padrão | Significado |
 | :--- | :--- | :--- | :--- |
-| `size_bytes` | `positive` | 2048 | Tamanho em bytes, potência de dois; define a largura de `i_address` e o número de palavras |
+| `size_bytes` | `positive` | 4096 | Tamanho em bytes, potência de dois; define a largura de `i_address` e o número de palavras |
 
 ### 2.2. Portas
 
@@ -35,8 +35,8 @@ A leitura é feita pela instância `altsyncram` da biblioteca `altera_mf`, que �
 | :--- | :--- |
 | `operation_mode` | `SINGLE_PORT` |
 | `width_a` | 32 |
-| `numwords_a` | $\text{size\_bytes} / 4$ (512 com o padrão) |
-| `widthad_a` | $\log_2(\text{size\_bytes}) - 2$ (9 com o padrão) |
+| `numwords_a` | $\text{size\_bytes} / 4$ (1024 com o padrão) |
+| `widthad_a` | $\log_2(\text{size\_bytes}) - 2$ (10 com o padrão) |
 | `init_file` | `./boot_rom_init.mif` |
 | `outdata_reg_a` | `UNREGISTERED` |
 | `read_during_write_mode_port_a` | `NEW_DATA_NO_NBE_READ` |
@@ -57,7 +57,7 @@ O arquivo `.qip` (`src/ROM/Cyclone-V/boot_rom.qip`) registra o IP como "ROM: 1-P
 
 | Topo | Instância | Ligação |
 | :--- | :--- | :--- |
-| Topo da placa DE0-CV (Insper-RISC-V) | `BOOT_ROM` | `i_address` nos bits 10 a 2 do endereço de busca, `i_clk` no clock do estágio IF, `i_rden` na habilitação de busca, `i_wren` em `'0'`, `o_q` no dado da Boot ROM do núcleo |
+| Topo da placa DE0-CV (Insper-RISC-V) | `BOOT_ROM` | `i_address` nos bits 11 a 2 do endereço de busca, `i_clk` no clock do estágio IF, `i_rden` na habilitação de busca, `i_wren` em `'0'`, `o_q` no dado da Boot ROM do núcleo |
 
 Na simulação em GHDL o modelo de simulação equivalente é [rom_simulation](rom_simulation.md).
 
