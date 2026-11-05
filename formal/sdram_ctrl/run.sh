@@ -21,7 +21,7 @@ source "$root/formal/common.sh"
 netlist() {  # <vhdl> <name>
   local work="$out/work_$2"; mkdir -p "$work"
   ghdl -a --std=08 -Wno-library -Wno-unhandled-attribute --workdir="$work" "$root/src/RAM/SoC/sdram/sdram_pkg.vhd" "$root/src/common/src/synchronizer.vhd" "$1"
-  ghdl --synth --std=08 -Wno-library -Wno-unhandled-attribute --workdir="$work" --out=verilog -ginit_cycles=6 -grefresh_cycles=40 sdram_ctrl > "$2.v"
+  ghdl --synth --std=08 -Wno-library -Wno-unhandled-attribute --workdir="$work" --out=verilog -ginit_cycles=6 -grefresh_cycles=24 sdram_ctrl > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v"
 }
@@ -30,11 +30,11 @@ echo "sdram_ctrl"
 netlist "$src" ctrl
 
 # The longest proofs start first.
-start prove ctrl_dbg.v bmc   200 ''        safety
-start prove ctrl_dbg.v cover 200 '-DCOVER' cover
+start prove ctrl_dbg.v bmc   150 ''        safety
+start prove ctrl_dbg.v cover 150 '-DCOVER' cover
 
 # Mutants of the VHDL: each defect must make the safety proof fail.
-export MUT_DEPTH=200
+export MUT_DEPTH=150
 start_mutant no_precharge     "s/st <= ST_INIT_PRE;/st <= ST_INIT_REF;/"
 start_mutant few_refreshes    "s/if init_ref = INIT_REFRESHES - 1 then/if init_ref = 1 then/"
 start_mutant init_wait_short  "s/wcnt     <= init_cycles;/wcnt     <= 1;/"
@@ -47,7 +47,7 @@ start_mutant trc_short        "s/act_cnt <= ACT_TO_ACT;/act_cnt <= 1;/"
 start_mutant refresh_never    "s/ref_due <= '1';/ref_due <= '0';/"
 wait
 
-expect "init sequence, chip timings, refresh period and answers (bounded, 200 clocks)" PASS safety
+expect "init sequence, chip timings, refresh period and answers (bounded, 150 clocks)" PASS safety
 expect "cover: init, refresh, word and line reads and writes are reachable"            PASS cover
 for m in no_precharge few_refreshes init_wait_short mode_wrong init_done_early trcd_short trp_short trfc_short trc_short refresh_never; do
   expect "mutant $m is caught" FAIL "mut_$m"

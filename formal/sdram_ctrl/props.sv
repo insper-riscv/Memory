@@ -7,7 +7,7 @@
 `define INIT 6
 `endif
 `ifndef REFC
-`define REFC 40
+`define REFC 24
 `endif
 `ifndef REFSLACK
 `define REFSLACK 22   // espera máxima de um refresh atrasado por um acesso em curso

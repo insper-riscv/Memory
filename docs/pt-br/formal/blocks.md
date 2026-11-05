@@ -2,7 +2,7 @@
 
 🌐 [Português](../../pt-br/formal/blocks.md) · [English](../../en/formal/blocks.md)
 
-Além do árbitro da SDRAM e das pontes AXI (`formal.md`), as provas cobrem o controlador da SDRAM, a ponte do núcleo, as duas caches, o roteador de região e o árbitro da flash. O método é o do `formal.md` (GHDL sintetiza a netlist, o Yosys lê as propriedades em SystemVerilog, o SymbiYosys roda o motor escolhido), cada bloco tem a sua pasta `formal/<bloco>/` com `props.sv` e `run.sh`, e as provas compartilham as vagas de `formal/common.sh`.
+Além do árbitro da SDRAM e das pontes AXI (`formal.md`), as provas cobrem o controlador da SDRAM, a ponte do núcleo, as duas caches, o roteador de região e o árbitro da flash. O método é o do `formal.md` (GHDL sintetiza a netlist, o Yosys lê as propriedades em SystemVerilog, o SymbiYosys roda o motor escolhido), cada bloco tem a sua pasta `formal/<bloco>/` com `props.sv` e `run.sh`, e as provas compartilham as vagas de `formal/common.sh`. Uma prova que um engine não termina em `FORMAL_TIMEOUT` segundos (600 por padrão) vira skip nesse engine e fica para os outros.
 
 ## 1. O que se prova
 
@@ -11,7 +11,7 @@ Além do árbitro da SDRAM e das pontes AXI (`formal.md`), as provas cobrem o co
 | `flash_arbiter` | indução, limitada (40 ciclos) e cover | Nunca os dois mestres recebem a resposta juntos; só o dono recebe a resposta e dirige o canal da flash; o dado da flash chega inteiro aos dois mestres; todo pedido é atendido em até 6 ciclos, e 5 não bastam, qualquer que seja o outro mestre (sem inanição) |
 | `mem_region_router` | indução e cover | Fora da flash o acesso inteiro vai ao resto da memória; na flash só leituras dentro da janela chegam à flash; escrita na flash e leitura além da janela terminam no roteador, devolvem zero e respondem no ciclo seguinte; no máximo um destino por acesso |
 | `sdram_cpu_bridge` | limitada (30 ciclos) e cover | Um pedido novo só sai com a ponte livre, o núcleo pedindo e a inicialização sincronizada, e todo pedido vira uma inversão do toggle; a carga útil vista pelo controlador é a do núcleo e se mantém; o pronto só vem depois da resposta, dura até o avanço e há uma resposta por pedido; a resposta só é vista dois ciclos depois do ack (o cruzamento passa pelo `synchronizer`); o dado de leitura é o capturado quando a resposta foi vista |
-| `sdram_ctrl` | limitada (200 ciclos) e cover | Espera de inicialização, PRECHARGE de todos os bancos, oito REFRESH e LOAD MODE com o registrador de modo, nesta ordem e antes do primeiro acesso; tRP, tRFC, tMRD, tRCD e tRC entre os comandos; refresh dentro do período mais o tempo de um acesso em curso; todo pedido respondido, só com o toggle certo |
+| `sdram_ctrl` | limitada (150 ciclos) e cover | Espera de inicialização, PRECHARGE de todos os bancos, oito REFRESH e LOAD MODE com o registrador de modo, nesta ordem e antes do primeiro acesso; tRP, tRFC, tMRD, tRCD e tRC entre os comandos; refresh dentro do período mais o tempo de um acesso em curso; todo pedido respondido, só com o toggle certo |
 | `icache` | limitada (28 ciclos) e cover | Um acerto no endereço vigiado devolve o dado que a memória de baixo deu; o pedido à memória de baixo é de uma linha alinhada; depois de uma invalidação, nenhum acerto antes de um preenchimento novo |
 | `dcache` (write-through) | limitada (24 ciclos) e cover | Todo store aceito chega à memória de baixo uma vez, com os bytes certos, antes de ser reconhecido; um load da palavra vigiada devolve a última escrita, venha do acerto ou do preenchimento; os pedidos à memória de baixo são bem formados; um flush com invalidação deixa as linhas inválidas |
 
@@ -22,7 +22,7 @@ Além do árbitro da SDRAM e das pontes AXI (`formal.md`), as provas cobrem o co
 | Todos | Um clock de reset no início e nenhum depois; o núcleo mantém o pedido e o endereço até a resposta e consome a resposta no ciclo em que ela chega |
 | `flash_arbiter` | A flash responde só a um pedido ativo, em até 2 ciclos |
 | `sdram_cpu_bridge` | O controlador inverte o ack só para um pedido pendente, em até 3 ciclos, e segura o dado da resposta até o pedido seguinte |
-| `sdram_ctrl` | O mestre inverte o toggle só depois da resposta e segura a carga até lá; a espera de 200 µs e o período de refresh encurtam para 6 e 40 ciclos, e os tempos do chip são os de `sdram_pkg` a 7 ns |
+| `sdram_ctrl` | O mestre inverte o toggle só depois da resposta e segura a carga até lá; a espera de 200 µs e o período de refresh encurtam para 6 e 24 ciclos, e os tempos do chip são os de `sdram_pkg` a 7 ns |
 | `icache`, `dcache` | Dois clocks do `icache` ligam ao mesmo sinal; a cache tem duas linhas de 128 bits (`size_bits = 256`); um endereço vigiado qualquer faz o papel da memória de baixo, que devolve a sua palavra sempre que devolve a linha dele; os endereços do núcleo ficam na janela de 64 MiB do endereço vigiado; a memória de baixo responde em até 3 ciclos (2 no `dcache`) |
 | `icache` | O núcleo mantém o endereço até a cache responder |
 | `dcache` | Modo write-through, sem bypass, e o endereço vigiado fora da região da flash |

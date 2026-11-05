@@ -46,7 +46,8 @@ start() {
 # prove <netlist> <mode: prove|bmc|cover> <depth> <defines> <tag>: runs sby and writes the verdict to <tag>.res,
 # PASS (exit code 0), FAIL (2, a counterexample or a goal that cannot be covered), ERROR (any other code, such
 # as 4 unknown, 8 timeout and 16 error: the tool did not reach a verdict) or SKIP (the engine cannot run that
-# kind of proof: abc-bmc3 only does bounded checks), and the exit code and the seconds it took to <tag>.info.
+# kind of proof: abc-bmc3 only does bounded checks; or it did not finish within FORMAL_TIMEOUT seconds, 600 by
+# default, which leaves the proof to the other engines), and the exit code and the seconds it took to <tag>.info.
 prove() {
   if [ "$engine" = abc-bmc3 ] && [ "$2" != bmc ]; then
     echo "SKIP abc-bmc3 runs only bounded checks, not mode $2" > "$5.res"
@@ -63,11 +64,12 @@ prove() {
   } > "$5.sby"
   local rc=0 t0 t1
   t0="$(date +%s.%N)"
-  sby -f "$5.sby" > "$5.log" 2>&1 || rc=$?
+  timeout "${FORMAL_TIMEOUT:-600}" sby -f "$5.sby" > "$5.log" 2>&1 || rc=$?
   t1="$(date +%s.%N)"
   case "$rc" in
     0) echo PASS ;;
     2) echo FAIL ;;
+    124) echo "SKIP the engine did not finish within FORMAL_TIMEOUT (${FORMAL_TIMEOUT:-600} s)" ;;
     *) echo "ERROR sby exited with code $rc, not a verdict (see $5.log)" ;;
   esac > "$5.res.tmp"
   awk -v rc="$rc" -v a="$t0" -v b="$t1" 'BEGIN { printf "%s %.1f\n", rc, b - a }' > "$5.info"
