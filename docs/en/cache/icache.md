@@ -12,6 +12,8 @@ The icache is the core's read-only instruction cache. It sits on the fetch path 
 | Clocks | Two, the instruction-memory clock (`i_clk`) and the core clock (`i_clk_cpu`) |
 | RAM read | Registered, as in FPGA block RAMs |
 
+On the platform without an instruction cache, the [ifetch_bridge](ifetch_bridge.md) takes its place with the same contract.
+
 The core's stores are not observed by the cache. Only an invalidation (the program's `fence.i`) makes written code visible to the fetch. The SDRAM debug port writes with the core stopped and the cache invalidated, as after reset.
 
 ## 2. Interface

@@ -12,6 +12,8 @@ A icache é a cache de instruções do core, somente leitura. Fica no caminho de
 | Clocks | Dois, o das memórias de instrução (`i_clk`) e o do core (`i_clk_cpu`) |
 | Leitura das RAMs | Registrada, como nas RAMs de bloco da FPGA |
 
+Na plataforma sem cache de instruções, a [ifetch_bridge](ifetch_bridge.md) ocupa o lugar dela com o mesmo contrato.
+
 Os stores do core não são observados pela cache. Só uma invalidação (o `fence.i` do programa) torna código escrito visível à busca. A porta de debug da SDRAM escreve com o core parado e a cache invalidada, como depois do reset.
 
 ## 2. Interface
