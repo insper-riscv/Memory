@@ -1,0 +1,147 @@
+[project]
+name = "riscv-memory"
+version = "0.2.3"
+description = "Memories of the RV32 SoC: simulation models, Quartus IPs of the board, and (future) external memory controllers."
+license = "Apache-2.0"
+# Same Python as the ci-vhdl image of Infra, which also carries riscv-tools.
+requires-python = ">=3.14,<3.15"
+dependencies = [
+    # tests/python/runner.py runs the entity tests with cocotb (and its cocotb_tools),
+    # at the version of the ci-vhdl image. riscv-tools comes from the image, not from here.
+    "cocotb==2.1.0",
+]
+
+[dependency-groups]
+dev = [
+    "pyright[nodejs]>=1.1",
+    "deptry>=0.20",
+    "pylint>=4.1.3",
+]
+
+[tool.uv]
+package = false
+
+# Static analysis of the Python (runner and tests), as run by the python-static-analysis job of the CI.
+[tool.ruff]
+target-version = "py314"
+line-length = 79
+extend-exclude = ["src/common", "build", "sim_build"]
+
+[tool.ruff.lint]
+select = [
+    # Core
+    "E",    # pycodestyle errors
+    "W",    # pycodestyle warnings
+    "F",    # pyflakes
+
+    # Security
+    "S",    # flake8-bandit (Security Scanning/SAST)
+    "BLE",  # flake8-blind-except
+
+    # Import orders and formatting
+    "I",    # isort
+    "Q",    # flake8-quotes
+    "D",    # pydocstyle
+
+    # Standards and Moderization
+    "UP",   # update-checker
+    "N",    # pep8-naming,
+    "PTH",  # flake8-pathlib
+    "TID",  # flake8-tidy-imports (absolute imports only)
+
+    # Quality and Simplification
+    "B",    # flake8-bugbear
+    "G",    # flake8-logging-format
+    "PERF", # perflint
+    "C4",   # flake8-comprehensions
+    "SIM",  # flake8-simplify
+    "RET",  # flake8-return
+    "PL",   # pylint
+    "RUF",  # ruff linting rules
+
+    # Cleanup and Unused Code
+    "ERA",  # flake8-eradicate
+    "ARG",  # flake8-arg-names (unused-arguments)
+]
+
+# PEP 257 rules the numpy convention turns off.
+extend-select = [
+    "D107",  # docstring in __init__
+    "D402",  # summary line must not repeat the signature
+]
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.pycodestyle]
+max-line-length = 79
+max-doc-length = 72
+
+[tool.ruff.lint.pydocstyle]
+convention = "numpy"
+
+[tool.ruff.lint.pylint]
+max-args = 5
+max-statements = 50
+max-returns = 6
+max-branches = 12
+max-locals = 15
+max-public-methods = 10
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-line-length = 72
+
+[tool.complexipy]
+paths = ["tests"]
+max-complexity-allowed = 10
+
+[tool.pyright]
+venvPath = "."
+venv = ".venv"
+pythonVersion = "3.14"
+typeCheckingMode = "strict"
+include = ["tests"]
+exclude = ["**/.venv", "**/sim_build", "build", "src/common"]
+
+[tool.pyrefly]
+preset = "strict"
+project-includes = ["tests"]
+search-path = ["."]
+python-version = "3.14"
+
+[tool.pylint.main]
+ignore = [".venv", "build", "sim_build"]
+ignore-paths = ["^src/common/"]
+init-hook = "import sys; sys.path.append('.')"
+# The repository root is not a package, so `pylint .` needs to recurse.
+recursive = true
+fail-under = 10
+
+[tool.pylint.messages_control]
+disable = [
+    # The limits of these are enforced by ruff, with the thresholds of
+    # [tool.ruff.lint.pylint].
+    "too-many-arguments",
+    "too-many-positional-arguments",
+    "too-many-locals",
+    "broad-exception-caught",
+    # The cocotb models keep one attribute per signal of a port and have a
+    # single method that runs the clock loop.
+    "too-many-instance-attributes",
+    "too-few-public-methods",
+]
+
+[tool.pylint.similarities]
+# The testbenches repeat the same JTAG and handshake sequences by design.
+ignore-comments = true
+ignore-docstrings = true
+ignore-imports = true
+ignore-signatures = true
+min-similarity-lines = 20
+
+[tool.deptry]
+# The default exclusions skip tests/, which holds all the Python of the repository.
+exclude = ["venv", "\\.venv", "\\.git", "src/common", "build", "sim_build"]
+known_first_party = ["tests"]
