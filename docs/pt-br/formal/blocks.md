@@ -2,7 +2,7 @@
 
 🌐 [Português](../../pt-br/formal/blocks.md) · [English](../../en/formal/blocks.md)
 
-Além do árbitro da SDRAM e das pontes AXI (`formal.md`), as provas cobrem o controlador da SDRAM, a ponte do núcleo, as duas caches, o roteador de região e o árbitro da flash. O método é o do `formal.md` (GHDL sintetiza a netlist, o Yosys lê as propriedades em SystemVerilog, o SymbiYosys roda o motor escolhido), cada bloco tem a sua pasta `formal/<bloco>/` com `props.sv` e `run.sh`, e as provas compartilham as vagas de `formal/common.sh`. Uma prova que um engine não termina em `FORMAL_TIMEOUT` segundos (600 por padrão) vira skip nesse engine e fica para os outros.
+Além do árbitro da SDRAM e das pontes AXI (`formal.md`), as provas cobrem o controlador da SDRAM, a ponte do núcleo, as duas caches, o roteador de região e o árbitro da flash. O método é o do `formal.md` (GHDL sintetiza a netlist, o Yosys lê as propriedades em SystemVerilog, o SymbiYosys roda o motor escolhido), cada bloco tem a sua pasta `formal/<bloco>/` com `props.sv` e `run.sh`, e as provas compartilham as vagas de `formal/common.sh`. As memórias pequenas das caches viram registradores (`memory_map` depois do `prep`) antes de qualquer engine, porque o yices trata cada memória inferida como um array SMT e não termina as provas do `icache` e do `dcache` em 600 s; com os registradores o `make formal` leva cerca de 2 min com o yices e 1 min com os outros. Uma prova que um engine não termina em `FORMAL_TIMEOUT` segundos (600 por padrão) vira skip nesse engine e fica para os outros.
 
 ## 1. O que se prova
 
