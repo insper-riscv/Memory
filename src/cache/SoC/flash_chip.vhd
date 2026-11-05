@@ -105,7 +105,9 @@ begin
   o_busy     <= '1' when st = S_WAIT else '0';
 
   process (i_clk)
+    -- Endereço-base da linha em andamento.
     variable next_base : unsigned(31 downto 0);
+    -- Palavra capturada do armazenamento no ciclo corrente.
     variable captured  : std_logic_vector(31 downto 0);
   begin
     if rising_edge(i_clk) then

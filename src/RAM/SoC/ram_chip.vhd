@@ -31,7 +31,6 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
-use ieee.std_logic_textio.all;
 use std.textio.all;
 use work.utils_pkg.all;
 
@@ -128,6 +127,7 @@ architecture rtl of ram_chip is
     );
   end protected store_t;
 
+  -- Corpo do tipo protegido que guarda as palavras do chip.
   type store_t is protected body
     -- Palavras do chip.
     variable mem : word_array_t := (others => (others => '0'));
@@ -137,6 +137,7 @@ architecture rtl of ram_chip is
       data    : in std_logic_vector(31 downto 0);
       byteena : in std_logic_vector(3 downto 0)
     ) is
+      -- Palavra lida do vetor antes de receber os bytes habilitados.
       variable word : std_logic_vector(31 downto 0);
     begin
       if index < WORDS then
@@ -224,6 +225,7 @@ architecture rtl of ram_chip is
 
   -- Devolve o índice da palavra de um endereço de byte, ou WORDS quando está fora da janela.
   function word_index (addr : std_logic_vector(31 downto 0)) return natural is
+    -- Deslocamento do endereço dentro da janela do chip, em bytes.
     variable offset : unsigned(25 downto 0);
   begin
     if unsigned(addr(25 downto 0)) < base_kib * 1024 then
@@ -238,6 +240,7 @@ architecture rtl of ram_chip is
 
   -- Devolve o endereço inicial de um acesso: o da linha alinhado em 16 bytes, ou o da palavra.
   function start_addr (addr : std_logic_vector(31 downto 0); line : std_logic) return std_logic_vector is
+    -- Endereço de partida, alinhado em 16 bytes quando o acesso é de linha.
     variable a : std_logic_vector(31 downto 0) := addr;
   begin
     if line = '1' then
@@ -261,9 +264,13 @@ begin
   -- Grava a imagem inicial no instante zero.
   load : process
     file     f  : text;
+    -- Linha de texto lida do arquivo.
     variable l  : line;
+    -- Palavra de 32 bits convertida da linha.
     variable w  : std_logic_vector(31 downto 0);
+    -- Indica se a conversão da linha deu certo.
     variable ok : boolean;
+    -- Índice da próxima palavra a gravar.
     variable n  : natural := 0;
   begin
     if init_file'length > 0 then
@@ -289,6 +296,7 @@ begin
 
   -- Porta de dados.
   data_port : process (i_clk)
+    -- Índice da primeira palavra do acesso da porta de dados.
     variable base : natural;
   begin
     if rising_edge(i_clk) then
@@ -347,6 +355,7 @@ begin
 
   -- Porta de instruções.
   instruction_port : process (i_clk)
+    -- Índice da primeira palavra do acesso da porta de instruções.
     variable base : natural;
   begin
     if rising_edge(i_clk) then

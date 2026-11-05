@@ -69,8 +69,9 @@ end entity flash_arbiter;
 
 architecture rtl of flash_arbiter is
 
-  -- Dono atual do chip: nenhum, A ou B.
+  -- Possíveis donos do chip: nenhum, o mestre A ou o mestre B.
   type owner_t is (O_NONE, O_A, O_B);
+  -- Dono atual do chip, atualizado a cada concessão.
   signal owner : owner_t := O_NONE;
   -- O último mestre atendido foi o A ('1') ou o B ('0').
   signal last_a : std_logic := '0';
