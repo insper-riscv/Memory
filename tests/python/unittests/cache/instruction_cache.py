@@ -14,6 +14,7 @@ from tests.python.unittests.dut import Dut
 
 BASE = 0x40000000
 LAT = 5
+SETTLE = 6  # clocks after the pulse until the lines are gone
 
 
 def word(addr: int, version: int = 0) -> int:
@@ -293,3 +294,132 @@ async def test_one_miss_pulse_per_filled_line(dut: Dut):
     check_equal(
         await monitor, 3, "three lines filled, the repeated one is a hit"
     )
+
+
+async def pulse_region(dut: Dut, mem: Memory, first: int, last: int):
+    """Raise the region invalidation for one clock and let it settle.
+
+    The requests of the memory are counted from the pulse on. The core
+    still holds the last address, so a line of the region may be
+    fetched again while the lines settle.
+    """
+    del mem.requests[:]
+    dut.i_inval_first.value = first
+    dut.i_inval_last.value = last
+    dut.i_inval_region.value = 1
+    await RisingEdge(dut.i_clk)
+    dut.i_inval_region.value = 0
+    for _ in range(SETTLE):
+        await RisingEdge(dut.i_clk)
+
+
+async def refetch(dut: Dut, mem: Memory, addrs: list[int]):
+    """Fetch each address, return the words and the requests so far."""
+    words = [(await fetch(dut, a))[0] for a in addrs]
+    return words, sorted(mem.requests)
+
+
+@cocotb.test()
+async def test_region_drops_only_the_lines_of_the_region(dut: Dut):
+    """Check that a region drops its line and keeps the others."""
+    mem = await start(dut)
+    inside, outside = BASE + 0x1230, BASE + 0x2450
+    for a in (inside, outside):
+        await fetch(dut, a)
+    mem.version = 1
+    await pulse_region(dut, mem, inside, inside + 3)
+    words, requests = await refetch(dut, mem, [outside, inside])
+    check_equal(words, [word(outside, 0), word(inside, 1)])
+    check_equal(requests, [inside & ~0xF])
+
+
+@cocotb.test()
+async def test_region_drops_every_line_it_covers(dut: Dut):
+    """Check a region of four lines, and its neighbors."""
+    mem = await start(dut)
+    lines = [BASE + 0x100 + 16 * k for k in range(4)]
+    near = [BASE + 0xF0, BASE + 0x140]
+    for a in lines + near:
+        await fetch(dut, a)
+    mem.version = 1
+    await pulse_region(dut, mem, BASE + 0x100, BASE + 0x13F)
+    words, requests = await refetch(dut, mem, near + lines)
+    check_equal(
+        words, [word(a, 0) for a in near] + [word(a, 1) for a in lines]
+    )
+    check_equal(requests, sorted(lines))
+
+
+@cocotb.test()
+async def test_region_wraps_around_the_index(dut: Dut):
+    """Check a region that crosses the last line of the index."""
+    mem = await start(dut)
+    last_idx, first_idx = BASE + 0xFF0, BASE + 0x1000
+    others = [BASE + 0xFE0, BASE + 0x1010]
+    for a in [last_idx, first_idx, *others]:
+        await fetch(dut, a)
+    mem.version = 1
+    await pulse_region(dut, mem, last_idx, first_idx + 15)
+    words, requests = await refetch(dut, mem, [*others, last_idx, first_idx])
+    check_equal(words[:2], [word(a, 0) for a in others])
+    check_equal(words[2:], [word(last_idx, 1), word(first_idx, 1)])
+    check_equal(requests, sorted([last_idx, first_idx]))
+
+
+@cocotb.test()
+async def test_a_region_as_big_as_the_cache_drops_everything(dut: Dut):
+    """Check that 4 KB of region leaves no line."""
+    mem = await start(dut)
+    addrs = [BASE + 0x100, BASE + 0x6F0, BASE + 0xA08]
+    for a in addrs:
+        await fetch(dut, a)
+    mem.version = 1
+    await pulse_region(dut, mem, BASE + 0x40000, BASE + 0x40FFF)
+    words, requests = await refetch(dut, mem, addrs)
+    check_equal(words, [word(a, 1) for a in addrs])
+    check_equal(requests, sorted(a & ~0xF for a in addrs))
+
+
+@cocotb.test()
+async def test_a_backwards_region_does_nothing(dut: Dut):
+    """Check that last below first is ignored."""
+    mem = await start(dut)
+    a = BASE + 0x700
+    await fetch(dut, a)
+    mem.version = 1
+    await pulse_region(dut, mem, a + 0x100, a)
+    words, requests = await refetch(dut, mem, [a])
+    check_equal(words, [word(a, 0)])
+    check_equal(requests, [])
+
+
+@cocotb.test()
+async def test_region_during_a_fill_drops_that_line(dut: Dut):
+    """Check that a fill under way inside the region is discarded."""
+    mem = await start(dut)
+    a = BASE + 0x300
+    dut.i_addr.value = a
+    dut.i_sel.value = 1
+    for _ in range(6):
+        await RisingEdge(dut.i_clk)
+    check_equal(len(mem.requests), 1)
+    mem.version = 1
+    await pulse_region(dut, mem, a, a + 15)
+    data, _ = await fetch(dut, a)
+    check_equal(data, word(a, 1))
+    check_equal(len(mem.requests), 1)
+
+
+@cocotb.test()
+async def test_region_during_a_fill_elsewhere_keeps_it(dut: Dut):
+    """Check that a fill outside the region still becomes valid."""
+    mem = await start(dut)
+    a = BASE + 0x300
+    dut.i_addr.value = a
+    dut.i_sel.value = 1
+    for _ in range(6):
+        await RisingEdge(dut.i_clk)
+    await pulse_region(dut, mem, BASE + 0x900, BASE + 0x90F)
+    data, _ = await fetch(dut, a)
+    check_equal(data, word(a, 0))
+    check_equal(len(mem.requests), 0)

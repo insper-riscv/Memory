@@ -34,6 +34,14 @@
 -- código anterior aos stores que o programa terminou), então nada que a cache
 -- guarda é mais velho que o invalidate.
 --
+-- i_inval_region: um pulso derruba as linhas da região de i_inval_first a i_inval_last (endereços de byte, o último
+-- incluído), como o controlador de FLASH pede depois de apagar ou gravar. Cada linha da cache guarda a tag, não o endereço
+-- completo, então a cache derruba por índice: toda linha cujo índice cai em algum endereço da região, mesmo a de outra
+-- região com o mesmo índice (uma região de tantas linhas quantas a cache tem derruba tudo). Um preenchimento em andamento
+-- cuja linha cai na região é descartado. O pedido é registrado e aplicado no ciclo seguinte; o bit de validade lido tem
+-- mais um ciclo de atraso, então nenhuma linha da região acerta a partir do terceiro ciclo depois do pulso. Um pedido com
+-- i_inval_last menor que i_inval_first não tem efeito.
+--
 -- Nada escreve na SDRAM por trás da cache exceto a porta de debug, que o faz com
 -- o core parado e a cache invalidada (como depois do reset), e os próprios
 -- stores do core, que a cache não observa: só um fence.i os torna visíveis à
@@ -84,6 +92,12 @@ entity icache is
     i_invalidate : in  std_logic := '0';
     -- Pulso de um ciclo no início de cada preenchimento de linha (uma falha da cache).
     o_miss       : out std_logic;
+    -- Pulso que derruba as linhas da região de i_inval_first a i_inval_last.
+    i_inval_region : in std_logic := '0';
+    -- Primeiro endereço de byte da região a derrubar.
+    i_inval_first  : in std_logic_vector(31 downto 0) := (others => '0');
+    -- Último endereço de byte da região a derrubar (incluído).
+    i_inval_last   : in std_logic_vector(31 downto 0) := (others => '0');
 
     -- Lado da memória: endereço do acesso.
     o_d_addr     : out std_logic_vector(31 downto 0);
@@ -162,6 +176,14 @@ architecture rtl of icache is
   signal drop     : std_logic := '0';
   -- Palavra da linha que acabou de chegar da memória.
   signal fill_w   : std_logic_vector(31 downto 0);
+  -- Há um pedido de invalidação por região a aplicar neste ciclo.
+  signal rq_v     : std_logic := '0';
+  -- Índice da primeira linha do pedido de invalidação por região.
+  signal rq_first : unsigned(INDEX_BITS - 1 downto 0) := (others => '0');
+  -- Linhas do pedido menos uma, módulo o número de linhas.
+  signal rq_off   : unsigned(INDEX_BITS - 1 downto 0) := (others => '0');
+  -- O pedido cobre todas as linhas da cache.
+  signal rq_all   : std_logic := '0';
   -- Habilita de escrita da memória de dados.
   signal ram_we : std_logic;
   -- Habilita de escrita da memória de tags.
@@ -174,6 +196,12 @@ architecture rtl of icache is
   signal d_line_i : std_logic := '0';
   -- Endereço do pedido ao lado da memória (registrado).
   signal d_addr_i : std_logic_vector(31 downto 0) := (others => '0');
+
+  -- Uma linha de índice i pertence à região de invalidação que começa na linha first e tem off + 1 linhas (módulo o número de linhas), ou à região inteira (all_lines).
+  function in_region (i : natural; first : unsigned; off : unsigned; all_lines : std_logic) return boolean is
+  begin
+    return all_lines = '1' or (to_unsigned(i, first'length) - first) <= off;
+  end function in_region;
 
   -- A região da ROM: o endereço está em [rom_base_kib, rom_end_kib) KiB.
   function in_rom(addr : std_logic_vector(31 downto 0)) return std_logic is
@@ -225,9 +253,12 @@ begin
   o_d_advance <= i_d_ready;
 
   process (i_clk_cpu)
+    -- Linhas da região pedida menos uma, em linhas de 16 bytes.
+    variable span_m1 : unsigned(27 downto 0);
   begin
     if rising_edge(i_clk_cpu) then
       if i_rst = '1' then
+        rq_v     <= '0';
         st       <= S_IDLE;
         valid    <= (others => '0');
         drop     <= '0';
@@ -235,6 +266,18 @@ begin
         d_line_i <= '0';
         cnt      <= (others => '0');
       else
+        rq_v <= '0';
+        if i_inval_region = '1' and unsigned(i_inval_last(31 downto 4)) >= unsigned(i_inval_first(31 downto 4)) then
+          span_m1 := unsigned(i_inval_last(31 downto 4)) - unsigned(i_inval_first(31 downto 4));
+          rq_v     <= '1';
+          rq_first <= unsigned(i_inval_first(INDEX_BITS + 3 downto 4));
+          rq_off   <= span_m1(INDEX_BITS - 1 downto 0);
+          if span_m1 >= LINES - 1 then
+            rq_all <= '1';
+          else
+            rq_all <= '0';
+          end if;
+        end if;
         if i_invalidate = '1' then
           valid <= (others => '0');
           if st /= S_IDLE then
@@ -286,6 +329,17 @@ begin
             st <= S_IDLE;
 
         end case;
+        -- invalidação por região: derruba as linhas do índice e descarta o preenchimento que cai nela
+        if rq_v = '1' then
+          for i in 0 to LINES - 1 loop
+            if in_region(i, rq_first, rq_off, rq_all) then
+              valid(i) <= '0';
+            end if;
+          end loop;
+          if st /= S_IDLE and in_region(to_integer(unsigned(fill_idx)), rq_first, rq_off, rq_all) then
+            drop <= '1';
+          end if;
+        end if;
       end if;
     end if;
   end process;

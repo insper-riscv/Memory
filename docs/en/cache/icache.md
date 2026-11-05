@@ -41,6 +41,9 @@ The core's stores are not observed by the cache. Only an invalidation (the progr
 | `o_data` | output | 32 | Fetched instruction |
 | `i_invalidate` | input | 1 | Pulse that drops every line (default 0) |
 | `o_miss` | output | 1 | One-cycle pulse at the start of each line fill |
+| `i_inval_region` | input | 1 | Pulse that drops the lines of the region from `i_inval_first` to `i_inval_last` (default 0) |
+| `i_inval_first` | input | 32 | First byte address of the region to drop (default 0) |
+| `i_inval_last` | input | 32 | Last byte address of the region to drop, included (default 0) |
 | `o_d_addr` | output | 32 | Line request address, with the region base in bits 31 to 26 |
 | `o_d_rden` | output | 1 | Read request |
 | `o_d_line` | output | 1 | The request is for a line of four words |
@@ -105,7 +108,19 @@ Let $k$ be the number of `S_FILL_WAIT` cycles ($k \ge 1$) and assume `i_clk` equ
 
 A pulse on `i_invalidate` clears the valid vector in one `i_clk_cpu` cycle. If the machine is not in `S_IDLE`, the pulse also marks the fill in progress for discard. At the end of the fill (word 3), the line is marked valid only if there was no discard and `i_invalidate` is 0 in that cycle. Thus no stored line is older than the last invalidation. The discard mark is cleared when the machine returns to `S_IDLE`.
 
-### 3.6. Reset
+### 3.6. Region invalidation
+
+A pulse on `i_inval_region` drops the lines of the addresses from `i_inval_first` to `i_inval_last`, which is what the FLASH controller asks for at the end of an erase or program. The cache stores the tag, not the full address, so it drops by index: every line whose index holds some address of the region, including the one of another region with the same index. With $N$ lines in the region and $L$ lines in the cache, the region drops the lines of index $i$ such that
+
+$$
+(i - i_{first}) \bmod L < N \qquad \text{or} \qquad N \ge L
+$$
+
+where $i_{first}$ is the index of the address `i_inval_first`. A region with `i_inval_last` below `i_inval_first` has no effect.
+
+The request is registered and applied in the next cycle. If the state machine is not in `S_IDLE` and the line being filled falls in the region, the fill is discarded as with `i_invalidate`. Because the valid bit read has one cycle of delay, no line of the region hits from the fourth cycle after the pulse.
+
+### 3.7. Reset
 
 `i_rst` takes the machine to `S_IDLE` and clears the valid vector, the discard mark, the request signals and the word counter.
 
@@ -119,11 +134,11 @@ The icache request is always a line read. In the simulation system, the SDRAM ou
 
 ## 5. Verification
 
-The tests are cocotb tests in `tests/python/unittests/cache`, registered in `tests/python/tests.json`. The cache has no formal proofs.
+The tests are cocotb tests in `tests/python/unittests/cache`, registered in `tests/python/tests.json`. The formal proof is in `formal/icache/` (see [blocks](../formal/blocks.md)).
 
 | `tests.json` entry | Test module | What it covers |
 | :--- | :--- | :--- |
-| `InstructionCache` | [instruction_cache.py](../../../tests/python/unittests/cache/instruction_cache.py) | A miss followed by hits in the line, sequential code across lines, a conflict that evicts the line, an unselected address never hits or fills, invalidation of every line and during a fill, address change during a fill, regions do not alias, region base in fill addresses, one miss pulse per line |
+| `InstructionCache` | [instruction_cache.py](../../../tests/python/unittests/cache/instruction_cache.py) | A miss followed by hits in the line, sequential code across lines, a conflict that evicts the line, an unselected address never hits or fills, invalidation of every line and during a fill, address change during a fill, regions do not alias, region base in fill addresses, one miss pulse per line, region invalidation (only the line of the region, several lines, index wrap-around, a region as big as the cache, a backwards region, during a fill inside and outside the region) |
 | `InstructionCacheSmall` | [instruction_cache_small.py](../../../tests/python/unittests/cache/instruction_cache_small.py) | `size_bits` equal to 4096, capacity of 32 lines, the 33rd line takes the place of the first, conflict at 512 bytes, FLASH and SDRAM at the same index conflict |
 | `FlashPath` | [flash_path.py](../../../tests/python/unittests/cache/flash_path.py) | Instruction fetch from the FLASH end to end, with the icache, two routers, the arbiter and the chip |
 
