@@ -1,6 +1,25 @@
 # Every file path this repository's configuration references, checked by
 #   riscv-tools --root . check-paths --manifest paths.yaml
 tree:
+  coverage:
+    formal:
+      axi_master_bridge: [formal/axi_master/props.sv]
+      axi_slave_word_bridge: [formal/axi_slave/props.sv]
+      dcache: []
+      flash_arbiter: []
+      icache: []
+      mem_region_router: []
+      sdram_arbiter: []
+      sdram_cpu_bridge: []
+      sdram_ctrl: []
+    # Entities without an entity test of their own, and why (changed only with a justification in the pull request).
+    exceptions:
+      axi_master_bridge: "Exercised through the data cache tests (DataCache, toplevel sdram_dcache_system) and proved in formal/axi_master."
+      axi_slave_word_bridge: "Exercised through the AXI SDRAM slave tests (toplevel axi_sdram_slave_system) and proved in formal/axi_slave."
+      flash_jtag_core: "Exercised through the FlashLoader test (toplevel flash_system), which drives the JTAG path."
+      flash_loader: "Exercised through the FlashLoader test (toplevel flash_system)."
+      flash_simulation: "Exercised through the FlashLoader test (toplevel flash_system), which uses it as the flash model."
+      onchip_ram_port: "Exercised through the OnchipRam tests (toplevel onchip_ram_system)."
   # Folders named after the board family, the memory kind or the SoC keep their capitals: they are identifiers.
   identifier_folders: [SoC, RAM, ROM, FPGA, Cyclone-V]
 references:
