@@ -33,6 +33,8 @@ start prove dc_dbg.v bmc   24 '-DDATA'        stores
 start prove dc_dbg.v bmc   40 '-DINV'         invalidate
 start prove dc_dbg.v cover 24 '-DDATA -DCOVER' cover
 start prove dc_dbg.v cover 40 '-DINV -DCOVER'  cover_inv
+start prove dc_dbg.v bmc   22 '-DREGION'       region
+start prove dc_dbg.v cover 40 '-DREGION -DCOVER' cover_region
 
 # Mutants of the VHDL: each defect must make a proof fail.
 export MUT_DEPTH=24 MUT_DEFS='-DDATA'
@@ -47,11 +49,23 @@ wait
 # The invalidation mutant needs the INV mode.
 export MUT_DEPTH=40 MUT_DEFS='-DINV'
 mutant_run inv_inverted "s/if inv_run = '1' then/if inv_run = '0' then/"
+# The region mutants need the REGION mode.
+export MUT_DEPTH=22 MUT_DEFS='-DREGION'
+start_mutant region_ignored   "s/if in_region(i, rq_first, rq_off, rq_all) and dirty(i) = '0' then/if false then/"
+start_mutant fill_stays_valid "s/valid(ci) <= not stale;/valid(ci) <= '1';/"
+start_mutant fill_not_marked  "s/if (st = S_FILL_REQ or st = S_FILL_WAIT or st = S_FILL_GET) and in_region(to_integer(unsigned(req_idx)), rq_first, rq_off, rq_all) then/if false then/"
+start_mutant region_one_short "s/return all_lines = '1' or (to_unsigned(i, first'length) - first) <= off;/return all_lines = '1' or (to_unsigned(i, first'length) - first) < off;/"
+wait
 
 expect "store order and data of every hit and fill (bounded, 24 clocks)" PASS stores
 expect "a flush with invalidation leaves every line invalid (bounded, 40 clocks)" PASS invalidate
 expect "cover: a store, a load after a fill and a load hit are reachable" PASS cover
 expect "cover: a flush with invalidation is reachable" PASS cover_inv
+expect "after a region, a load is the current data of the lower memory (bounded, 22 clocks)" PASS region
+expect "cover: a region that changes the word and loads before and after it are reachable" PASS cover_region
+for m in region_ignored fill_stays_valid fill_not_marked region_one_short; do
+  expect "mutant $m is caught" FAIL "mut_$m"
+done
 for m in hit_store_not_cached write_back_on_hit byteena_lost fill_word_swapped hit_ignores_tag store_acked_early store_data_lost inv_inverted; do
   expect "mutant $m is caught" FAIL "mut_$m"
 done

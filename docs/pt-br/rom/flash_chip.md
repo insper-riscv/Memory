@@ -81,6 +81,7 @@ O chip ocupa $2^{W}$ bytes com $W = \log_2(\text{size\_bytes})$. Um pedido cujos
 | `icache` e `dcache` (`src/cache/`) | Mestres de linha; ver [dcache_axi.md](../barramento/dcache_axi.md) para a cache de dados |
 | `mem_region_router` | Separa o pedido entre SDRAM e FLASH, conclui stores à FLASH sem efeito e devolve zero para leituras além da janela sem acordar o chip |
 | `flash_arbiter` | Serializa os dois mestres sobre o único chip; um pedido em andamento nunca é interrompido |
+| [flash_cmd_port](flash_cmd_port.md) | Porta B do modelo: apaga, grava e protege o mesmo armazenamento enquanto este chip lê |
 | Armazenamento | Memória de leitura registrada comandada por `o_mem_addr` e `i_mem_data`. Na placa é o IP [flash_store](flash_store.md); na simulação modular é o modelo [rom_simulation](rom_simulation.md) |
 
 O topo da placa DE0-CV, na Insper-RISC-V, instancia o chip com latências 24 e 4 e `size_bytes` de 262144, ligado ao IP de armazenamento de 256 KB pelos bits 17 a 2 de `o_mem_addr`. O topo de simulação modular da Insper-RISC-V o instancia com latências e tamanho vindos de genéricos. Nos dois casos o clock do chip e o do armazenamento são o mesmo.

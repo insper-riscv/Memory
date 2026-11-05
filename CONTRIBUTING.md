@@ -2,7 +2,7 @@
 
 🌐 [Português](CONTRIBUTING.md) · [English](CONTRIBUTING.en.md)
 
-Este documento define as regras obrigatórias de codificação, organização estrutural, documentação e verificação para qualquer contribuição ao repositório `Memory`.
+Este documento define as regras obrigatórias de codificação (VHDL, C e Python), organização estrutural, documentação e verificação para qualquer contribuição ao repositório `Memory`.
 
 ## 1. Normas VHDL e Compatibilidade de Síntese
 
@@ -54,24 +54,46 @@ A metodologia de projeto para reuso de blocos de hardware segue o livro *Reuse M
 }
 ```
 
-## 2. Nomenclatura e Prefixos Obrigatórios em VHDL
+## 2. Norma C e Programas de Teste
+
+Todo código em C do projeto, onde quer que esteja (programas de teste, runtime e código de inicialização das plataformas), é escrito sob a norma **ISO/IEC 9899:2024 (C23)** e compilado com a flag `-std=c23`. O C é a linguagem dos programas que exercitam o processador, e é por meio deles que os módulos de hardware são verificados na simulação e na placa.
+
+| Regra | Especificação |
+| :--- | :--- |
+| Norma da linguagem | C23 (`-std=c23`) em todos os arquivos `.c` e `.h` |
+| Extensões do compilador | Não utilizar extensões GNU quando houver equivalente na norma |
+| Biblioteca padrão | picolibc, conforme a imagem de toolchain do Infra |
+
+A norma de referência é a [ISO/IEC 9899:2024, Programming languages: C](https://www.iso.org/standard/82075.html). Em trabalhos acadêmicos, cite-a com a entrada BibTeX abaixo:
+
+```bibtex
+@misc{iso9899,
+  title        = {Programming languages --- C},
+  author       = {{ISO/IEC}},
+  year         = {2024},
+  note         = {ISO/IEC 9899:2024},
+  howpublished = {\url{https://www.iso.org/standard/82075.html}}
+}
+```
+
+## 3. Nomenclatura e Prefixos Obrigatórios em VHDL
 
 Todos os identificadores de código devem ser escritos em **inglês**, enquanto todos os comentários e cabeçalhos devem ser escritos em **português**.
 
 | Elemento VHDL | Convenção | Exemplos |
 | :--- | :--- | :--- |
-| Entidades, arquiteturas e pacotes | `snake_case` | `mux_2x1`, `generic_register`, `alu_consts`, `rtl` |
-| Portas de entrada (`in`) | Prefixo obrigatório `i_` + `snake_case` | `i_clk`, `i_rst`, `i_data`, `i_addr` |
-| Portas de saída (`out`) | Prefixo obrigatório `o_` + `snake_case` | `o_data`, `o_irq`, `o_ready` |
-| Generics | `snake_case` descritivo | `data_width`, `addr_width` |
-| Constantes (`constant`) | `UPPER_SNAKE_CASE` | `WORD_WIDTH`, `REG_ZERO` |
-| Tipos e subtipos (`type`, `subtype`) | `snake_case` com sufixo `_t` | `word_t`, `reg_idx_t` |
-| Sinais e variáveis internas | `snake_case` | `rd_data`, `wr_en` |
-| Rótulos de instância | Prefixo `u_` + `snake_case` | `u_reg_file`, `u_mux` |
+| Entidades, arquiteturas e pacotes | `snake_case` | `icache`, `sdram_ctrl`, `flash_arbiter`, `rtl` |
+| Portas de entrada (`in`) | Prefixo obrigatório `i_` + `snake_case` | `i_clk`, `i_rst`, `i_addr`, `i_invalidate` |
+| Portas de saída (`out`) | Prefixo obrigatório `o_` + `snake_case` | `o_data`, `o_d_addr`, `o_d_advance` |
+| Generics | `snake_case` descritivo | `size_bits`, `tck_ps`, `init_cycles`, `refresh_cycles` |
+| Constantes (`constant`) | `UPPER_SNAKE_CASE` | `INDEX_BITS`, `TAG_BITS`, `C_RCD` |
+| Tipos e subtipos (`type`, `subtype`) | `snake_case` com sufixo `_t` | `state_t`, `data_t`, `tag_t` |
+| Sinais e variáveis internas | `snake_case` | `data_ram`, `tag_ram`, `valid` |
+| Rótulos de instância | Prefixo `u_` + `snake_case` | `u_sync_req` |
 
-## 3. Cabeçalhos (Headers) e Docstrings em VHDL
+## 4. Cabeçalhos (Headers) e Docstrings em VHDL
 
-### 3.1. Cabeçalho Obrigatório de Arquivo
+### 4.1. Cabeçalho Obrigatório de Arquivo
 
 Todo arquivo `.vhd` deve iniciar com um bloco de cabeçalho de 72 colunas (`-- ====...====`) em português descrevendo a responsabilidade arquitetural do pacote ou da entidade:
 
@@ -79,13 +101,14 @@ Todo arquivo `.vhd` deve iniciar com um bloco de cabeçalho de 72 colunas (`-- =
 -- ============================================================================
 -- <Título curto do pacote ou entidade>
 -- ============================================================================
--- <Descrição clara em português da função do módulo, interfaces principais, invariantes de ciclo/latência ou parâmetros.>
+-- <Descrição clara em português da função do módulo no processador,
+--  interfaces principais, invariantes de ciclo/latência ou parâmetros.>
 -- ============================================================================
 ```
 
 Seções internas de uma arquitetura devem utilizar separadores de 72 colunas com hífens simples (`-- ----...----`).
 
-### 3.2. Docstring Individual Acima de Cada Declaração
+### 4.2. Docstring Individual Acima de Cada Declaração
 
 Cada declaração individual de `generic`, `port`, `constant`, `subtype`, `type`, `signal`, `alias` e `variable` deve possuir seu próprio comentário descritivo em português imediatamente na linha acima. Comentários na mesma linha (inline ao final da linha) não substituem a docstring acima da declaração:
 
@@ -108,7 +131,7 @@ entity mux_2x1 is
 end entity mux_2x1;
 ```
 
-## 4. Projeto para Reuso e Proibição de Duplicação
+## 5. Projeto para Reuso e Proibição de Duplicação
 
 O projeto segue a prática de *Design for Reuse* descrita no *Reuse Methodology Manual* (Keating e Bricaud). Cada regra abaixo se traduz em um critério verificável em revisão:
 
@@ -120,12 +143,13 @@ O projeto segue a prática de *Design for Reuse* descrita no *Reuse Methodology 
 | 4 | **Portas enxutas:** a entidade expõe somente as portas e os generics que usa | Sinais ou generics "para uso futuro" não entram em uma entidade |
 | 5 | **Dependência apenas das portas:** o nível superior conhece a declaração da entidade, nunca detalhes internos de sua arquitetura | O topo nunca carrega lógica fina de implementação |
 | 6 | **Composição com blocos-folha já verificados:** reaproveitar primitivos existentes | Não reimplementar com processos ou operadores redundantes o que um primitivo ou um sinal já calculado fornece |
+| 7 | **Fabricante isolado do RTL portável:** o que depende de IP ou primitiva da Cyclone V fica em `Cyclone-V/`, e o RTL sintetizável em qualquer FPGA e os modelos de simulação ficam em `SoC/` | Nenhum arquivo de `SoC/` instancia IP ou biblioteca de fabricante |
 
-## 5. Normas Python
+## 6. Normas Python
 
 O código Python (runner e testes em `tests/python/`) segue o [PEP 8](https://peps.python.org/pep-0008) (estilo) e o [PEP 257](https://peps.python.org/pep-0257) (docstrings); o `ruff` verifica ambos (regras `E`, `W`, `N` e `D`).
 
-### 5.1. Estilo de Código (PEP 8)
+### 6.1. Estilo de Código (PEP 8)
 
 > **Desvio do PEP 8:** O PEP 8 manda escrever comentários em inglês, e este projeto os escreve em **português**. Todas as demais recomendações do PEP 8 sobre comentários se mantêm, ou seja, frases completas, sempre atualizadas e sem repetir o que o código já diz. Identificadores continuam em inglês.
 
@@ -143,7 +167,7 @@ O código Python (runner e testes em `tests/python/`) segue o [PEP 8](https://pe
 | Comentários | **Em português** (desvio do PEP 8); frases completas, com inicial maiúscula, em linha própria ou após dois espaços no fim do código, iniciados por `# `; explicam o porquê, não repetem o que o código faz |
 | Idioma | Identificadores em **inglês**; comentários em **português** |
 
-### 5.2. Docstrings (PEP 257)
+### 6.2. Docstrings (PEP 257)
 
 | Regra | Especificação |
 | :--- | :--- |
@@ -174,7 +198,7 @@ def fetch_user(user_id: str, include_roles: bool = False) -> User:
     """
 ```
 
-### 5.3. Ferramentas e Processo
+### 6.3. Ferramentas e Processo
 
 | Regra | Especificação |
 | :--- | :--- |
@@ -185,9 +209,9 @@ def fetch_user(user_id: str, include_roles: bool = False) -> User:
 | Complexidade e duplicação | `complexipy` com máximo de 10 por função; `codeclone` para código duplicado |
 | Segurança | `semgrep` para análise estática; `uv audit` para vulnerabilidades nas dependências |
 
-## 6. Regras de Documentação Markdown
+## 7. Regras de Documentação Markdown
 
-Todo `README` e todo `CONTRIBUTING` e `AUTHORS` mantêm versões espelhadas em português (`*.md`) e em inglês (`*.en.md`), obedecendo às seguintes regras:
+`README`, `CONTRIBUTING` e `AUTHORS` mantêm versões espelhadas em português (`*.md`) e em inglês (`*.en.md`), e a documentação em `docs/` mantém as pastas espelhadas `docs/pt-br/` e `docs/en/`, obedecendo às seguintes regras:
 
 1. **Seletor de idioma e rodapé de licença:** todo `README.md` e `README.en.md` traz no topo o seletor `🌐 [Português](...) · [English](...)`, e todo arquivo `.md` encerra com o rodapé de copyright e link para `LICENSE`.
 2. **Seções numeradas e progressivas:** todas as seções a partir de `##` devem ser numeradas (`## 1.`, `### 1.1.`, `## 2.`) em ordem lógica de leitura.
@@ -199,24 +223,27 @@ Todo `README` e todo `CONTRIBUTING` e `AUTHORS` mantêm versões espelhadas em p
 6. **Sem histórico ou pendências na documentação técnica:** documentos de arquitetura e contratos descrevem exclusivamente o estado atual, sem changelogs internos nem listas de tarefas futuras.
 7. **Guias de uso apenas instruem:** instruções de instalação e execução dizem como fazer, sem justificar a escolha do método.
 
-## 7. Verificação Obrigatória Antes de Abrir Pull Request
+## 8. Verificação Obrigatória Antes de Abrir Pull Request
 
 Qualquer alteração em código, configuração ou documentação deve passar sem erros pelos comandos abaixo antes do envio:
 
 ```bash
-make check  # Verifica a sintaxe VHDL-2008 dos modelos de simulação
-make test   # Executa os testes por entidade (cocotb + GHDL)
-make paths  # Confere os caminhos do paths.yaml e a árvore do repositório (riscv-tools check-tree)
-make formal # Roda todas as provas formais e as mutações (ghdl, yosys e sby)
+make check     # Verifica a sintaxe VHDL-2008 de todos os fontes em ordem topológica
+make test      # Executa os testes por entidade (cocotb + GHDL)
+make paths     # Confere os caminhos de paths.yaml e a árvore do repositório (riscv-tools check-tree)
+make formal    # Executa as provas formais (SymbiYosys) com o engine de FORMAL_ENGINE (bitwuzla por padrão)
 ```
 
-**Aviso no formal é erro.** Um aviso do GHDL, do Yosys ou do SymbiYosys indica código fora da norma ou no limite dela. A correção é sempre no código ou na prova; é proibido suprimir avisos com `-Wno-*` ou ignorá-los. O fluxo em `formal/common.sh` varre a saída de cada etapa e de cada mutante e falha com o arquivo e a linha do aviso (ver `docs/pt-br/formal/formal.md`, seção 10).
+O job `formal` do CI roda as provas uma vez por engine (`formal - yices`, `formal - bitwuzla`, `formal - boolector` e `formal - abc-bmc3`) e o job agregador `formal` decide a partir dos resultados: cada prova precisa ter uma resposta e os engines que responderam precisam concordar entre si e com o esperado. O nome `formal` é o check que o ruleset da branch padrão exige, então não o renomeie; os jobs `formal - <engine>` não são exigidos.
+
+Warning no formal é erro. O fluxo de verificação formal varre a saída do GHDL e os logs do Yosys e do SymbiYosys depois de cada passo, inclusive nos mutantes, e falha apontando o arquivo e a linha do aviso. A correção é sempre no código ou nas propriedades, nunca em uma opção que esconda o aviso (`-Wno-*`). Os detalhes estão em [docs/pt-br/formal/formal.md](docs/pt-br/formal/formal.md).
 
 O job `python-static-analysis` do CI roda `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone`, `semgrep` e `uv audit` sobre os arquivos Python, e o nome do job é o check que o ruleset da branch padrão exige, então não o renomeie.
 
 Ao adicionar, renomear ou remover qualquer arquivo versionado, atualize imediatamente:
 - `paths.yaml`
 - `tests/python/tests.json`
+- `docs/`
 - `README.md`, `README.en.md` e a documentação afetada
 
 O CI roda essas verificações a cada push. Num pull request de alguém de fora do projeto, ele só começa depois que um membro que pode fazer o merge aprova a execução na página do pull request.

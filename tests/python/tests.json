@@ -299,6 +299,44 @@
             "--std=08"
         ]
     },
+    "FlashCmdPort": {
+        "toplevel": "flash_cmd_port",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/flash_cmd_port.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.flash_cmd_port",
+        "parameters": {
+            "size_bytes": 16384,
+            "sector_bytes": 4096,
+            "page_bytes": 256,
+            "erase_latency": 40,
+            "program_latency": 10
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "FlashDual": {
+        "toplevel": "flash_dual_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/flash_chip.vhd",
+            "src/cache/SoC/flash_cmd_port.vhd",
+            "src/ROM/SoC/flash_simulation.vhd",
+            "src/cache/SoC/sim/flash_dual_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.flash_dual",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
     "MemRegionRouter": {
         "toplevel": "mem_region_router",
         "sources": [
@@ -376,6 +414,23 @@
         ],
         "parameters": {
             "WRITE_THROUGH": true
+        }
+    },
+    "DataCacheRegion": {
+        "toplevel": "dcache",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/dcache.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.data_cache_region",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "WRITE_THROUGH": false
         }
     },
     "InstructionCacheSmall": {

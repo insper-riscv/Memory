@@ -81,6 +81,7 @@ The chip occupies $2^{W}$ bytes with $W = \log_2(\text{size\_bytes})$. A request
 | `icache` and `dcache` (`src/cache/`) | Line masters; see [dcache_axi.md](../barramento/dcache_axi.md) for the data cache |
 | `mem_region_router` | Splits the request between SDRAM and FLASH, completes stores to the FLASH with no effect and returns zero for reads past the window without waking the chip |
 | `flash_arbiter` | Serializes the two masters over the single chip; a request in progress is never interrupted |
+| [flash_cmd_port](flash_cmd_port.md) | Port B of the model: erases, programs and protects the same storage while this chip reads |
 | Storage | Registered-read memory driven by `o_mem_addr` and `i_mem_data`. On the board it is the IP [flash_store](flash_store.md); in the modular simulation it is the model [rom_simulation](rom_simulation.md) |
 
 The DE0-CV board top, in Insper-RISC-V, instantiates the chip with latencies 24 and 4 and a `size_bytes` of 262144, wired to the 256 KB storage IP through bits 17 to 2 of `o_mem_addr`. The modular simulation top of Insper-RISC-V instantiates it with latencies and size taken from generics. In both cases the chip clock and the storage clock are the same.
