@@ -109,8 +109,8 @@ For a read-only cache, `i_wren` stays at 0 and the store case does not occur.
 
 | Instance | File | Connection |
 | :--- | :--- | :--- |
-| `ROUTER_I` | `src/cache/SoC/sim/flash_path_system.vhd` | Master wired to the memory side of the [icache](icache.md), with `i_wren` at 0; FLASH output wired to master A of the [flash_arbiter](flash_arbiter.md); SDRAM output without a slave |
-| `ROUTER_B` | `src/cache/SoC/sim/flash_path_system.vhd` | Master wired to port B of the system, which stands for the memory side of a data cache; FLASH output wired to master B of the arbiter; SDRAM output without a slave |
+| `u_router_i` | `src/cache/SoC/sim/flash_path_system.vhd` | Master wired to the memory side of the [icache](icache.md), with `i_wren` at 0; FLASH output wired to master A of the [flash_arbiter](flash_arbiter.md); SDRAM output without a slave |
+| `u_router_b` | `src/cache/SoC/sim/flash_path_system.vhd` | Master wired to port B of the system, which stands for the memory side of a data cache; FLASH output wired to master B of the arbiter; SDRAM output without a slave |
 
 The memory side of the [dcache](dcache.md) uses the same request and answer convention. A FLASH store forwarded by the dcache is the case in which the router completes it with no effect. No instance in the repository wires the dcache to this router.
 

@@ -109,8 +109,8 @@ Para uma cache somente de leitura, `i_wren` fica em 0 e o caso do store não oco
 
 | Instância | Arquivo | Conexão |
 | :--- | :--- | :--- |
-| `ROUTER_I` | `src/cache/SoC/sim/flash_path_system.vhd` | Mestre ligado ao lado da memória da [icache](icache.md), com `i_wren` em 0; saída da FLASH ligada ao mestre A do [flash_arbiter](flash_arbiter.md); saída da SDRAM sem escravo |
-| `ROUTER_B` | `src/cache/SoC/sim/flash_path_system.vhd` | Mestre ligado à porta B do sistema, que representa o lado da memória de uma cache de dados; saída da FLASH ligada ao mestre B do árbitro; saída da SDRAM sem escravo |
+| `u_router_i` | `src/cache/SoC/sim/flash_path_system.vhd` | Mestre ligado ao lado da memória da [icache](icache.md), com `i_wren` em 0; saída da FLASH ligada ao mestre A do [flash_arbiter](flash_arbiter.md); saída da SDRAM sem escravo |
+| `u_router_b` | `src/cache/SoC/sim/flash_path_system.vhd` | Mestre ligado à porta B do sistema, que representa o lado da memória de uma cache de dados; saída da FLASH ligada ao mestre B do árbitro; saída da SDRAM sem escravo |
 
 O lado da memória da [dcache](dcache.md) usa a mesma convenção de pedido e resposta. Um store à FLASH repassado pela dcache é o caso em que o roteador o conclui sem efeito. Nenhuma instância no repositório liga a dcache a este roteador.
 

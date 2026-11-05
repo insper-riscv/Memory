@@ -70,7 +70,7 @@ The grant costs one cycle between the first `i_*_rden` seen and the owner taking
 
 | Instance | File | Connection |
 | :--- | :--- | :--- |
-| `ARBITER` | `src/cache/SoC/sim/flash_path_system.vhd` | Master A wired to the FLASH output of the icache's router; master B wired to the FLASH output of port B's router; output wired to the `flash_chip` chip |
+| `u_arbiter` | `src/cache/SoC/sim/flash_path_system.vhd` | Master A wired to the FLASH output of the icache's router; master B wired to the FLASH output of port B's router; output wired to the `flash_chip` chip |
 
 The routers that feed the arbiter are the [mem_region_router](mem_region_router.md). The arbiter knows nothing about writes, because the router completes any FLASH write without forwarding it.
 

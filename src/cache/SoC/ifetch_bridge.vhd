@@ -161,6 +161,7 @@ architecture rtl of ifetch_bridge is
 
   -- Endereço do pedido à memória: a base da região nos bits 31:26, os bits 25:0 do núcleo alinhados ao que se pede.
   function mem_addr_of(addr : std_logic_vector(31 downto 0)) return std_logic_vector is
+    -- Bits 25:0 do endereço com os bits baixos zerados pelo alinhamento.
     variable low : std_logic_vector(25 downto 0) := addr(25 downto 0);
   begin
     low(LOW_BIT - 1 downto 0) := (others => '0');

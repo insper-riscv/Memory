@@ -113,7 +113,7 @@ Um pulso em `i_invalidate` zera o vetor de validade em um ciclo de `i_clk_cpu`. 
 
 | Instância | Arquivo | Conexão |
 | :--- | :--- | :--- |
-| `ICACHE` | `src/cache/SoC/sim/flash_path_system.vhd` | `i_clk` e `i_clk_cpu` ligados ao mesmo clock; lado da memória ligado a um [mem_region_router](mem_region_router.md), cuja saída da FLASH vai ao mestre A do [flash_arbiter](flash_arbiter.md) |
+| `u_icache` | `src/cache/SoC/sim/flash_path_system.vhd` | `i_clk` e `i_clk_cpu` ligados ao mesmo clock; lado da memória ligado a um [mem_region_router](mem_region_router.md), cuja saída da FLASH vai ao mestre A do [flash_arbiter](flash_arbiter.md) |
 
 O pedido da icache só é de leitura de linha. No sistema de simulação, a saída da SDRAM do roteador da icache não tem escravo.
 

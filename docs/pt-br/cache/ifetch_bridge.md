@@ -105,7 +105,7 @@ Um pulso em `i_invalidate` descarta o registrador no mesmo ciclo. Se há um pedi
 
 | Instância | Arquivo | Conexão |
 | :--- | :--- | :--- |
-| `BRIDGE` | `src/cache/SoC/sim/ifetch_path_system.vhd` | `i_clk` no clock do núcleo; lado da memória ligado a um [mem_region_router](mem_region_router.md), cuja saída da FLASH vai ao mestre A do [flash_arbiter](flash_arbiter.md) |
+| `u_bridge` | `src/cache/SoC/sim/ifetch_path_system.vhd` | `i_clk` no clock do núcleo; lado da memória ligado a um [mem_region_router](mem_region_router.md), cuja saída da FLASH vai ao mestre A do [flash_arbiter](flash_arbiter.md) |
 
 O pedido da ponte é de leitura, de palavra ou de linha. No sistema de simulação, a saída da SDRAM do roteador da ponte não tem escravo.
 

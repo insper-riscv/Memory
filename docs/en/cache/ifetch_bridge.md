@@ -105,7 +105,7 @@ A pulse on `i_invalidate` discards the register in the same cycle. If a request 
 
 | Instance | File | Connection |
 | :--- | :--- | :--- |
-| `BRIDGE` | `src/cache/SoC/sim/ifetch_path_system.vhd` | `i_clk` on the core clock; memory side wired to a [mem_region_router](mem_region_router.md), whose FLASH output goes to master A of the [flash_arbiter](flash_arbiter.md) |
+| `u_bridge` | `src/cache/SoC/sim/ifetch_path_system.vhd` | `i_clk` on the core clock; memory side wired to a [mem_region_router](mem_region_router.md), whose FLASH output goes to master A of the [flash_arbiter](flash_arbiter.md) |
 
 The bridge request is a read, of a word or of a line. In the simulation system, the SDRAM output of the bridge router has no slave.
 
