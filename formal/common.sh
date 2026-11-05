@@ -58,7 +58,7 @@ prove() {
     printf '%s\n' '[options]' "mode $2" "depth $3"
     # ABC has no model of its own to rebuild a counterexample with, and gets the netlist as plain logic
     if [ "$engine" = abc-bmc3 ]; then printf '%s\n' 'aigsmt none' '[engines]' 'abc bmc3'; else printf '%s\n' '[engines]' "smtbmc $engine"; fi
-    printf '%s\n' '[script]' "read_verilog -formal -sv $4 $1 $props" 'prep -top props'
+    printf '%s\n' '[script]' "read_verilog -formal -sv $4 $1 $props" 'prep -top props' 'memory_map'
     if [ "$engine" = abc-bmc3 ]; then printf '%s\n' 'techmap' 'opt -fast' 'setundef -anyseq'; fi
     printf '%s\n' '[files]' "$1" "$props"
   } > "$5.sby"
@@ -143,4 +143,15 @@ expose() {
         print l
       }
     }' "$v" > "$v.tmp" && mv "$v.tmp" "$v"
+}
+
+# ghdl_run <ghdl arguments>: runs ghdl and keeps the informative "found RAM" notes (one per memory of each netlist,
+# repeated for every mutant) out of the terminal; warnings and errors still reach it.
+ghdl_run() {
+  local err rc=0
+  err="$(mktemp)"
+  ghdl "$@" 2> "$err" || rc=$?
+  grep -v 'note: found RAM' "$err" >&2 || true
+  rm -f "$err"
+  return "$rc"
 }

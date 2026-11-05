@@ -19,8 +19,8 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name>: the netlist and a copy that exposes the valid bits and the invalidation flag
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl -a --std=08 -Wno-library --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$1"
-  ghdl --synth --std=08 -Wno-library --workdir="$work" --out=verilog -gsize_bits=256 -gwrite_through=true dcache > "$2.v"
+  ghdl_run -a --std=08 -Wno-library --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$1"
+  ghdl_run --synth --std=08 -Wno-library --workdir="$work" --out=verilog -gsize_bits=256 -gwrite_through=true dcache > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v" valid:1 inv_run
   grep -q dbg_valid "$2_dbg.v" || { echo "the netlist has no register named valid: the exposure did not apply"; exit 1; }
