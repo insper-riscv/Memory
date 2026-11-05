@@ -224,10 +224,10 @@ async def test_contention_serves_every_master_in_turn(dut: Dut):
     check_equal(len(order), REQUESTS * len(MASTERS), f"served {order}")
     for master in MASTERS:
         check_equal(order.count(master), REQUESTS, f"master {master}")
-    for i in range(len(order) - 2):
+    for window in zip(order, order[1:], order[2:], strict=False):
         check_true(
-            len(set(order[i : i + 3])) == len(MASTERS),
-            f"not a rotation at {i}: {order}",
+            len(set(window)) == len(MASTERS),
+            f"not a rotation at {window}: {order}",
         )
 
 
