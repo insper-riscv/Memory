@@ -19,9 +19,9 @@ SDRAM = 0x40000000
 LAT = 4
 
 
-def word(addr: int):
+def word(addr: int, version: int = 0):
     """Return the data word the models hold at an address."""
-    return ((addr * 2654435761) ^ 0x77770000) & 0xFFFFFFFF
+    return ((addr * 2654435761) ^ (0x77770000 + version)) & 0xFFFFFFFF
 
 
 class Memory:
@@ -33,6 +33,7 @@ class Memory:
     def __init__(self, dut: Dut):
         """Bind the model to the DUT."""
         self.dut = dut
+        self.version = 0
         self.reads: list[tuple[int, int]] = []
         self.writes: list[tuple[int, int]] = []
 
@@ -43,7 +44,7 @@ class Memory:
         self.reads.append((addr, int(dut.o_d_line.value)))
         for _ in range(LAT):
             await RisingEdge(dut.i_clk)
-        w = [word(addr + 4 * i) for i in range(4)]
+        w = [word(addr + 4 * i, self.version) for i in range(4)]
         # like the SDRAM bridge: the data changes one edge after
         # ready, not with it
         dut.i_d_ready.value = 1
@@ -84,6 +85,7 @@ async def start(dut: Dut):
         "i_mem_advance",
         "i_flush",
         "i_invalidate",
+        "i_inval_region",
         "i_d_ready",
     ):
         getattr(dut, n).value = 0

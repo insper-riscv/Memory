@@ -41,6 +41,9 @@ Os stores do core não são observados pela cache. Só uma invalidação (o `fen
 | `o_data` | saída | 32 | Instrução buscada |
 | `i_invalidate` | entrada | 1 | Pulso que derruba todas as linhas (padrão 0) |
 | `o_miss` | saída | 1 | Pulso de um ciclo no início de cada preenchimento de linha |
+| `i_inval_region` | entrada | 1 | Pulso que derruba as linhas da região de `i_inval_first` a `i_inval_last` (padrão 0) |
+| `i_inval_first` | entrada | 32 | Primeiro endereço de byte da região a derrubar (padrão 0) |
+| `i_inval_last` | entrada | 32 | Último endereço de byte da região a derrubar, incluído (padrão 0) |
 | `o_d_addr` | saída | 32 | Endereço do pedido de linha, com a base da região nos bits 31 a 26 |
 | `o_d_rden` | saída | 1 | Pedido de leitura |
 | `o_d_line` | saída | 1 | O pedido é de uma linha de quatro palavras |
@@ -105,7 +108,19 @@ Seja $k$ o número de ciclos de `S_FILL_WAIT` ($k \ge 1$) e supondo `i_clk` igua
 
 Um pulso em `i_invalidate` zera o vetor de validade em um ciclo de `i_clk_cpu`. Se a máquina não está em `S_IDLE`, o pulso também marca o preenchimento em andamento para descarte. Ao fim do preenchimento (palavra 3), a linha só é marcada como válida se não houve descarte e `i_invalidate` está em 0 naquele ciclo. Assim, nenhuma linha guardada é mais antiga que a última invalidação. A marca de descarte é limpa quando a máquina volta a `S_IDLE`.
 
-### 3.6. Reset
+### 3.6. Invalidação por região
+
+Um pulso em `i_inval_region` derruba as linhas dos endereços de `i_inval_first` a `i_inval_last`, que é o que o controlador de FLASH pede ao fim de um apagar ou gravar. A cache guarda a tag, não o endereço completo, então derruba por índice: toda linha cujo índice contém algum endereço da região, inclusive a de outra região com o mesmo índice. Com $N$ linhas na região e $L$ linhas na cache, a região derruba as linhas de índice $i$ tais que
+
+$$
+(i - i_{primeira}) \bmod L < N \qquad \text{ou} \qquad N \ge L
+$$
+
+em que $i_{primeira}$ é o índice do endereço `i_inval_first`. Uma região com `i_inval_last` menor que `i_inval_first` não tem efeito.
+
+O pedido é registrado e aplicado no ciclo seguinte. Se a máquina não está em `S_IDLE` e a linha em preenchimento cai na região, o preenchimento é descartado como no `i_invalidate`. Como o bit de validade lido tem um ciclo de atraso, nenhuma linha da região acerta a partir do quarto ciclo depois do pulso.
+
+### 3.7. Reset
 
 `i_rst` leva a máquina a `S_IDLE`, zera o vetor de validade, a marca de descarte, os sinais de pedido e o contador de palavras.
 
@@ -119,11 +134,11 @@ O pedido da icache só é de leitura de linha. No sistema de simulação, a saí
 
 ## 5. Verificação
 
-Os testes são cocotb em `tests/python/unittests/cache`, registrados em `tests/python/tests.json`. Não há provas formais da cache.
+Os testes são cocotb em `tests/python/unittests/cache`, registrados em `tests/python/tests.json`. A prova formal está em `formal/icache/` (ver [blocks](../formal/blocks.md)).
 
 | Entrada de `tests.json` | Módulo de teste | O que cobre |
 | :--- | :--- | :--- |
-| `InstructionCache` | [instruction_cache.py](../../../tests/python/unittests/cache/instruction_cache.py) | Falha seguida de acertos na linha, código sequencial entre linhas, conflito que expulsa a linha, endereço não selecionado nunca acerta nem preenche, invalidação de todas as linhas e durante um preenchimento, troca de endereço durante um preenchimento, regiões sem alias, base da região nos endereços de preenchimento, um pulso de falha por linha |
+| `InstructionCache` | [instruction_cache.py](../../../tests/python/unittests/cache/instruction_cache.py) | Falha seguida de acertos na linha, código sequencial entre linhas, conflito que expulsa a linha, endereço não selecionado nunca acerta nem preenche, invalidação de todas as linhas e durante um preenchimento, troca de endereço durante um preenchimento, regiões sem alias, base da região nos endereços de preenchimento, um pulso de falha por linha, invalidação por região (só a linha da região, várias linhas, volta do índice, região do tamanho da cache, região invertida, durante um preenchimento dentro e fora da região) |
 | `InstructionCacheSmall` | [instruction_cache_small.py](../../../tests/python/unittests/cache/instruction_cache_small.py) | `size_bits` igual a 4096, capacidade de 32 linhas, a linha 33 toma o lugar da primeira, conflito a 512 bytes, FLASH e SDRAM no mesmo índice em conflito |
 | `FlashPath` | [flash_path.py](../../../tests/python/unittests/cache/flash_path.py) | Busca de instrução da FLASH de ponta a ponta, com a icache, dois roteadores, o árbitro e o chip |
 

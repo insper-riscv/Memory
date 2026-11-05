@@ -44,6 +44,9 @@ The overview of the path from the core to the SDRAM, the cost measurements and t
 | `i_flush` | input | 1 | Requests that every dirty line be written back; one pulse is enough |
 | `i_invalidate` | input | 1 | At 1 in the same cycle as `i_flush`, drops every line after the write-back (default 0) |
 | `i_bypass` | input | 1 | The access does not go through the cache (default 0) |
+| `i_inval_region` | input | 1 | Pulse that drops the clean lines of the region from `i_inval_first` to `i_inval_last` (default 0) |
+| `i_inval_first` | input | 32 | First byte address of the region to drop (default 0) |
+| `i_inval_last` | input | 32 | Last byte address of the region to drop, included (default 0) |
 | `o_miss` | output | 1 | One-cycle pulse at the start of each line fill |
 | `o_flush_done` | output | 1 | One-cycle pulse at the end of the flush |
 | `o_busy` | output | 1 | A flush is pending or in progress |
@@ -143,7 +146,21 @@ Each word of the line is read from the RAM (`S_WB_RD` and `S_WB_CAP`, two cycles
 
 The sweep of a cache with no dirty lines takes $3 \cdot 2^I$ cycles, plus the start cycle. A new `i_flush` during the sweep schedules one more sweep. `i_invalidate` alone, without `i_flush`, has no effect.
 
-### 3.7. Miss pulse
+### 3.7. Region invalidation
+
+A pulse on `i_inval_region` drops the **clean** lines of the addresses from `i_inval_first` to `i_inval_last`, which is what the FLASH controller asks for at the end of an erase or program. The cache stores the tag, not the full address, so it drops by index: every clean line whose index holds some address of the region, including the one of another region with the same index. With $N$ lines in the region and $L$ lines in the cache, the region drops the lines of index $i$ such that
+
+$$
+(i - i_{first}) \bmod L < N \qquad \text{or} \qquad N \ge L
+$$
+
+where $i_{first}$ is the index of the address `i_inval_first`. A region with `i_inval_last` below `i_inval_first` has no effect.
+
+1. A dirty line is never dropped. Only the SDRAM has dirty lines, and the cache never writes the FLASH.
+2. The request is registered and applied in the next cycle; no line of the region hits from the third cycle after the pulse.
+3. A fill in progress whose line falls in the region does not validate the line. The access that asked for it returns to `S_IDLE`, looks up again, misses and brings the line again, now with the new data.
+
+### 3.8. Miss pulse
 
 `o_miss` is at 1 in `S_FILL_REQ`, one cycle per fill. Uncached loads and write-through stores produce no pulse.
 
@@ -160,13 +177,14 @@ For the FLASH, the memory side of the cache can go through a [mem_region_router]
 
 ## 5. Verification
 
-The tests are cocotb tests in `tests/python/unittests/cache`, registered in `tests/python/tests.json`. The cache has no formal proofs.
+The tests are cocotb tests in `tests/python/unittests/cache`, registered in `tests/python/tests.json`. The formal proof is in `formal/dcache/` (see [blocks](../formal/blocks.md)).
 
 | `tests.json` entry | Test module | What it covers |
 | :--- | :--- | :--- |
 | `DataCache` | [data_cache.py](../../../tests/python/unittests/cache/data_cache.py) | Write and read back, hit and miss latency, byte enables, stability of `o_ready` and `o_rdata`, eviction with write-back, random traffic, flush keeping the lines valid; compares the chip memory with a Python copy |
 | `DataCacheWriteThrough` | [data_cache_write_through.py](../../../tests/python/unittests/cache/data_cache_write_through.py) | A store reaches the chip with no flush, a store miss does not bring the line in, a hit updates line and chip, random traffic |
 | `DataCacheFlash` | [data_cache_flash.py](../../../tests/python/unittests/cache/data_cache_flash.py) | FLASH load is cached, a store never changes the FLASH line, regions do not alias, an SDRAM store still updates the line, `i_bypass` on load and store, one miss pulse per line |
+| `DataCacheRegion` | [data_cache_region.py](../../../tests/python/unittests/cache/data_cache_region.py) | Region invalidation in write-back mode: drops only the line of the region, a region of several lines with index wrap-around, a dirty line of the same index is kept, a region as big as the cache, a backwards region, a fill in progress inside the region does not validate the line |
 | `DataCacheSmall` | [data_cache_small.py](../../../tests/python/unittests/cache/data_cache_small.py) | `size_bits` equal to 4096 with `write_through`, capacity of 32 lines and conflict at 512 bytes; uses only SDRAM addresses |
 
 ---

@@ -30,6 +30,8 @@ netlist "$src" ic
 
 start prove ic_dbg.v bmc   28 ''        safety
 start prove ic_dbg.v cover 28 '-DCOVER' cover
+start prove ic_dbg.v bmc   22 '-DREGION' region
+start prove ic_dbg.v cover 22 '-DREGION -DCOVER' cover_region
 
 # Mutants of the VHDL: each defect must make the safety proof fail.
 export MUT_DEPTH=28
@@ -41,9 +43,23 @@ start_mutant fill_word_swapped  "s/i_d_rdata_x(31 downto 0)  when cnt = \"01\" e
 start_mutant hit_without_sel    "s/hit       <= sel_q and valid_rd and tag_match;/hit       <= valid_rd and tag_match;/"
 start_mutant partial_line       "s/o_d_line    <= d_line_i;/o_d_line    <= '0';/"
 wait
+# The region mutants need the REGION mode.
+export MUT_DEPTH=22 MUT_DEFS='-DREGION'
+start_mutant region_ignored     "s/if in_region(i, rq_first, rq_off, rq_all) then/if false then/"
+start_mutant fill_not_dropped   "s/if st \/= S_IDLE and in_region(to_integer(unsigned(fill_idx)), rq_first, rq_off, rq_all) then/if false then/"
+start_mutant region_too_wide    "s/return all_lines = '1' or (to_unsigned(i, first'length) - first) <= off;/return true;/"
+start_mutant region_one_short   "s/return all_lines = '1' or (to_unsigned(i, first'length) - first) <= off;/return all_lines = '1' or (to_unsigned(i, first'length) - first) < off;/"
+start_mutant big_region_partial "s/if span_m1 >= LINES - 1 then/if false then/"
+wait
+export MUT_DEPTH=28; unset MUT_DEFS
 
 expect "hit data, invalidation and bus requests (bounded, 28 clocks)" PASS safety
 expect "cover: a hit on the watched word, a miss and an invalidation during a fill are reachable" PASS cover
+expect "after a region, a hit is the current data and a region off the index keeps the hit (bounded, 22 clocks)" PASS region
+expect "cover: a region that changes the word, a hit on the old data and a region off the index are reachable" PASS cover_region
+for m in region_ignored fill_not_dropped region_too_wide region_one_short big_region_partial; do
+  expect "mutant $m is caught" FAIL "mut_$m"
+done
 for m in dropped_fill_valid invalidate_keeps tag_always_matches ready_without_addr fill_word_swapped hit_without_sel partial_line; do
   expect "mutant $m is caught" FAIL "mut_$m"
 done

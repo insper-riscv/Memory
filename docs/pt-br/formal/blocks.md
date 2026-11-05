@@ -12,8 +12,8 @@ Além do árbitro da SDRAM e das pontes AXI (`formal.md`), as provas cobrem o co
 | `mem_region_router` | indução e cover | Fora da flash o acesso inteiro vai ao resto da memória; na flash só leituras dentro da janela chegam à flash; escrita na flash e leitura além da janela terminam no roteador, devolvem zero e respondem no ciclo seguinte; no máximo um destino por acesso |
 | `sdram_cpu_bridge` | limitada (30 ciclos) e cover | Um pedido novo só sai com a ponte livre, o núcleo pedindo e a inicialização sincronizada, e todo pedido vira uma inversão do toggle; a carga útil vista pelo controlador é a do núcleo e se mantém; o pronto só vem depois da resposta, dura até o avanço e há uma resposta por pedido; a resposta só é vista dois ciclos depois do ack (o cruzamento passa pelo `synchronizer`); o dado de leitura é o capturado quando a resposta foi vista |
 | `sdram_ctrl` | limitada (150 ciclos) e cover | Espera de inicialização, PRECHARGE de todos os bancos, oito REFRESH e LOAD MODE com o registrador de modo, nesta ordem e antes do primeiro acesso; tRP, tRFC, tMRD, tRCD e tRC entre os comandos; refresh dentro do período mais o tempo de um acesso em curso; todo pedido respondido, só com o toggle certo |
-| `icache` | limitada (28 ciclos) e cover | Um acerto no endereço vigiado devolve o dado que a memória de baixo deu; o pedido à memória de baixo é de uma linha alinhada; depois de uma invalidação, nenhum acerto antes de um preenchimento novo |
-| `dcache` (write-through) | limitada (24 ciclos) e cover | Todo store aceito chega à memória de baixo uma vez, com os bytes certos, antes de ser reconhecido; um load da palavra vigiada devolve a última escrita, venha do acerto ou do preenchimento; os pedidos à memória de baixo são bem formados; um flush com invalidação deixa as linhas inválidas |
+| `icache` | limitada (28 ciclos) e cover | Um acerto no endereço vigiado devolve o dado que a memória de baixo deu; o pedido à memória de baixo é de uma linha alinhada; depois de uma invalidação, nenhum acerto antes de um preenchimento novo; depois de uma invalidação por região que cobre a linha vigiada e troca o dado dela, o acerto devolve o dado novo (inclusive o de um preenchimento que estava em andamento), e uma região fora do índice da linha não derruba o acerto que a cache já tinha |
+| `dcache` (write-through) | limitada (24 ciclos) e cover | Todo store aceito chega à memória de baixo uma vez, com os bytes certos, antes de ser reconhecido; um load da palavra vigiada devolve a última escrita, venha do acerto ou do preenchimento; os pedidos à memória de baixo são bem formados; um flush com invalidação deixa as linhas inválidas; depois de uma invalidação por região que cobre a linha vigiada e troca o dado dela, um load devolve o dado novo, inclusive quando o preenchimento estava em andamento |
 
 ## 2. Suposições sobre o ambiente
 
@@ -24,8 +24,8 @@ Além do árbitro da SDRAM e das pontes AXI (`formal.md`), as provas cobrem o co
 | `sdram_cpu_bridge` | O controlador inverte o ack só para um pedido pendente, em até 3 ciclos, e segura o dado da resposta até o pedido seguinte |
 | `sdram_ctrl` | O mestre inverte o toggle só depois da resposta e segura a carga até lá; a espera de 200 µs e o período de refresh encurtam para 6 e 24 ciclos, e os tempos do chip são os de `sdram_pkg` a 7 ns |
 | `icache`, `dcache` | Dois clocks do `icache` ligam ao mesmo sinal; a cache tem duas linhas de 128 bits (`size_bits = 256`); um endereço vigiado qualquer faz o papel da memória de baixo, que devolve a sua palavra sempre que devolve a linha dele; os endereços do núcleo ficam na janela de 64 MiB do endereço vigiado; a memória de baixo responde em até 3 ciclos (2 no `dcache`) |
-| `icache` | O núcleo mantém o endereço até a cache responder |
-| `dcache` | Modo write-through, sem bypass, e o endereço vigiado fora da região da flash |
+| `icache` | O núcleo mantém o endereço até a cache responder; no modo de região, a palavra vigiada da memória de baixo só muda no pulso de uma região que cobre a linha dela |
+| `dcache` | Modo write-through, sem bypass, e o endereço vigiado fora da região da flash; no modo de região o núcleo só lê e a palavra vigiada da memória de baixo só muda no pulso de uma região que cobre a linha dela |
 
 ## 3. Mutantes
 
@@ -37,8 +37,8 @@ Cada defeito proposital do VHDL precisa fazer uma prova falhar. O `run.sh` de ca
 | `mem_region_router` | `end_inclusive`, `write_not_local`, `slave_sees_flash`, `local_not_zero`, `local_hangs`, `flash_gets_local`, `window_by_base`, `advance_to_both` |
 | `sdram_cpu_bridge` | `wrong_rdata`, `rdata_x_zero`, `init_ignored`, `ack_unsynced`, `no_advance_wait`, `write_as_read`, `address_shifted`, `request_lost`, `write_updates_rdata` |
 | `sdram_ctrl` | `no_precharge`, `few_refreshes`, `init_wait_short`, `mode_wrong`, `init_done_early`, `trcd_short`, `trp_short`, `trfc_short`, `trc_short`, `refresh_never` |
-| `icache` | `dropped_fill_valid`, `invalidate_keeps`, `tag_always_matches`, `ready_without_addr`, `fill_word_swapped`, `hit_without_sel`, `partial_line` |
-| `dcache` | `hit_store_not_cached`, `write_back_on_hit`, `byteena_lost`, `fill_word_swapped`, `hit_ignores_tag`, `store_acked_early`, `store_data_lost`, `inv_inverted` |
+| `icache` | `dropped_fill_valid`, `invalidate_keeps`, `tag_always_matches`, `ready_without_addr`, `fill_word_swapped`, `hit_without_sel`, `partial_line`, `region_ignored`, `fill_not_dropped`, `region_too_wide`, `region_one_short`, `big_region_partial` |
+| `dcache` | `hit_store_not_cached`, `write_back_on_hit`, `byteena_lost`, `fill_word_swapped`, `hit_ignores_tag`, `store_acked_early`, `store_data_lost`, `inv_inverted`, `region_ignored`, `fill_stays_valid`, `fill_not_marked`, `region_one_short` |
 
 ## 4. O que as provas não cobrem
 

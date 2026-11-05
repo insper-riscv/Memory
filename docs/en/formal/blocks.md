@@ -12,8 +12,8 @@ Besides the SDRAM arbiter and the AXI bridges (`formal.md`), the proofs cover th
 | `mem_region_router` | induction and cover | Outside the flash the whole access goes to the rest of the memory; in the flash only reads inside the window reach the flash; a write to the flash and a read beyond the window end in the router, return zero and answer in the next cycle; at most one destination per access |
 | `sdram_cpu_bridge` | bounded (30 cycles) and cover | A new request leaves only with the bridge free, the core asking and the initialization synchronized, and every request becomes a toggle inversion; the payload the controller sees is the core's and holds; the ready comes only after the answer, lasts until the advance and there is one answer per request; the answer is seen two cycles after the ack (the crossing goes through the `synchronizer`); the read data is the one captured when the answer was seen |
 | `sdram_ctrl` | bounded (150 cycles) and cover | Initialization wait, PRECHARGE of all banks, eight REFRESH and LOAD MODE with the mode register, in this order and before the first access; tRP, tRFC, tMRD, tRCD and tRC between the commands; refresh within the period plus the time of an access in progress; every request answered, only with the right toggle |
-| `icache` | bounded (28 cycles) and cover | A hit on the watched address returns the data the lower memory gave; the request to the lower memory is of an aligned line; after an invalidation, no hit before a new fill |
-| `dcache` (write-through) | bounded (24 cycles) and cover | Every accepted store reaches the lower memory once, with the right bytes, before it is acknowledged; a load of the watched word returns the last write, from a hit or from a fill; the requests to the lower memory are well formed; a flush with invalidation leaves the lines invalid |
+| `icache` | bounded (28 cycles) and cover | A hit on the watched address returns the data the lower memory gave; the request to the lower memory is of an aligned line; after an invalidation, no hit before a new fill; after a region invalidation that covers the watched line and changes its data, the hit returns the new data (including a fill that was under way), and a region off the line's index does not drop a hit the cache already had |
+| `dcache` (write-through) | bounded (24 cycles) and cover | Every accepted store reaches the lower memory once, with the right bytes, before it is acknowledged; a load of the watched word returns the last write, from a hit or from a fill; the requests to the lower memory are well formed; a flush with invalidation leaves the lines invalid; after a region invalidation that covers the watched line and changes its data, a load returns the new data, even when the fill was under way |
 
 ## 2. Assumptions about the environment
 
@@ -24,8 +24,8 @@ Besides the SDRAM arbiter and the AXI bridges (`formal.md`), the proofs cover th
 | `sdram_cpu_bridge` | The controller flips the ack only for a pending request, within 3 cycles, and holds the answer data until the next request |
 | `sdram_ctrl` | The master flips the toggle only after the answer and holds the payload until then; the 200 us wait and the refresh period shrink to 6 and 24 cycles, and the chip timings are those of `sdram_pkg` at 7 ns |
 | `icache`, `dcache` | The two clocks of the `icache` connect to the same signal; the cache has two lines of 128 bits (`size_bits = 256`); any watched address plays the lower memory, which returns its word whenever it returns its line; the core addresses stay in the 64 MiB window of the watched address; the lower memory answers within 3 cycles (2 in the `dcache`) |
-| `icache` | The core holds the address until the cache answers |
-| `dcache` | Write-through mode, no bypass, and the watched address outside the flash region |
+| `icache` | The core holds the address until the cache answers; in region mode, the watched word of the lower memory changes only at the pulse of a region that covers its line |
+| `dcache` | Write-through mode, no bypass, and the watched address outside the flash region; in region mode the core only reads and the watched word of the lower memory changes only at the pulse of a region that covers its line |
 
 ## 3. Mutants
 
@@ -37,8 +37,8 @@ Each deliberate defect of the VHDL must make a proof fail. The `run.sh` of each 
 | `mem_region_router` | `end_inclusive`, `write_not_local`, `slave_sees_flash`, `local_not_zero`, `local_hangs`, `flash_gets_local`, `window_by_base`, `advance_to_both` |
 | `sdram_cpu_bridge` | `wrong_rdata`, `rdata_x_zero`, `init_ignored`, `ack_unsynced`, `no_advance_wait`, `write_as_read`, `address_shifted`, `request_lost`, `write_updates_rdata` |
 | `sdram_ctrl` | `no_precharge`, `few_refreshes`, `init_wait_short`, `mode_wrong`, `init_done_early`, `trcd_short`, `trp_short`, `trfc_short`, `trc_short`, `refresh_never` |
-| `icache` | `dropped_fill_valid`, `invalidate_keeps`, `tag_always_matches`, `ready_without_addr`, `fill_word_swapped`, `hit_without_sel`, `partial_line` |
-| `dcache` | `hit_store_not_cached`, `write_back_on_hit`, `byteena_lost`, `fill_word_swapped`, `hit_ignores_tag`, `store_acked_early`, `store_data_lost`, `inv_inverted` |
+| `icache` | `dropped_fill_valid`, `invalidate_keeps`, `tag_always_matches`, `ready_without_addr`, `fill_word_swapped`, `hit_without_sel`, `partial_line`, `region_ignored`, `fill_not_dropped`, `region_too_wide`, `region_one_short`, `big_region_partial` |
+| `dcache` | `hit_store_not_cached`, `write_back_on_hit`, `byteena_lost`, `fill_word_swapped`, `hit_ignores_tag`, `store_acked_early`, `store_data_lost`, `inv_inverted`, `region_ignored`, `fill_stays_valid`, `fill_not_marked`, `region_one_short` |
 
 ## 4. What the proofs do not cover
 

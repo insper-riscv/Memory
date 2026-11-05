@@ -378,6 +378,23 @@
             "WRITE_THROUGH": true
         }
     },
+    "DataCacheRegion": {
+        "toplevel": "dcache",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/dcache.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.data_cache_region",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "WRITE_THROUGH": false
+        }
+    },
     "InstructionCacheSmall": {
         "toplevel": "icache",
         "sources": [
