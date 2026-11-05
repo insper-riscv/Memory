@@ -222,6 +222,23 @@ async def test_refresh_runs_between_accesses(dut: Dut):
     )
 
 
+async def random_access(req: Requester, rng: Prng) -> None:
+    """Make one random access and check what a read returns."""
+    word = 0x005000 + rng.randrange(64)
+    choice = rng.randrange(4)
+    if choice == 0:
+        await req.word(True, word, rng.getrandbits(32), rng.randrange(16))
+    elif choice == 1:
+        got = await req.word(False, word)
+        check_equal(got, req.memory.get(word, 0), f"word 0x{word:06X}")
+    elif choice == LINE_WRITE:
+        await req.line(True, word, [rng.getrandbits(32) for _ in range(LINE)])
+    else:
+        base = word & ~3
+        want = [req.memory.get(base + i, 0) for i in range(LINE)]
+        check_equal(await req.line(False, base), want, f"0x{base:06X}")
+
+
 @cocotb.test()
 async def test_random_traffic(dut: Dut):
     """Mixed word and line traffic matches a copy of the memory."""
@@ -229,20 +246,6 @@ async def test_random_traffic(dut: Dut):
     req = Requester(dut)
     rng = Prng(SEED)
     for _ in range(RANDOM_ACCESSES):
-        word = 0x005000 + rng.randrange(64)
-        choice = rng.randrange(4)
-        if choice == 0:
-            await req.word(True, word, rng.getrandbits(32), rng.randrange(16))
-        elif choice == 1:
-            got = await req.word(False, word)
-            check_equal(got, req.memory.get(word, 0), f"word 0x{word:06X}")
-        elif choice == LINE_WRITE:
-            values = [rng.getrandbits(32) for _ in range(LINE)]
-            await req.line(True, word, values)
-        else:
-            base = word & ~3
-            got = await req.line(False, base)
-            want = [req.memory.get(base + i, 0) for i in range(LINE)]
-            check_equal(got, want, f"line 0x{base:06X}")
+        await random_access(req, rng)
     for word, value in req.memory.items():
         check_equal(await model_word(dut, word), value, f"0x{word:06X}")
