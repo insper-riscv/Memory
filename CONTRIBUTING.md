@@ -207,7 +207,10 @@ Qualquer alteração em código, configuração ou documentação deve passar se
 make check  # Verifica a sintaxe VHDL-2008 dos modelos de simulação
 make test   # Executa os testes por entidade (cocotb + GHDL)
 make paths  # Confere os caminhos do paths.yaml e a árvore do repositório (riscv-tools check-tree)
+make formal # Roda todas as provas formais e as mutações (ghdl, yosys e sby)
 ```
+
+**Aviso no formal é erro.** Um aviso do GHDL, do Yosys ou do SymbiYosys indica código fora da norma ou no limite dela. A correção é sempre no código ou na prova; é proibido suprimir avisos com `-Wno-*` ou ignorá-los. O fluxo em `formal/common.sh` varre a saída de cada etapa e de cada mutante e falha com o arquivo e a linha do aviso (ver `docs/pt-br/formal/formal.md`, seção 10).
 
 O job `python-static-analysis` do CI roda `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone`, `semgrep` e `uv audit` sobre os arquivos Python, e o nome do job é o check que o ruleset da branch padrão exige, então não o renomeie.
 

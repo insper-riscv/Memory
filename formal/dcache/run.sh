@@ -19,8 +19,8 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name>: the netlist and a copy that exposes the valid bits and the invalidation flag
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 -Wno-library --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$1"
-  ghdl_run --synth --std=08 -Wno-library --workdir="$work" --out=verilog -gsize_bits=256 -gwrite_through=true dcache > "$2.v"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$1"
+  ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gsize_bits=256 -gwrite_through=true dcache > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v" valid:1 inv_run
   grep -q dbg_valid "$2_dbg.v" || { echo "the netlist has no register named valid: the exposure did not apply"; exit 1; }
@@ -46,13 +46,13 @@ start_mutant store_data_lost      "s/d_wdata_i <= i_wdata;/d_wdata_i <= (others 
 wait
 # The invalidation mutant needs the INV mode.
 export MUT_DEPTH=40 MUT_DEFS='-DINV'
-mutant_run inv_keeps "/if inv_run = '1' then/{n;s/valid <= (others => '0');/null;/}"
+mutant_run inv_inverted "s/if inv_run = '1' then/if inv_run = '0' then/"
 
 expect "store order and data of every hit and fill (bounded, 24 clocks)" PASS stores
 expect "a flush with invalidation leaves every line invalid (bounded, 40 clocks)" PASS invalidate
 expect "cover: a store, a load after a fill and a load hit are reachable" PASS cover
 expect "cover: a flush with invalidation is reachable" PASS cover_inv
-for m in hit_store_not_cached write_back_on_hit byteena_lost fill_word_swapped hit_ignores_tag store_acked_early store_data_lost inv_keeps; do
+for m in hit_store_not_cached write_back_on_hit byteena_lost fill_word_swapped hit_ignores_tag store_acked_early store_data_lost inv_inverted; do
   expect "mutant $m is caught" FAIL "mut_$m"
 done
 
