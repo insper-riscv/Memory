@@ -4,7 +4,7 @@ Modelo de simulação da ROM com duas portas de leitura síncronas sobre o mesmo
 
 ## 1. Função do componente no SoC
 
-O modelo substitui, nas simulações em GHDL, os IPs de ROM da placa ([boot_rom](boot_rom.md), [flash](flash.md) e [flash_mem](flash_mem.md)), que dependem da biblioteca `altera_mf` do Quartus. A porta 1 faz o papel do acesso de busca de instruções e a porta 2, com clock próprio, o do acesso de dados do estágio MEM (a segunda cópia física da FLASH no hardware). O vetor é escrito em VHDL puro para que o cocotb consiga lê-lo.
+O modelo substitui, nas simulações em GHDL, os IPs de ROM da placa ([boot_rom](boot_rom.md) e [flash](flash.md)), que dependem da biblioteca `altera_mf` do Quartus. A porta 1 faz o papel do acesso de busca de instruções e a porta 2, com clock próprio, o do acesso de dados do estágio MEM (a porta B da FLASH no hardware). O modelo da FLASH com escrita pelo carregador é o [flash_simulation](flash_simulation.md). O vetor é escrito em VHDL puro para que o cocotb consiga lê-lo.
 
 ## 2. Interface
 

@@ -1,20 +1,19 @@
 # flash
 
-IP interno de ROM de uma porta que guarda o programa de teste (a FLASH interna) lido pelo estágio de busca de instruções.
+IP interno de memória de duas portas verdadeiras que guarda o programa de teste (a FLASH interna) numa só cópia, lida pelo estágio de busca de instruções e pelo estágio MEM e escrita pelo carregador.
 
 ## 1. Função do componente no SoC
 
-A FLASH interna começa logo depois da BOOT_ROM e vai até o início da RAM (`0x00000800` até `0x00007FFF` no mapa padrão, ver [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)). Esta cópia atende o estágio de busca de instruções (IF). O endereço de busca indexa o IP direto, sem subtrair a base, então o IP cobre todo o intervalo de zero até o início da RAM e não só a faixa lógica da FLASH (32 KB de IP para 30 KB de FLASH). Segundo o cabeçalho do VHDL, a imagem de cada teste é preenchida à esquerda com zeros até a base da FLASH antes de virar `.mif`.
+A FLASH interna começa logo depois da BOOT_ROM e vai até o início da RAM (`0x00001000` até `0x00007FFF` no mapa padrão, ver [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)). A porta A atende o estágio de busca de instruções (IF). A porta B atende o estágio MEM, que lê a FLASH como dado (por exemplo para copiar a seção `.data` na inicialização), e o carregador [flash_loader](flash_loader.md), que a escreve. O núcleo só lê, porque a escrita existe apenas na porta B e o carregador a habilita só com o núcleo parado.
 
-### 1.1. Diferença entre os três IPs de FLASH
+O endereço de busca indexa o IP direto, sem subtrair a base, então o IP cobre todo o intervalo de zero até o início da RAM e não só a faixa lógica da FLASH (32 KB de IP para 28 KB de FLASH). A imagem de cada teste é preenchida à esquerda com zeros até a base da FLASH antes de virar `.mif`.
 
-| IP | Papel | Tamanho padrão | Arquivo de inicialização | Nome da instância |
+### 1.1. Diferença entre os IPs de FLASH
+
+| IP | Papel | Tamanho padrão | Arquivo de inicialização | Regravação |
 | :--- | :--- | ---: | :--- | :--- |
-| [flash](flash.md) | Cópia lida pelo estágio IF do núcleo | 32 KB | `./init.mif` | `FLASH` |
-| [flash_mem](flash_mem.md) | Segunda cópia física, lida pelo estágio MEM como dado | 32 KB | `./init.mif` | `FLASH_MEM` |
-| [flash_store](flash_store.md) | Armazenamento atrás do chip [flash_chip](flash_chip.md) | 256 KB | `./flash_init.mif` | `FLASH` |
-
-Os três usam a mesma receita de `altsyncram`. As duas cópias internas precisam ter sempre o mesmo conteúdo, e o nome de instância distinto é o que faz o editor de conteúdo tratar cada uma como instância JTAG separada.
+| [flash](flash.md) | Única cópia da FLASH interna, duas portas | 32 KB | `./init.mif` | Carregador JTAG ([flash_loader](flash_loader.md)) |
+| [flash_store](flash_store.md) | Armazenamento atrás do chip [flash_chip](flash_chip.md) | 256 KB | `./flash_init.mif` | Editor de conteúdo em sistema, instância `FLASH` |
 
 ## 2. Interface
 
@@ -22,54 +21,71 @@ Os três usam a mesma receita de `altsyncram`. As duas cópias internas precisam
 
 | Generic | Tipo | Padrão | Significado |
 | :--- | :--- | :--- | :--- |
-| `size_bytes` | `positive` | 32768 | Tamanho em bytes, potência de dois (32 KB por padrão); define a largura de `i_address` e o número de palavras |
+| `size_bytes` | `positive` | 32768 | Tamanho em bytes, potência de dois (32 KB por padrão); define a largura dos endereços e o número de palavras |
 
 ### 2.2. Portas
 
 | Porta | Direção | Largura | Padrão | Significado |
 | :--- | :--- | ---: | :--- | :--- |
-| `i_address` | entrada | $\log_2(\text{size\_bytes}) - 2$ (13 com o padrão) | | Índice da palavra (endereço de byte sem os dois bits baixos) |
-| `i_clk` | entrada | 1 | `'1'` | Clock da memória |
-| `i_rden` | entrada | 1 | `'1'` | Habilita a leitura |
-| `i_wren` | entrada | 1 | `'0'` | Habilita a escrita |
-| `i_data` | entrada | 32 | zeros | Dado de escrita |
-| `o_q` | saída | 32 | | Palavra lida |
+| `i_clk_a` | entrada | 1 | `'1'` | Clock da porta A |
+| `i_address_a` | entrada | $\log_2(\text{size\_bytes}) - 2$ (13 com o padrão) | | Índice da palavra lida pela porta A (endereço de byte sem os dois bits baixos) |
+| `i_rden_a` | entrada | 1 | `'1'` | Habilita a leitura da porta A |
+| `o_q_a` | saída | 32 | | Palavra lida pela porta A |
+| `i_clk_b` | entrada | 1 | `'1'` | Clock da porta B |
+| `i_address_b` | entrada | $\log_2(\text{size\_bytes}) - 2$ | | Índice da palavra acessada pela porta B |
+| `i_rden_b` | entrada | 1 | `'1'` | Habilita a leitura da porta B |
+| `i_wren_b` | entrada | 1 | `'0'` | Habilita a escrita da porta B |
+| `i_data_b` | entrada | 32 | zeros | Dado de escrita da porta B |
+| `o_q_b` | saída | 32 | | Palavra lida pela porta B |
 
 ## 3. Comportamento
 
 ### 3.1. Configuração da biblioteca
 
-A leitura é feita pela instância `altsyncram` da biblioteca `altera_mf`, que é do Quartus e não faz parte deste repositório. Os parâmetros fixados no VHDL são:
+A memória é a instância `altsyncram` da biblioteca `altera_mf`, que é do Quartus e não faz parte deste repositório. Os parâmetros fixados no VHDL são:
 
 | Parâmetro | Valor |
 | :--- | :--- |
-| `operation_mode` | `SINGLE_PORT` |
-| `width_a` | 32 |
-| `numwords_a` | $\text{size\_bytes} / 4$ (8192 com o padrão) |
-| `widthad_a` | $\log_2(\text{size\_bytes}) - 2$ (13 com o padrão) |
+| `operation_mode` | `BIDIR_DUAL_PORT` |
+| `width_a`, `width_b` | 32 |
+| `numwords_a`, `numwords_b` | $\text{size\_bytes} / 4$ (8192 com o padrão) |
+| `widthad_a`, `widthad_b` | $\log_2(\text{size\_bytes}) - 2$ (13 com o padrão) |
+| `maximum_depth` | 2048 |
 | `init_file` | `./init.mif` |
-| `outdata_reg_a` | `UNREGISTERED` |
-| `read_during_write_mode_port_a` | `NEW_DATA_NO_NBE_READ` |
-| `lpm_hint` | `ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME=FLASH` |
+| `outdata_reg_a`, `outdata_reg_b` | `UNREGISTERED` |
+| `read_during_write_mode_port_a`, `read_during_write_mode_port_b` | `NEW_DATA_NO_NBE_READ` |
 | `intended_device_family` | `Cyclone V` |
+
+O IP não tem a dica `ENABLE_RUNTIME_MOD`, porque o Quartus Lite não a aceita em duas portas, então o editor de conteúdo em sistema não enxerga esta memória. A regravação passa pelo carregador.
 
 ### 3.2. Latência de leitura
 
-O endereço é capturado na borda de `i_clk` e a saída não tem registrador adicional, então a palavra do endereço aplicado numa borda aparece em `o_q` depois dela, com um ciclo de latência síncrona. A dica `ENABLE_RUNTIME_MOD` mantém a memória visível ao editor de conteúdo em sistema do Quartus, e a instância aparece com o nome `FLASH`, o que permite regravar o conteúdo por JTAG sem recompilar.
+O endereço é capturado na borda do clock da porta e a saída não tem registrador adicional, então a palavra do endereço aplicado numa borda aparece na saída depois dela, com um ciclo de latência síncrona, nas duas portas.
+
+### 3.3. Ocupação de blocos
+
+O parâmetro `maximum_depth` limita cada bloco a 2048 palavras, e o Quartus passa a usar o modo 2048x5 do M10K, o mais denso em duas portas verdadeiras para uma palavra de 32 bits. Sem ele o Quartus escolhe o modo 8192x1, que desperdiça bits.
+
+Os valores abaixo são os do relatório do Fitter para o Cyclone V 5CEBA4F23C7.
+
+| Tamanho | Palavras | Blocos M10K com `maximum_depth` 2048 | Blocos M10K sem o parâmetro |
+| ---: | ---: | ---: | ---: |
+| 32 KB | 8192 | 28 | 32 |
+| 252 KB | 64512 | 221 | 256 |
 
 ## 4. Integração
 
-O arquivo `src/ROM/Cyclone-V/flash.qip` registra o IP como "ROM: 1-PORT", versão 20.1, família Cyclone V, e aponta para o VHDL.
+O arquivo `src/ROM/Cyclone-V/flash.qip` registra o IP como "RAM: 2-PORT", versão 20.1, família Cyclone V, e aponta para o VHDL.
 
 | Topo | Instância | Ligação |
 | :--- | :--- | :--- |
-| Topo de teste de FPGA da plataforma de memória interna (Insper-RISC-V) | `FLASH` | `i_address` nos bits 14 a 2 do endereço de busca, `i_clk` no clock do estágio IF, `i_rden` na habilitação de busca, `i_wren` em `'0'`, `o_q` no dado de instrução da FLASH |
+| Topo de teste de FPGA da plataforma de memória interna (Insper-RISC-V) | `FLASH` | Porta A no endereço de busca (bits 14 a 2) e no clock do estágio IF; porta B nas saídas do carregador [flash_loader](flash_loader.md), que repassa o endereço do estágio MEM enquanto o núcleo roda |
 
-A ferramenta de carga regrava este IP e o [flash_mem](flash_mem.md) pelo editor de conteúdo em sistema a cada troca de teste, segundo o cabeçalho do VHDL. Na simulação em GHDL o modelo equivalente é [rom_simulation](rom_simulation.md).
+Na simulação em GHDL o modelo equivalente é [flash_simulation](flash_simulation.md).
 
 ## 5. Verificação
 
-Nenhuma entrada de `tests/python/tests.json` cobre este IP, porque ele exige a biblioteca `altera_mf` da Intel, ausente da imagem de integração contínua (ver o [README](../../../README.md)). Quem o exercita é a simulação do topo de hardware no repositório Tests. O `make paths` confere a existência do `.qip`.
+Nenhuma entrada de `tests/python/tests.json` cobre este IP, porque ele exige a biblioteca `altera_mf` da Intel, ausente da imagem de integração contínua (ver o [README](../../../README.md)). O modelo equivalente é coberto pelo teste `FlashLoader`, e a simulação do topo de hardware no repositório Tests exercita o IP. O `make paths` confere a existência do `.qip`.
 
 ---
 

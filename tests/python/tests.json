@@ -387,17 +387,20 @@
             "BASE_KIB": 8
         }
     },
-    "OnchipRamPort": {
-        "toplevel": "onchip_ram_system",
+    "FlashLoader": {
+        "toplevel": "flash_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/RAM/SoC/ram_chip.vhd",
-            "src/RAM/SoC/onchip_ram_port.vhd",
-            "src/RAM/SoC/ram_simulation.vhd",
-            "src/cache/SoC/dcache.vhd",
-            "src/RAM/SoC/sim/onchip_ram_system.vhd"
+            "src/ROM/SoC/flash_simulation.vhd",
+            "src/ROM/SoC/flash_jtag_core.vhd",
+            "src/ROM/SoC/flash_loader.vhd",
+            "src/ROM/SoC/sim/flash_system.vhd"
         ],
-        "test_module": "tests.python.unittests.ram.onchip_ram_port",
+        "test_module": "tests.python.unittests.rom.flash_loader",
+        "parameters": {
+            "size_bytes": 4096,
+            "rom_file": "tests/python/unittests/rom/data/testROM.hex"
+        },
         "build_args": [
             "--std=08",
             "-fsynopsys"
@@ -405,154 +408,6 @@
         "test_args": [
             "--std=08",
             "-fsynopsys"
-        ],
-        "parameters": {
-            "SIZE_BYTES": 4096
-        }
-    },
-    "OnchipRamPortChip": {
-        "toplevel": "onchip_ram_system",
-        "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/RAM/SoC/ram_chip.vhd",
-            "src/RAM/SoC/onchip_ram_port.vhd",
-            "src/RAM/SoC/ram_simulation.vhd",
-            "src/cache/SoC/dcache.vhd",
-            "src/RAM/SoC/sim/onchip_ram_system.vhd"
-        ],
-        "test_module": "tests.python.unittests.ram.onchip_ram_port",
-        "build_args": [
-            "--std=08",
-            "-fsynopsys"
-        ],
-        "test_args": [
-            "--std=08",
-            "-fsynopsys"
-        ],
-        "parameters": {
-            "SIZE_BYTES": 4096,
-            "USE_CHIP": true
-        }
-    },
-    "OnchipRamLatency": {
-        "toplevel": "onchip_ram_system",
-        "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/RAM/SoC/ram_chip.vhd",
-            "src/RAM/SoC/onchip_ram_port.vhd",
-            "src/RAM/SoC/ram_simulation.vhd",
-            "src/cache/SoC/dcache.vhd",
-            "src/RAM/SoC/sim/onchip_ram_system.vhd"
-        ],
-        "test_module": "tests.python.unittests.ram.onchip_ram_latency",
-        "build_args": [
-            "--std=08",
-            "-fsynopsys"
-        ],
-        "test_args": [
-            "--std=08",
-            "-fsynopsys"
-        ],
-        "parameters": {
-            "SIZE_BYTES": 4096
-        }
-    },
-    "OnchipRamOffset": {
-        "toplevel": "onchip_ram_system",
-        "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/RAM/SoC/ram_chip.vhd",
-            "src/RAM/SoC/onchip_ram_port.vhd",
-            "src/RAM/SoC/ram_simulation.vhd",
-            "src/cache/SoC/dcache.vhd",
-            "src/RAM/SoC/sim/onchip_ram_system.vhd"
-        ],
-        "test_module": "tests.python.unittests.ram.onchip_ram_offset",
-        "build_args": [
-            "--std=08",
-            "-fsynopsys"
-        ],
-        "test_args": [
-            "--std=08",
-            "-fsynopsys"
-        ],
-        "parameters": {
-            "SIZE_BYTES": 4096,
-            "BASE_KIB": 8
-        }
-    },
-    "OnchipRamDcache": {
-        "toplevel": "onchip_ram_system",
-        "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/RAM/SoC/ram_chip.vhd",
-            "src/RAM/SoC/onchip_ram_port.vhd",
-            "src/RAM/SoC/ram_simulation.vhd",
-            "src/cache/SoC/dcache.vhd",
-            "src/RAM/SoC/sim/onchip_ram_system.vhd"
-        ],
-        "test_module": "tests.python.unittests.ram.onchip_ram_dcache",
-        "build_args": [
-            "--std=08",
-            "-fsynopsys"
-        ],
-        "test_args": [
-            "--std=08",
-            "-fsynopsys"
-        ],
-        "parameters": {
-            "SIZE_BYTES": 4096,
-            "WITH_CACHE": true
-        }
-    },
-    "OnchipRamDcacheWriteThrough": {
-        "toplevel": "onchip_ram_system",
-        "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/RAM/SoC/ram_chip.vhd",
-            "src/RAM/SoC/onchip_ram_port.vhd",
-            "src/RAM/SoC/ram_simulation.vhd",
-            "src/cache/SoC/dcache.vhd",
-            "src/RAM/SoC/sim/onchip_ram_system.vhd"
-        ],
-        "test_module": "tests.python.unittests.ram.onchip_ram_dcache",
-        "build_args": [
-            "--std=08",
-            "-fsynopsys"
-        ],
-        "test_args": [
-            "--std=08",
-            "-fsynopsys"
-        ],
-        "parameters": {
-            "SIZE_BYTES": 4096,
-            "WITH_CACHE": true,
-            "WRITE_THROUGH": true
-        }
-    },
-    "OnchipRamDcacheChip": {
-        "toplevel": "onchip_ram_system",
-        "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/RAM/SoC/ram_chip.vhd",
-            "src/RAM/SoC/onchip_ram_port.vhd",
-            "src/RAM/SoC/ram_simulation.vhd",
-            "src/cache/SoC/dcache.vhd",
-            "src/RAM/SoC/sim/onchip_ram_system.vhd"
-        ],
-        "test_module": "tests.python.unittests.ram.onchip_ram_dcache",
-        "build_args": [
-            "--std=08",
-            "-fsynopsys"
-        ],
-        "test_args": [
-            "--std=08",
-            "-fsynopsys"
-        ],
-        "parameters": {
-            "SIZE_BYTES": 4096,
-            "WITH_CACHE": true,
-            "USE_CHIP": true
-        }
+        ]
     }
 }
