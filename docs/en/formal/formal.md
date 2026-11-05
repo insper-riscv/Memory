@@ -95,3 +95,22 @@ Each run writes one line per check to `build/formal-results/result-<engine>.json
 | none (only errors and skips) | NO ANSWER |
 
 Every proof must be ok, so a broken engine does not stop the others from deciding, and a counterexample found by one engine is never hidden by the pass of another. The table of proofs by engine goes to the summary of the job. In the CI, the jobs `formal - <engine>` run the engines and the job `formal` aggregates their results; only `formal` is a required check, because a required check needs every one of its jobs to pass, which would make a single broken engine block the pull requests. On a push to `main` whose result is reused from the pull request (the job `reuse`), the engines and the aggregation are skipped, like the other jobs.
+
+## 10. Warnings are errors
+
+A warning from GHDL, Yosys or SymbiYosys points to code outside the standard or at its limit, so it makes the run fail. The fix is in the code, the proof or the netlist, and neither a `-Wno-*` option nor a list of ignored warnings is allowed.
+
+| Step | Where the warning is detected | Effect |
+| :--- | :--- | :--- |
+| `ghdl -a` and `ghdl --synth` | Standard error of GHDL, read by `ghdl_run` | The command fails and prints each warning with the VHDL file and line |
+| `sby` of each proof and each mutant | Whole log of the proof, read by `prove` | The verdict becomes ERROR, even when the exit code was 0 or 2, and the message points to `<log>:<line>` |
+
+A warning is a line with the word `warning` or `warnings`, in any case, as a whole word. Names that only contain the word (`no_warnings.sv`) and the Yosys summary with a count of zero (`Warnings: 0 unique messages, 0 total`) do not count. The only exception is three ABC messages, accepted only in the log of the `abc-bmc3` engine (the undriven clock of the property module, the count of undriven bits and the outputs read as constraints); the way ABC reads the netlist produces them and they cannot be removed from the design. Yices, Bitwuzla and Boolector have no exception, and any other ABC message is still an error. The informative `found RAM` notes of GHDL are not warnings and do not reach the terminal.
+
+Three rules keep the netlists free of warnings.
+
+1. The `altera_attribute` attribute of the synchronizer guides Quartus and means nothing to GHDL, so the formal netlist is generated from a copy of the VHDL without that attribute.
+2. A signal exposed as `dbg_<signal>` that GHDL removed from the netlist (because a mutant took away its only reader) is tied to zero, never left without a driver, since a wire without a driver is free and could make a property fail without the defect being the cause.
+3. A mutant whose failure depends on a signal observed by the properties keeps that signal read. The `inv_inverted` mutant of the `dcache` inverts the condition of the invalidation instead of removing its reader.
+
+The tests of the guard are in `formal/test-aggregate.sh`.

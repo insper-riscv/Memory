@@ -207,7 +207,10 @@ Any change to code, configuration, or documentation must pass all commands below
 make check  # Checks the VHDL-2008 syntax of the simulation models
 make test   # Runs the per-entity tests (cocotb + GHDL)
 make paths  # Verifies the paths of paths.yaml and the repository tree (riscv-tools check-tree)
+make formal # Runs every formal proof and mutation (ghdl, yosys and sby)
 ```
+
+**A warning in the formal flow is an error.** A warning from GHDL, Yosys or SymbiYosys points to code outside the standard or at its limit. The fix is always in the code or in the proof; suppressing warnings with `-Wno-*` or ignoring them is forbidden. The flow in `formal/common.sh` scans the output of each step and of each mutant and fails with the file and line of the warning (see `docs/en/formal/formal.md`, section 10).
 
 The `python-static-analysis` CI job runs `ruff`, `pycodestyle`, `pydocstyle`, `pylint`, `pyright`, `pyrefly`, `deptry`, `complexipy`, `codeclone`, `semgrep` and `uv audit` over the Python files, and the job name is the check the default-branch ruleset requires, so do not rename it.
 

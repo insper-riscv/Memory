@@ -95,3 +95,22 @@ Cada execução escreve uma linha por verificação em `build/formal-results/res
 | Nenhuma (só errors e skips) | NO ANSWER |
 
 Toda prova precisa estar ok, então um motor quebrado não impede os outros de decidir, e um contraexemplo achado por um motor nunca é escondido pelo pass de outro. A tabela de provas por motor vai para o resumo do job. No CI, os jobs `formal - <motor>` rodam os motores e o job `formal` agrega os seus resultados. Só o `formal` é um check obrigatório, porque um check obrigatório exige que todos os seus jobs passem, o que faria um único motor quebrado bloquear os pull requests. Num push na `main` cujo resultado é reaproveitado do pull request (o job `reuse`), os motores e a agregação são pulados, como os outros jobs.
+
+## 10. Avisos são erros
+
+Um aviso do GHDL, do Yosys ou do SymbiYosys indica código fora da norma ou no limite dela, e por isso faz a execução falhar. A correção é no código, na prova ou na netlist, e nenhuma opção `-Wno-*` nem lista de avisos ignorados é permitida.
+
+| Etapa | Onde o aviso é detectado | Efeito |
+| :--- | :--- | :--- |
+| `ghdl -a` e `ghdl --synth` | Saída de erro do GHDL, lida por `ghdl_run` | O comando falha e imprime cada aviso com o arquivo e a linha do VHDL |
+| `sby` de cada prova e de cada mutante | Log completo da prova, lido por `prove` | O veredito vira ERROR, mesmo quando o código de saída foi 0 ou 2, e a mensagem aponta `<log>:<linha>` |
+
+Um aviso é uma linha com a palavra `warning` ou `warnings`, em qualquer caixa, como palavra inteira. Nomes que apenas contêm a palavra (`no_warnings.sv`) e o resumo do Yosys com contagem zero (`Warnings: 0 unique messages, 0 total`) não contam. A única exceção são três mensagens do ABC, aceitas só no log do motor `abc-bmc3` (o relógio do módulo de propriedades sem driver, a contagem de bits sem driver e as saídas lidas como restrições); a leitura da netlist pelo ABC as produz e elas não saem do projeto. Yices, Bitwuzla e Boolector não têm exceção, e qualquer outra mensagem do ABC continua sendo erro. As notas informativas `found RAM` do GHDL não são avisos e não aparecem no terminal.
+
+Três regras mantêm as netlists sem aviso.
+
+1. O atributo `altera_attribute` do sincronizador orienta o Quartus e não significa nada para o GHDL, então a netlist formal é gerada de uma cópia do VHDL sem esse atributo.
+2. Um sinal exposto como `dbg_<sinal>` que o GHDL removeu da netlist (porque um mutante tirou o único leitor) é ligado a zero, nunca deixado sem driver, pois um fio sem driver é livre e podia fazer uma propriedade falhar sem que o defeito fosse a causa.
+3. Um mutante cuja falha depende de um sinal observado pelas propriedades mantém esse sinal lido. O `inv_inverted` do `dcache` inverte a condição da invalidação, em vez de remover o seu leitor.
+
+Os testes da guarda estão em `formal/test-aggregate.sh`.
