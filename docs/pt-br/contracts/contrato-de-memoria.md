@@ -107,10 +107,10 @@ Dois agentes que precisam do mesmo dispositivo têm três soluções.
 | Solução | Quando usar | Custo |
 | :--- | :--- | :--- |
 | Memória de duas portas | Dois acessos simultâneos num bloco de memória do FPGA | Um bloco com duas portas |
-| Duas cópias de porta única | Dois acessos simultâneos e regravação por JTAG no Quartus Lite | O dobro dos blocos, com o mesmo conteúdo nas duas cópias, regravadas juntas |
+| Duas cópias de porta única | Dois acessos simultâneos e regravação pelo editor de conteúdo em sistema no Quartus Lite | O dobro dos blocos, com o mesmo conteúdo nas duas cópias, regravadas juntas |
 | Um dispositivo de porta única com árbitro | Chip que tem uma só interface, como a SDRAM e o chip de FLASH | Os acessos se serializam, e um mestre espera o outro, como em [sdram_arbiter](../ram/sdram_arbiter.md) e [flash_arbiter](../cache/flash_arbiter.md) |
 
-O Quartus Lite deste projeto não compila um `altsyncram` em `DUAL_PORT` junto com `ENABLE_RUNTIME_MOD=YES`, que é o que dá acesso pela JTAG, o que foi confirmado empiricamente. Por isso a FLASH do desenho de memória interna usa duas cópias físicas de porta única, [flash](../rom/flash.md) para a busca de instruções e [flash_mem](../rom/flash_mem.md) para a leitura de dados, com o mesmo conteúdo, regravadas juntas por uma lista de duas instâncias JTAG.
+O Quartus Lite deste projeto não compila um `altsyncram` em duas portas junto com `ENABLE_RUNTIME_MOD=YES`, que é o que dá acesso pelo editor de conteúdo em sistema. A FLASH do desenho de memória interna usa por isso uma só cópia de duas portas verdadeiras sem essa dica, [flash](../rom/flash.md), com a porta A na busca de instruções e a porta B na leitura de dados. A regravação passa por um carregador próprio, [flash_loader](../rom/flash_loader.md), que escreve na porta B pela JTAG só com o núcleo parado.
 
 ## 6. Largura da palavra guardada diferente da palavra do core
 

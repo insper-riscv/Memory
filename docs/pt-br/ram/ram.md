@@ -76,7 +76,7 @@ Os parâmetros `NUMWORDS_A` igual a 4096 e `WidthAddr` igual a 12 que o cabeçal
 | Habilitas | `i_rden` e `i_wren` são os da RAM do core combinados com o habilita da RAM e com a negação da seleção da UART, de modo que um acesso à UART não alcança a RAM |
 | Dado | `i_data` e `i_byteena` vêm dos sinais de escrita da RAM do core, e `o_q` volta ao core como dado lido |
 
-O mapa de memória, a faixa da RAM interna (`0x00008000` a `0x3FFFFFFF` por padrão) e o contrato de ready do barramento estão no contrato de barramento e memória do repositório Core. A ordem de instanciação importa para o índice da instância JTAG da `RAM`, e o `core_fpga_test` instancia a `FLASH_MEM` depois dela para não mudar o índice da RAM.
+O mapa de memória, a faixa da RAM interna (`0x00008000` a `0x3FFFFFFF` por padrão) e o contrato de ready do barramento estão no contrato de barramento e memória do repositório Core. A `RAM` é a única memória do desenho de memória interna com o editor de conteúdo em sistema, porque a FLASH é regravada pelo carregador, então a instância dela tem o índice 0.
 
 ## 5. Verificação
 
