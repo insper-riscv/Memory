@@ -1,20 +1,19 @@
 # flash
 
-Single-port internal ROM IP that holds the test program (the internal FLASH) read by the instruction fetch stage.
+True dual-port memory IP that holds the test program (the internal FLASH) in a single copy, read by the instruction fetch stage and by the MEM stage and written by the loader.
 
 ## 1. Role of the component in the SoC
 
-The internal FLASH starts right after the BOOT_ROM and runs to the start of the RAM (`0x00000800` to `0x00007FFF` in the default map, see [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)). This copy serves the instruction fetch (IF) stage. The fetch address indexes the IP directly, with no base subtraction, so the IP covers the whole range from zero to the start of the RAM and not only the logical FLASH span (32 KB of IP for 30 KB of FLASH). According to the VHDL header, each test image is left-padded with zeros up to the FLASH base before it becomes a `.mif`.
+The internal FLASH starts right after the BOOT_ROM and runs to the start of the RAM (`0x00001000` to `0x00007FFF` in the default map, see [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)). Port A serves the instruction fetch (IF) stage. Port B serves the MEM stage, which reads the FLASH as data (for example to copy the `.data` section at startup), and the [flash_loader](flash_loader.md) loader, which writes it. The core only reads, because the write exists only on port B and the loader enables it only while the core is halted.
 
-### 1.1. Difference between the three FLASH IPs
+The fetch address indexes the IP directly, with no base subtraction, so the IP covers the whole range from zero to the start of the RAM and not only the logical FLASH span (32 KB of IP for 28 KB of FLASH). Each test image is left-padded with zeros up to the FLASH base before it becomes a `.mif`.
 
-| IP | Role | Default size | Initialization file | Instance name |
+### 1.1. Difference between the FLASH IPs
+
+| IP | Role | Default size | Initialization file | Rewriting |
 | :--- | :--- | ---: | :--- | :--- |
-| [flash](flash.md) | Copy read by the core IF stage | 32 KB | `./init.mif` | `FLASH` |
-| [flash_mem](flash_mem.md) | Second physical copy, read by the MEM stage as data | 32 KB | `./init.mif` | `FLASH_MEM` |
-| [flash_store](flash_store.md) | Storage behind the [flash_chip](flash_chip.md) chip | 256 KB | `./flash_init.mif` | `FLASH` |
-
-All three use the same `altsyncram` recipe. The two internal copies must always hold the same content, and the distinct instance name is what makes the content editor treat each as a separate JTAG instance.
+| [flash](flash.md) | Single copy of the internal FLASH, two ports | 32 KB | `./init.mif` | JTAG loader ([flash_loader](flash_loader.md)) |
+| [flash_store](flash_store.md) | Storage behind the [flash_chip](flash_chip.md) chip | 256 KB | `./flash_init.mif` | In-System Memory Content Editor, instance `FLASH` |
 
 ## 2. Interface
 
@@ -22,54 +21,71 @@ All three use the same `altsyncram` recipe. The two internal copies must always 
 
 | Generic | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `size_bytes` | `positive` | 32768 | Size in bytes, a power of two (32 KB by default); sets the width of `i_address` and the word count |
+| `size_bytes` | `positive` | 32768 | Size in bytes, a power of two (32 KB by default); sets the width of the addresses and the word count |
 
 ### 2.2. Ports
 
 | Port | Direction | Width | Default | Meaning |
 | :--- | :--- | ---: | :--- | :--- |
-| `i_address` | input | $\log_2(\text{size\_bytes}) - 2$ (13 by default) | | Word index (byte address without the two low bits) |
-| `i_clk` | input | 1 | `'1'` | Memory clock |
-| `i_rden` | input | 1 | `'1'` | Read enable |
-| `i_wren` | input | 1 | `'0'` | Write enable |
-| `i_data` | input | 32 | zeros | Write data |
-| `o_q` | output | 32 | | Word read |
+| `i_clk_a` | input | 1 | `'1'` | Port A clock |
+| `i_address_a` | input | $\log_2(\text{size\_bytes}) - 2$ (13 by default) | | Index of the word read by port A (byte address without the two low bits) |
+| `i_rden_a` | input | 1 | `'1'` | Port A read enable |
+| `o_q_a` | output | 32 | | Word read by port A |
+| `i_clk_b` | input | 1 | `'1'` | Port B clock |
+| `i_address_b` | input | $\log_2(\text{size\_bytes}) - 2$ | | Index of the word accessed by port B |
+| `i_rden_b` | input | 1 | `'1'` | Port B read enable |
+| `i_wren_b` | input | 1 | `'0'` | Port B write enable |
+| `i_data_b` | input | 32 | zeros | Port B write data |
+| `o_q_b` | output | 32 | | Word read by port B |
 
 ## 3. Behavior
 
 ### 3.1. Library configuration
 
-The read is done by the `altsyncram` instance of the `altera_mf` library, which belongs to Quartus and is not part of this repository. The parameters fixed in the VHDL are:
+The memory is the `altsyncram` instance of the `altera_mf` library, which belongs to Quartus and is not part of this repository. The parameters fixed in the VHDL are:
 
 | Parameter | Value |
 | :--- | :--- |
-| `operation_mode` | `SINGLE_PORT` |
-| `width_a` | 32 |
-| `numwords_a` | $\text{size\_bytes} / 4$ (8192 by default) |
-| `widthad_a` | $\log_2(\text{size\_bytes}) - 2$ (13 by default) |
+| `operation_mode` | `BIDIR_DUAL_PORT` |
+| `width_a`, `width_b` | 32 |
+| `numwords_a`, `numwords_b` | $\text{size\_bytes} / 4$ (8192 by default) |
+| `widthad_a`, `widthad_b` | $\log_2(\text{size\_bytes}) - 2$ (13 by default) |
+| `maximum_depth` | 2048 |
 | `init_file` | `./init.mif` |
-| `outdata_reg_a` | `UNREGISTERED` |
-| `read_during_write_mode_port_a` | `NEW_DATA_NO_NBE_READ` |
-| `lpm_hint` | `ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME=FLASH` |
+| `outdata_reg_a`, `outdata_reg_b` | `UNREGISTERED` |
+| `read_during_write_mode_port_a`, `read_during_write_mode_port_b` | `NEW_DATA_NO_NBE_READ` |
 | `intended_device_family` | `Cyclone V` |
+
+The IP has no `ENABLE_RUNTIME_MOD` hint, because Quartus Lite does not accept it in two-port mode, so the In-System Memory Content Editor does not see this memory. Rewriting goes through the loader.
 
 ### 3.2. Read latency
 
-The address is captured on the edge of `i_clk` and the output has no extra register, so the word of the address applied on an edge appears on `o_q` after it, with one cycle of synchronous latency. The `ENABLE_RUNTIME_MOD` hint keeps the memory visible to the Quartus In-System Memory Content Editor, and the instance shows up under the name `FLASH`, which lets the content be rewritten over JTAG without recompiling.
+The address is captured on the edge of the port clock and the output has no extra register, so the word of the address applied on an edge appears on the output after it, with one cycle of synchronous latency, on both ports.
+
+### 3.3. Block usage
+
+The `maximum_depth` parameter limits each block to 2048 words, and Quartus switches to the 2048x5 mode of the M10K, the densest true dual-port mode for a 32-bit word. Without it Quartus picks the 8192x1 mode, which wastes bits.
+
+The values below come from the Fitter report for the Cyclone V 5CEBA4F23C7.
+
+| Size | Words | M10K blocks with `maximum_depth` 2048 | M10K blocks without the parameter |
+| ---: | ---: | ---: | ---: |
+| 32 KB | 8192 | 28 | 32 |
+| 252 KB | 64512 | 221 | 256 |
 
 ## 4. Integration
 
-The file `src/ROM/Cyclone-V/flash.qip` registers the IP as "ROM: 1-PORT", version 20.1, family Cyclone V, and points to the VHDL.
+The file `src/ROM/Cyclone-V/flash.qip` registers the IP as "RAM: 2-PORT", version 20.1, family Cyclone V, and points to the VHDL.
 
 | Top | Instance | Wiring |
 | :--- | :--- | :--- |
-| FPGA test top of the internal-memory platform (Insper-RISC-V) | `FLASH` | `i_address` on bits 14 to 2 of the fetch address, `i_clk` on the IF stage clock, `i_rden` on the fetch enable, `i_wren` at `'0'`, `o_q` on the FLASH instruction data |
+| FPGA test top of the internal-memory platform (Insper-RISC-V) | `FLASH` | Port A on the fetch address (bits 14 to 2) and the IF stage clock; port B on the outputs of the [flash_loader](flash_loader.md) loader, which passes the MEM stage address through while the core runs |
 
-The load tool rewrites this IP and [flash_mem](flash_mem.md) through the In-System Memory Content Editor on every test change, according to the VHDL header. In GHDL simulation the equivalent model is [rom_simulation](rom_simulation.md).
+In GHDL simulation the equivalent model is [flash_simulation](flash_simulation.md).
 
 ## 5. Verification
 
-No `tests/python/tests.json` entry covers this IP, because it needs Intel's `altera_mf` library, absent from the continuous integration image (see the [README](../../../README.en.md)). What exercises it is the hardware top simulation in the Tests repository. `make paths` checks that the `.qip` exists.
+No entry of `tests/python/tests.json` covers this IP, because it needs Intel's `altera_mf` library, absent from the continuous integration image (see the [README](../../../README.en.md)). The equivalent model is covered by the `FlashLoader` test, and the hardware top simulation in the Tests repository exercises the IP. `make paths` checks that the `.qip` exists.
 
 ---
 

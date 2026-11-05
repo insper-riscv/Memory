@@ -76,7 +76,7 @@ The parameters `NUMWORDS_A` equal to 4096 and `WidthAddr` equal to 12 that the I
 | Enables | `i_rden` and `i_wren` are those of the core RAM combined with the RAM enable and the negation of the UART selection, so a UART access does not reach the RAM |
 | Data | `i_data` and `i_byteena` come from the RAM write signals of the core, and `o_q` returns to the core as read data |
 
-The memory map, the internal RAM range (`0x00008000` to `0x3FFFFFFF` by default) and the ready contract of the bus are in the bus and memory contract of the Core repository. The instantiation order matters for the JTAG instance index of `RAM`, and `core_fpga_test` instantiates `FLASH_MEM` after it so as not to change the RAM index.
+The memory map, the internal RAM range (`0x00008000` to `0x3FFFFFFF` by default) and the ready contract of the bus are in the bus and memory contract of the Core repository. The `RAM` is the only memory of the internal memory design with the In-System Memory Content Editor, because the FLASH is rewritten by the loader, so its instance has index 0.
 
 ## 5. Verification
 

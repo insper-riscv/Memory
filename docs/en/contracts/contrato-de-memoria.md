@@ -107,10 +107,10 @@ Two agents that need the same device have three solutions.
 | Solution | When to use | Cost |
 | :--- | :--- | :--- |
 | Dual-port memory | Two simultaneous accesses in an FPGA memory block | One block with two ports |
-| Two single-port copies | Two simultaneous accesses and JTAG rewriting in Quartus Lite | Twice the blocks, with the same content in both copies, rewritten together |
+| Two single-port copies | Two simultaneous accesses and rewriting by the In-System Memory Content Editor in Quartus Lite | Twice the blocks, with the same content in both copies, rewritten together |
 | A single-port device with an arbiter | A chip that has a single interface, such as the SDRAM and the FLASH chip | Accesses are serialized, and one master waits for the other, as in [sdram_arbiter](../ram/sdram_arbiter.md) and [flash_arbiter](../cache/flash_arbiter.md) |
 
-The Quartus Lite of this project does not compile an `altsyncram` in `DUAL_PORT` together with `ENABLE_RUNTIME_MOD=YES`, which is what gives access through JTAG, as confirmed empirically. So the FLASH of the internal memory design uses two physical single-port copies, [flash](../rom/flash.md) for instruction fetch and [flash_mem](../rom/flash_mem.md) for data reads, with the same content, rewritten together through a list of two JTAG instances.
+The Quartus Lite of this project does not compile a two-port `altsyncram` together with `ENABLE_RUNTIME_MOD=YES`, which is what gives access through the In-System Memory Content Editor. So the FLASH of the internal memory design uses a single true dual-port copy without that hint, [flash](../rom/flash.md), with port A on instruction fetch and port B on data reads. Rewriting goes through a loader of its own, [flash_loader](../rom/flash_loader.md), which writes port B over JTAG only while the core is halted.
 
 ## 6. Stored word width different from the core word
 

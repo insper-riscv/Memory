@@ -624,5 +624,28 @@
         "parameters": {
             "FETCH_LINE": false
         }
+    },
+    "FlashLoader": {
+        "toplevel": "flash_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/ROM/SoC/flash_simulation.vhd",
+            "src/ROM/SoC/flash_jtag_core.vhd",
+            "src/ROM/SoC/flash_loader.vhd",
+            "src/ROM/SoC/sim/flash_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.flash_loader",
+        "parameters": {
+            "size_bytes": 4096,
+            "rom_file": "tests/python/unittests/rom/data/testROM.hex"
+        },
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ]
     }
 }
