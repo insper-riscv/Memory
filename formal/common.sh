@@ -82,7 +82,7 @@ mutant_run() {
     return
   fi
   netlist "$out/mut_$1.vhd" "mut_$1"
-  prove "mut_$1_dbg.v" bmc 30 '' "mut_$1"
+  prove "mut_$1_dbg.v" bmc "${MUT_DEPTH:-30}" "${MUT_DEFS:-}" "mut_$1"
 }
 
 # start_mutant <name> <sed expression>: each defect must make the safety proof fail.
@@ -112,4 +112,33 @@ expect() {
     "$2") printf '  ok    %-52s %s\n' "$1" "$got"; record "$3" "$1" "$wanted" "$wanted" "" ;;
     *) printf '  WRONG %-52s wanted %s, got %s\n' "$1" "$2" "$got"; record "$3" "$1" "$wanted" "$(echo "$got" | tr '[:upper:]' '[:lower:]')" ""; fail=1 ;;
   esac
+}
+
+# expose <netlist> <signal[:high bit]>...: adds the wires of the last module (the top, GHDL writes it last) as the
+# outputs dbg_<signal>, in place. The logic is the same; the proof states its invariants over these registers. The
+# Quartus attribute of the synchronizer has quotes inside its value, which the Verilog reader cannot parse, so it goes.
+expose() {
+  local v="$1"; shift
+  local ports="" assigns="" s w nm
+  for s in "$@"; do
+    nm="${s%%:*}"; w=""; [ "$s" != "$nm" ] && w="[${s#*:}:0] "
+    ports+=",
+   output ${w}dbg_$nm"
+    assigns+="  assign dbg_$nm = $nm;
+"
+  done
+  sed -i 's/(\* altera_attribute=.* \*) reg/reg/' "$v"
+  awk -v ports="$ports" -v assigns="$assigns" '
+    { line[NR] = $0 }
+    /^module / { m = NR }
+    /^endmodule/ { e = NR }
+    END {
+      done = 0
+      for (i = 1; i <= NR; i++) {
+        l = line[i]
+        if (i >= m && !done && l ~ /\);[ \t]*$/) { sub(/\);[ \t]*$/, ports ");", l); done = 1 }
+        if (i == e) printf "%s", assigns
+        print l
+      }
+    }' "$v" > "$v.tmp" && mv "$v.tmp" "$v"
 }
