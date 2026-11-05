@@ -2,7 +2,7 @@
 
 🌐 [Português](../../pt-br/formal/blocks.md) · [English](../../en/formal/blocks.md)
 
-Besides the SDRAM arbiter and the AXI bridges (`formal.md`), the proofs cover the SDRAM controller, the core bridge, the two caches, the region router and the flash arbiter. The method is the one of `formal.md` (GHDL synthesizes the netlist, Yosys reads the properties in SystemVerilog, SymbiYosys runs the chosen engine), each block has its own `formal/<block>/` folder with `props.sv` and `run.sh`, and the proofs share the slots of `formal/common.sh`. A proof an engine does not finish in `FORMAL_TIMEOUT` seconds (600 by default) becomes a skip for that engine and is left to the others.
+Besides the SDRAM arbiter and the AXI bridges (`formal.md`), the proofs cover the SDRAM controller, the core bridge, the two caches, the region router and the flash arbiter. The method is the one of `formal.md` (GHDL synthesizes the netlist, Yosys reads the properties in SystemVerilog, SymbiYosys runs the chosen engine), each block has its own `formal/<block>/` folder with `props.sv` and `run.sh`, and the proofs share the slots of `formal/common.sh`. The small memories of the caches become registers (`memory_map` after `prep`) before any engine runs, because yices treats each inferred memory as an SMT array and does not finish the `icache` and `dcache` proofs in 600 s; with registers `make formal` takes about 2 min with yices and 1 min with the others. A proof an engine does not finish in `FORMAL_TIMEOUT` seconds (600 by default) becomes a skip for that engine and is left to the others.
 
 ## 1. What is proved
 

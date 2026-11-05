@@ -18,8 +18,8 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name>: the netlist and a copy that exposes the register of the local answer
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl -a --std=08 -Wno-library --workdir="$work" "$1"
-  ghdl --synth --std=08 -Wno-library --workdir="$work" --out=verilog mem_region_router > "$2.v"
+  ghdl_run -a --std=08 -Wno-library --workdir="$work" "$1"
+  ghdl_run --synth --std=08 -Wno-library --workdir="$work" --out=verilog mem_region_router > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v" local_ready
   grep -q dbg_local_ready "$2_dbg.v" || { echo "the netlist has no register named local_ready: the exposure did not apply"; exit 1; }
