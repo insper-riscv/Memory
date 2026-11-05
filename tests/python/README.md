@@ -11,7 +11,10 @@ tests/python/
 ├── runner.py                    # catalog loader + cocotb/GHDL driver
 ├── tests.json                   # catalog: name -> {toplevel, sources, test_module, ...}
 ├── unittests/{cache,ram,rom,barramento}/  # one file per entity or per simulation model
+│                                          # (sdram_ctrl, sdram_arbiter, sdram_cpu_bridge, sdram_dbg_master and
+│                                          # sdram_jtag_core each have a file of their own)
 │   └── rom/data/                # fixtures a test reads (e.g. testROM.hex)
+├── ../vhdl/                     # testbench wrappers a cocotb test needs (e.g. sdram_ctrl_tb: controller + chip model)
 └── sim_build/                   # generated: <group>/<name>/{waves.ghw, ...} per test
 ```
 

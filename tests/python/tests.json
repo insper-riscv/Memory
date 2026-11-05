@@ -554,5 +554,80 @@
             "WITH_CACHE": true,
             "USE_CHIP": true
         }
+    },
+    "SdramCtrl": {
+        "toplevel": "sdram_ctrl_tb",
+        "sources": [
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "tests/vhdl/sdram_ctrl_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_ctrl",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramArbiter": {
+        "toplevel": "sdram_arbiter",
+        "sources": [
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_arbiter.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_arbiter",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramCpuBridge": {
+        "toplevel": "sdram_cpu_bridge",
+        "sources": [
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_cpu_bridge",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramDbgMaster": {
+        "toplevel": "sdram_dbg_master",
+        "sources": [
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_dbg_master",
+        "parameters": {
+            "TIMEOUT_CYCLES": 200
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramJtagCore": {
+        "toplevel": "sdram_jtag_core",
+        "sources": [
+            "src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_jtag_core",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
