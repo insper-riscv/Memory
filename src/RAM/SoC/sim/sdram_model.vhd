@@ -23,7 +23,6 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.sdram_pkg.all;
-use ieee.std_logic_textio.all;
 use std.textio.all;
 
 entity sdram_model is
@@ -79,15 +78,15 @@ architecture rtl of sdram_model is
   -- Nó da lista encadeada de um balde da tabela esparsa.
   type node_t;
   -- Ponteiro para um nó da tabela.
-  type node_ptr is access node_t;
+  type node_ptr_t is access node_t;
   -- Nó da lista encadeada de um balde da tabela esparsa.
   type node_t is record
     key  : natural;
     val  : std_logic_vector(15 downto 0);
-    next_node : node_ptr;
+    next_node : node_ptr_t;
   end record;
   -- Vetor de baldes da tabela esparsa.
-  type bucket_array is array (0 to 65535) of node_ptr;
+  type bucket_array_t is array (0 to 65535) of node_ptr_t;
 
   -- Tabela esparsa de meias-palavras de 16 bits, indexada por linha, banco e coluna.
   type sparse_t is protected
@@ -98,11 +97,11 @@ architecture rtl of sdram_model is
   -- Tabela esparsa de meias-palavras de 16 bits, indexada por linha, banco e coluna.
   type sparse_t is protected body
     -- Baldes da tabela esparsa.
-    variable buckets : bucket_array := (others => null);
+    variable buckets : bucket_array_t := (others => null);
 
     procedure write (key : natural; val : std_logic_vector(15 downto 0)) is
       -- Nó corrente na busca da tabela.
-      variable p : node_ptr := buckets(key mod 65536);
+      variable p : node_ptr_t := buckets(key mod 65536);
     begin
       while p /= null loop
         if p.key = key then
@@ -117,7 +116,7 @@ architecture rtl of sdram_model is
 
     impure function read (key : natural) return std_logic_vector is
       -- Nó corrente na busca da tabela.
-      variable p : node_ptr := buckets(key mod 65536);
+      variable p : node_ptr_t := buckets(key mod 65536);
     begin
       while p /= null loop
         if p.key = key then
@@ -136,11 +135,11 @@ architecture rtl of sdram_model is
   constant TCK : time := tck_ps * 1 ps;
 
   -- Um tempo por banco.
-  type time_arr  is array (0 to 3) of time;
+  type time_arr_t  is array (0 to 3) of time;
   -- Um booleano por banco.
-  type bool_arr  is array (0 to 3) of boolean;
+  type bool_arr_t  is array (0 to 3) of boolean;
   -- Uma linha aberta por banco.
-  type row_arr   is array (0 to 3) of natural;
+  type row_arr_t   is array (0 to 3) of natural;
 
   -- Posição do pipeline de leitura: validade e dado de 16 bits.
   type rd_slot_t is record
@@ -252,15 +251,15 @@ begin
     variable burst_until : time := 0 ns;
 
     -- Banco aberto por ACTIVE.
-    variable bank_open   : bool_arr := (others => false);
+    variable bank_open   : bool_arr_t := (others => false);
     -- Linha aberta em cada banco.
-    variable bank_row    : row_arr  := (others => 0);
+    variable bank_row    : row_arr_t  := (others => 0);
     -- Instante do último ACTIVE de cada banco.
-    variable act_time    : time_arr := (others => 0 ns);
+    variable act_time    : time_arr_t := (others => 0 ns);
     -- Instante em que cada banco ficou ocioso.
-    variable idle_time   : time_arr := (others => 0 ns);
+    variable idle_time   : time_arr_t := (others => 0 ns);
     -- Instante do fim do último dado de escrita de cada banco.
-    variable last_wr_end : time_arr := (others => 0 ns);
+    variable last_wr_end : time_arr_t := (others => 0 ns);
 
     -- Pipeline do dado lido.
     variable rd_pipe     : rd_pipe_t := (others => (valid => false, data => (others => '0')));

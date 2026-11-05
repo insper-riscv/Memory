@@ -67,31 +67,96 @@ end entity flash_path_system;
 
 architecture rtl of flash_path_system is
 
-  -- Cache de instruções para o roteador I.
-  signal ic_addr, ic_rdata : std_logic_vector(31 downto 0);
-  signal ic_rden, ic_line, ic_adv, ic_ready : std_logic;
+  -- Endereço pedido pela cache de instruções ao roteador I.
+  signal ic_addr : std_logic_vector(31 downto 0);
+  -- Palavra devolvida pelo roteador I à cache de instruções.
+  signal ic_rdata : std_logic_vector(31 downto 0);
+  -- Pedido de leitura da cache de instruções ao roteador I.
+  signal ic_rden : std_logic;
+  -- A cache de instruções pede a linha inteira.
+  signal ic_line : std_logic;
+  -- A cache de instruções avança para a palavra seguinte da linha.
+  signal ic_adv : std_logic;
+  -- O roteador I tem a palavra pronta para a cache de instruções.
+  signal ic_ready : std_logic;
+  -- Palavras 1 a 3 da linha devolvidas à cache de instruções.
   signal ic_rdata_x : std_logic_vector(95 downto 0);
 
-  -- Roteador I para o árbitro (porta A).
-  signal ra_addr, ra_rdata : std_logic_vector(31 downto 0);
-  signal ra_rden, ra_line, ra_adv, ra_ready : std_logic;
+  -- Endereço que o roteador I manda ao árbitro (porta A).
+  signal ra_addr : std_logic_vector(31 downto 0);
+  -- Palavra que o árbitro devolve ao roteador I.
+  signal ra_rdata : std_logic_vector(31 downto 0);
+  -- Pedido de leitura do roteador I ao árbitro.
+  signal ra_rden : std_logic;
+  -- O roteador I pede a linha inteira ao árbitro.
+  signal ra_line : std_logic;
+  -- O roteador I avança para a palavra seguinte da linha.
+  signal ra_adv : std_logic;
+  -- O árbitro tem a palavra pronta para o roteador I.
+  signal ra_ready : std_logic;
+  -- Palavras 1 a 3 da linha que o árbitro devolve ao roteador I.
   signal ra_rdata_x : std_logic_vector(95 downto 0);
 
-  -- Roteador do mestre B para o árbitro (porta B).
-  signal rb_addr, rb_rdata : std_logic_vector(31 downto 0);
-  signal rb_rden, rb_line, rb_adv, rb_ready : std_logic;
+  -- Endereço que o roteador do mestre B manda ao árbitro (porta B).
+  signal rb_addr : std_logic_vector(31 downto 0);
+  -- Palavra que o árbitro devolve ao roteador do mestre B.
+  signal rb_rdata : std_logic_vector(31 downto 0);
+  -- Pedido de leitura do roteador do mestre B ao árbitro.
+  signal rb_rden : std_logic;
+  -- O roteador do mestre B pede a linha inteira ao árbitro.
+  signal rb_line : std_logic;
+  -- O roteador do mestre B avança para a palavra seguinte da linha.
+  signal rb_adv : std_logic;
+  -- O árbitro tem a palavra pronta para o roteador do mestre B.
+  signal rb_ready : std_logic;
+  -- Palavras 1 a 3 da linha que o árbitro devolve ao roteador do mestre B.
   signal rb_rdata_x : std_logic_vector(95 downto 0);
 
-  -- Árbitro para o chip.
-  signal ch_addr, ch_rdata, mem_addr, mem_data : std_logic_vector(31 downto 0);
-  signal ch_rden, ch_line, ch_adv, ch_ready : std_logic;
+  -- Endereço que o árbitro manda ao chip.
+  signal ch_addr : std_logic_vector(31 downto 0);
+  -- Palavra que o chip devolve ao árbitro.
+  signal ch_rdata : std_logic_vector(31 downto 0);
+  -- Endereço de leitura do armazenamento do chip.
+  signal mem_addr : std_logic_vector(31 downto 0);
+  -- Palavra lida do armazenamento do chip.
+  signal mem_data : std_logic_vector(31 downto 0);
+  -- Pedido de leitura do árbitro ao chip.
+  signal ch_rden : std_logic;
+  -- O árbitro pede a linha inteira ao chip.
+  signal ch_line : std_logic;
+  -- O árbitro avança para a palavra seguinte da linha.
+  signal ch_adv : std_logic;
+  -- O chip tem a palavra pronta para o árbitro.
+  signal ch_ready : std_logic;
+  -- Palavras 1 a 3 da linha que o chip devolve ao árbitro.
   signal ch_rdata_x : std_logic_vector(95 downto 0);
 
-  -- Saídas dos roteadores para a SDRAM, sem escravo.
-  signal si_addr, sd_addr, si_wdata, sd_wdata : std_logic_vector(31 downto 0);
-  signal si_be, sd_be : std_logic_vector(3 downto 0);
-  signal si_wren, si_line, si_adv, sd_line, sd_adv : std_logic;
-  signal si_wdata_x, sd_wdata_x : std_logic_vector(95 downto 0);
+  -- Endereço de leitura do roteador I para a SDRAM, sem escravo.
+  signal si_addr : std_logic_vector(31 downto 0);
+  -- Endereço do roteador do mestre B para a SDRAM, sem escravo.
+  signal sd_addr : std_logic_vector(31 downto 0);
+  -- Dado de escrita do roteador I para a SDRAM, sem escravo.
+  signal si_wdata : std_logic_vector(31 downto 0);
+  -- Dado de escrita do roteador do mestre B para a SDRAM, sem escravo.
+  signal sd_wdata : std_logic_vector(31 downto 0);
+  -- Máscara de bytes do roteador I para a SDRAM.
+  signal si_be : std_logic_vector(3 downto 0);
+  -- Máscara de bytes do roteador do mestre B para a SDRAM.
+  signal sd_be : std_logic_vector(3 downto 0);
+  -- Pedido de escrita do roteador I para a SDRAM.
+  signal si_wren : std_logic;
+  -- O roteador I pede a linha inteira à SDRAM.
+  signal si_line : std_logic;
+  -- O roteador I avança para a palavra seguinte da linha na SDRAM.
+  signal si_adv : std_logic;
+  -- O roteador do mestre B pede a linha inteira à SDRAM.
+  signal sd_line : std_logic;
+  -- O roteador do mestre B avança para a palavra seguinte da linha na SDRAM.
+  signal sd_adv : std_logic;
+  -- Dado de escrita estendido (palavras 1 a 3) do roteador I para a SDRAM.
+  signal si_wdata_x : std_logic_vector(95 downto 0);
+  -- Dado de escrita estendido (palavras 1 a 3) do roteador do mestre B.
+  signal sd_wdata_x : std_logic_vector(95 downto 0);
 
   -- Contagem de pedidos que chegam ao chip.
   signal reqs : unsigned(15 downto 0) := (others => '0');
@@ -100,7 +165,7 @@ architecture rtl of flash_path_system is
 
 begin
 
-  ICACHE : entity work.icache
+  u_icache : entity work.icache
     port map (
       i_clk => i_clk, i_clk_cpu => i_clk, i_rst => i_rst,
       i_addr => i_addr, i_sel => i_sel, o_ready => o_ready, o_data => o_data,
@@ -109,7 +174,7 @@ begin
       i_d_rdata => ic_rdata, o_d_line => ic_line, i_d_rdata_x => ic_rdata_x
     );
 
-  ROUTER_I : entity work.mem_region_router
+  u_router_i : entity work.mem_region_router
     port map (
       i_clk => i_clk, i_rst => i_rst,
       i_addr => ic_addr, i_wdata => (others => '0'), i_byteena => (others => '0'),
@@ -122,7 +187,7 @@ begin
       i_f_ready => ra_ready, i_f_rdata => ra_rdata, i_f_rdata_x => ra_rdata_x
     );
 
-  ROUTER_B : entity work.mem_region_router
+  u_router_b : entity work.mem_region_router
     port map (
       i_clk => i_clk, i_rst => i_rst,
       i_addr => i_b_addr, i_wdata => (others => '0'), i_byteena => (others => '1'),
@@ -135,7 +200,7 @@ begin
       i_f_ready => rb_ready, i_f_rdata => rb_rdata, i_f_rdata_x => rb_rdata_x
     );
 
-  ARBITER : entity work.flash_arbiter
+  u_arbiter : entity work.flash_arbiter
     port map (
       i_clk => i_clk, i_rst => i_rst,
       i_a_addr => ra_addr, i_a_rden => ra_rden, i_a_line => ra_line, i_a_advance => ra_adv,
@@ -146,7 +211,7 @@ begin
       i_ready => ch_ready, i_rdata => ch_rdata, i_rdata_x => ch_rdata_x
     );
 
-  CHIP : entity work.flash_chip
+  u_chip : entity work.flash_chip
     generic map (first_latency => first_latency, next_latency => next_latency)
     port map (
       i_clk => i_clk, i_rst => i_rst,
@@ -157,6 +222,7 @@ begin
 
   -- Armazenamento de leitura registrada: a palavra do endereço da borda anterior.
   process (i_clk)
+    -- Produto do endereço pela constante de mistura, para formar o dado.
     variable prod : unsigned(63 downto 0);
   begin
     if rising_edge(i_clk) then
