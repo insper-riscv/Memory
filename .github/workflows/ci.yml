@@ -75,6 +75,9 @@ jobs:
       - name: Every referenced path exists
         run: make paths
 
+      - name: VHDL style (header, ports, docstrings, naming)
+        run: riscv-tools --root . check-vhdl-style
+
       - name: VHDL syntax check (GHDL, dependency order)
         run: make check
 
