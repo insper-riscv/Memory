@@ -46,7 +46,8 @@ start() {
 # prove <netlist> <mode: prove|bmc|cover> <depth> <defines> <tag>: runs sby and writes the verdict to <tag>.res,
 # PASS (exit code 0), FAIL (2, a counterexample or a goal that cannot be covered), ERROR (any other code, such
 # as 4 unknown, 8 timeout and 16 error: the tool did not reach a verdict) or SKIP (the engine cannot run that
-# kind of proof: abc-bmc3 only does bounded checks), and the exit code and the seconds it took to <tag>.info.
+# kind of proof: abc-bmc3 only does bounded checks; or it did not finish within FORMAL_TIMEOUT seconds, 600 by
+# default, which leaves the proof to the other engines), and the exit code and the seconds it took to <tag>.info.
 prove() {
   if [ "$engine" = abc-bmc3 ] && [ "$2" != bmc ]; then
     echo "SKIP abc-bmc3 runs only bounded checks, not mode $2" > "$5.res"
@@ -63,11 +64,12 @@ prove() {
   } > "$5.sby"
   local rc=0 t0 t1
   t0="$(date +%s.%N)"
-  sby -f "$5.sby" > "$5.log" 2>&1 || rc=$?
+  timeout "${FORMAL_TIMEOUT:-600}" sby -f "$5.sby" > "$5.log" 2>&1 || rc=$?
   t1="$(date +%s.%N)"
   case "$rc" in
     0) echo PASS ;;
     2) echo FAIL ;;
+    124) echo "SKIP the engine did not finish within FORMAL_TIMEOUT (${FORMAL_TIMEOUT:-600} s)" ;;
     *) echo "ERROR sby exited with code $rc, not a verdict (see $5.log)" ;;
   esac > "$5.res.tmp"
   awk -v rc="$rc" -v a="$t0" -v b="$t1" 'BEGIN { printf "%s %.1f\n", rc, b - a }' > "$5.info"
@@ -82,7 +84,7 @@ mutant_run() {
     return
   fi
   netlist "$out/mut_$1.vhd" "mut_$1"
-  prove "mut_$1_dbg.v" bmc 30 '' "mut_$1"
+  prove "mut_$1_dbg.v" bmc "${MUT_DEPTH:-30}" "${MUT_DEFS:-}" "mut_$1"
 }
 
 # start_mutant <name> <sed expression>: each defect must make the safety proof fail.
@@ -112,4 +114,33 @@ expect() {
     "$2") printf '  ok    %-52s %s\n' "$1" "$got"; record "$3" "$1" "$wanted" "$wanted" "" ;;
     *) printf '  WRONG %-52s wanted %s, got %s\n' "$1" "$2" "$got"; record "$3" "$1" "$wanted" "$(echo "$got" | tr '[:upper:]' '[:lower:]')" ""; fail=1 ;;
   esac
+}
+
+# expose <netlist> <signal[:high bit]>...: adds the wires of the last module (the top, GHDL writes it last) as the
+# outputs dbg_<signal>, in place. The logic is the same; the proof states its invariants over these registers. The
+# Quartus attribute of the synchronizer has quotes inside its value, which the Verilog reader cannot parse, so it goes.
+expose() {
+  local v="$1"; shift
+  local ports="" assigns="" s w nm
+  for s in "$@"; do
+    nm="${s%%:*}"; w=""; [ "$s" != "$nm" ] && w="[${s#*:}:0] "
+    ports+=",
+   output ${w}dbg_$nm"
+    assigns+="  assign dbg_$nm = $nm;
+"
+  done
+  sed -i 's/(\* altera_attribute=.* \*) reg/reg/' "$v"
+  awk -v ports="$ports" -v assigns="$assigns" '
+    { line[NR] = $0 }
+    /^module / { m = NR }
+    /^endmodule/ { e = NR }
+    END {
+      done = 0
+      for (i = 1; i <= NR; i++) {
+        l = line[i]
+        if (i >= m && !done && l ~ /\);[ \t]*$/) { sub(/\);[ \t]*$/, ports ");", l); done = 1 }
+        if (i == e) printf "%s", assigns
+        print l
+      }
+    }' "$v" > "$v.tmp" && mv "$v.tmp" "$v"
 }

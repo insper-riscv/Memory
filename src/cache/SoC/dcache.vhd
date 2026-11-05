@@ -460,7 +460,7 @@ begin
 
           -- traz a linha: um pedido de linha e depois as palavras para a RAM
           when S_FILL_REQ =>
-            if req_tag(14) = '1' then
+            if req_tag(TAG_BITS - 1) = '1' then
               d_addr_i <= base_flash & req_tag(TAG_BITS - 2 downto 0) & req_idx & "0000";
             else
               d_addr_i <= base_sdram & req_tag(TAG_BITS - 2 downto 0) & req_idx & "0000";
