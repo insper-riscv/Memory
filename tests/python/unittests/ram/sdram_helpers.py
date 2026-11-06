@@ -16,6 +16,21 @@ TIMEOUT = 400  # cpu cycles ready may take
 MEM_NS = 7  # 142.857 MHz
 CPU_NS = 56  # the core clock: the memory clock divided by 8
 LAST_WORD = (1 << 24) - 1  # 64 MB of 32-bit words
+PS_PER_NS = 1000
+
+
+def mem_ns(dut: Dut) -> int:
+    """Return the period of the memory clock, in ns.
+
+    The design takes it from its `tck_ps` generic (7000 for the 142.857 MHz
+    controller, 10000 for the controller on a 100 MHz core clock); a design
+    that does not expose the generic runs at `MEM_NS`.
+
+    """
+    try:
+        return int(dut.tck_ps.value) // PS_PER_NS
+    except (AttributeError, ValueError):
+        return MEM_NS
 
 
 async def post_edge(dut: Dut):
@@ -40,7 +55,7 @@ async def start(dut: Dut, cpu_ns: int = CPU_NS, cpu_offset_ns: int = 0):
     dut.i_dbg_flip_bit.value = 0
     dut.i_rst_mem.value = 1
     dut.i_rst_cpu.value = 1
-    cocotb.start_soon(Clock(dut.i_clk_mem, MEM_NS, unit="ns").start())
+    cocotb.start_soon(Clock(dut.i_clk_mem, mem_ns(dut), unit="ns").start())
     if cpu_offset_ns:
         await Timer(cpu_offset_ns, unit="ns")
     cocotb.start_soon(Clock(dut.i_clk_cpu, cpu_ns, unit="ns").start())

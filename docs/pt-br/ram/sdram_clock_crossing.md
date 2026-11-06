@@ -105,7 +105,7 @@ O handshake mantém um acesso em andamento por ponte. A ponte não aceita um ace
 
 ## 8. Verificação
 
-O teste `SdramSystem` ([sdram_system.py](../../../tests/python/unittests/ram/sdram_system.py)) executa as escritas, as leituras e os acessos de linha com o clock do núcleo em 14 ns, em 53 ns com deslocamento e em 100 ns com deslocamento, contra 7 ns do clock da memória. Isso cobre relações de fase e de frequência diferentes nos dois sentidos da travessia.
+O teste `SdramSystem` ([sdram_system.py](../../../tests/python/unittests/ram/sdram_system.py)) executa as escritas, as leituras e os acessos de linha com o clock do núcleo em 14 ns, em 53 ns com deslocamento e em 100 ns com deslocamento, contra 7 ns do clock da memória, e a variante `SdramSystem100MHz` repete o teste com o controlador e o modelo do chip a 10 ns (`tck_ps` = 10000). Isso cobre relações de fase e de frequência diferentes nos dois sentidos da travessia, inclusive a razão 1 para 1 entre o clock do núcleo a 100 MHz e o do controlador.
 
 ---
 

@@ -55,6 +55,32 @@
             "--std=08"
         ]
     },
+    "SdramSystem100MHz": {
+        "toplevel": "sdram_system",
+        "sources": [
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
+            "src/RAM/SoC/sdram/sdram_arbiter.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "src/RAM/SoC/sim/sdram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_system",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "tck_ps": 10000,
+            "init_cycles": 20000,
+            "refresh_cycles": 703
+        }
+    },
     "SdramBist": {
         "toplevel": "teste_sdram_system",
         "sources": [
@@ -134,6 +160,28 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "SdramCtrl100MHz": {
+        "toplevel": "sdram_ctrl_tb",
+        "sources": [
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "tests/vhdl/sdram_ctrl_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_ctrl",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "tck_ps": 10000,
+            "init_cycles": 20000,
+            "refresh_cycles": 703
+        }
     },
     "SdramArbiter": {
         "toplevel": "sdram_arbiter",

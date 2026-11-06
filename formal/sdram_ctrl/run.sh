@@ -18,20 +18,25 @@ fail=0
 source "$root/formal/common.sh"
 
 # The wait of 200 us and the refresh period shrink to INIT and REFC clocks; the chip timings stay the project's.
-netlist() {  # <vhdl> <name>
+netlist() {  # <vhdl> <name> [período do clock em ps]
   local work="$out/work_$2"; mkdir -p "$work"
   ghdl_run -a --std=08 --workdir="$work" "$root/src/RAM/SoC/sdram/sdram_pkg.vhd" "$(formal_vhdl "$root/src/common/src/synchronizer.vhd" "synchronizer_$2")" "$1"
-  ghdl_run --synth --std=08 --workdir="$work" --out=verilog -ginit_cycles=6 -grefresh_cycles=24 sdram_ctrl > "$2.v"
+  ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gtck_ps="${3:-7000}" -ginit_cycles=6 -grefresh_cycles=24 sdram_ctrl > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v"
 }
 
 echo "sdram_ctrl"
 netlist "$src" ctrl
+# O mesmo controlador no clock de 10 ns (100 MHz): tRCD e tRP em 2 ciclos, tRC em 6 e tRFC em 7.
+netlist "$src" ctrl10 10000
 
 # The longest proofs start first.
 start prove ctrl_dbg.v bmc   150 ''        safety
 start prove ctrl_dbg.v cover 150 '-DCOVER' cover
+
+start prove ctrl10_dbg.v bmc   150 '-DC_RCD=2 -DC_RP=2 -DC_RC=6 -DC_RFC=7'          safety10
+start prove ctrl10_dbg.v cover 150 '-DCOVER -DC_RCD=2 -DC_RP=2 -DC_RC=6 -DC_RFC=7' cover10
 
 # Mutants of the VHDL: each defect must make the safety proof fail.
 export MUT_DEPTH=150
@@ -49,6 +54,8 @@ wait
 
 expect "init sequence, chip timings, refresh period and answers (bounded, 150 clocks)" PASS safety
 expect "cover: init, refresh, word and line reads and writes are reachable"            PASS cover
+expect "10 ns clock: init sequence, chip timings (2, 2, 6, 7 cycles), refresh period and answers" PASS safety10
+expect "10 ns clock: cover of init, refresh, word and line reads and writes"                      PASS cover10
 for m in no_precharge few_refreshes init_wait_short mode_wrong init_done_early trcd_short trp_short trfc_short trc_short refresh_never; do
   expect "mutant $m is caught" FAIL "mut_$m"
 done

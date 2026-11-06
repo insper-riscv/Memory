@@ -16,7 +16,7 @@ from cocotb.triggers import RisingEdge, Timer
 
 from tests.python.unittests.checks import Prng, check_equal, check_true
 from tests.python.unittests.dut import Dut
-from tests.python.unittests.ram.sdram_helpers import MEM_NS, merge
+from tests.python.unittests.ram.sdram_helpers import mem_ns, merge
 
 TIMEOUT = 200  # clock cycles an acknowledge may take
 INIT_TIMEOUT = 40_000  # clock cycles of the power-up wait, with a margin
@@ -38,7 +38,7 @@ def _set(dut: Dut, **values: int) -> None:
 
 async def start(dut: Dut) -> None:
     """Start the clock, reset and wait for the power-up sequence."""
-    cocotb.start_soon(Clock(dut.i_clk, MEM_NS, unit="ns").start())
+    cocotb.start_soon(Clock(dut.i_clk, mem_ns(dut), unit="ns").start())
     _set(dut, i_req_tog=0, i_we=0, i_addr=0, i_wdata=0, i_be=0, i_line=0)
     _set(dut, i_wdata_x=0, i_be_x=0, i_dbg_word_addr=0, i_rst=1)
     for _ in range(4):
