@@ -27,8 +27,8 @@ Stores never reach the chip, because the FLASH ignores writes from the core.
 
 | Generic | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `first_latency` | `natural` | 24 | Edges of `i_clk` until the first word is captured. Minimum 2; the internal counter ranges from 0 to 255 |
-| `next_latency` | `natural` | 4 | Edges between one word and the next of the same line. Minimum 2; same limit of 255 |
+| `first_latency` | `natural` | 24 | Edges of `i_clk` until the first word is captured. Minimum 2 |
+| `next_latency` | `natural` | 4 | Edges between one word and the next of the same line. Minimum 2 |
 | `size_bytes` | `positive` | 1048576 | Chip size in bytes, a power of two from 16 bytes to 32 MB. Any other value aborts elaboration |
 
 ### 2.2. Ports
@@ -55,10 +55,10 @@ Stores never reach the chip, because the FLASH ignores writes from the core.
 | State | Stay condition | Action | Next state |
 | :--- | :--- | :--- | :--- |
 | `S_IDLE` | `i_rden = '0'` | None | `S_WAIT` when `i_rden = '1'`; before that it registers the base, the last word index, the out-of-window mark and the address on `o_mem_addr` |
-| `S_WAIT` | The edge counter has not reached 1 | Decrements the counter | `S_DONE` when the last word of the request is captured |
+| `S_WAIT` | The [latency_counter](../latency/latency_counter.md) has not signalled the last edge | Waits | `S_DONE` when the last word of the request is captured |
 | `S_DONE` | `i_advance = '0'` | `o_ready = '1'` | `S_IDLE` when `i_advance = '1'` |
 
-`o_busy` is `'1'` in `S_WAIT` and `o_ready` is `'1'` in `S_DONE`. Reset goes to `S_IDLE`. Each capture writes the word to `o_rdata` (word 0) or to a 32-bit slice of `o_rdata_x`; after capturing a word that is not the last, the registered address advances 4 bytes and the counter reloads with `next_latency`. A word request does not change `o_rdata_x`.
+`o_busy` is `'1'` in `S_WAIT` and `o_ready` is `'1'` in `S_DONE`. Reset goes to `S_IDLE`. Each capture writes the word to `o_rdata` (word 0) or to a 32-bit slice of `o_rdata_x`; after capturing a word that is not the last, the registered address advances 4 bytes and the `latency_counter` reloads with `next_latency`, on the same edge as the capture. A word request does not change `o_rdata_x`.
 
 ### 3.2. Latency
 
@@ -81,6 +81,7 @@ The chip occupies $2^{W}$ bytes with $W = \log_2(\text{size\_bytes})$. A request
 | `icache` and `dcache` (`src/cache/`) | Line masters; see [dcache_axi.md](../barramento/dcache_axi.md) for the data cache |
 | `mem_region_router` | Splits the request between SDRAM and FLASH, completes stores to the FLASH with no effect and returns zero for reads past the window without waking the chip |
 | `flash_arbiter` | Serializes the two masters over the single chip; a request in progress is never interrupted |
+| [latency_counter](../latency/latency_counter.md) | Counts the edges of both latencies; it is the same machine as in [ram_chip](../ram/ram_chip.md) and [onchip_ram_port](../ram/onchip_ram_port.md) |
 | [flash_cmd_port](flash_cmd_port.md) | Port B of the model: erases, programs and protects the same storage while this chip reads |
 | Storage | Registered-read memory driven by `o_mem_addr` and `i_mem_data`. On the board it is the IP [flash_store](flash_store.md); in the modular simulation it is the model [rom_simulation](rom_simulation.md) |
 
