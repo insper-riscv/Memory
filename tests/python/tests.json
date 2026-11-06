@@ -1009,5 +1009,81 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "OnchipRamEmulated": {
+        "toplevel": "onchip_ram_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_chip.vhd",
+            "src/RAM/SoC/onchip_ram_port.vhd",
+            "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/dcache.vhd",
+            "src/RAM/SoC/sim/onchip_ram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.onchip_ram_emulated_latency",
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "parameters": {
+            "SIZE_BYTES": 4096,
+            "LATENCY": 9
+        }
+    },
+    "OnchipRamEmulatedChip": {
+        "toplevel": "onchip_ram_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_chip.vhd",
+            "src/RAM/SoC/onchip_ram_port.vhd",
+            "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/dcache.vhd",
+            "src/RAM/SoC/sim/onchip_ram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.onchip_ram_emulated_latency",
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "parameters": {
+            "SIZE_BYTES": 4096,
+            "LATENCY": 9,
+            "USE_CHIP": true
+        }
+    },
+    "OnchipRamEmulatedShort": {
+        "toplevel": "onchip_ram_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_chip.vhd",
+            "src/RAM/SoC/onchip_ram_port.vhd",
+            "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/dcache.vhd",
+            "src/RAM/SoC/sim/onchip_ram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.onchip_ram_emulated_short",
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "parameters": {
+            "SIZE_BYTES": 4096,
+            "LATENCY": 3
+        }
     }
 }
