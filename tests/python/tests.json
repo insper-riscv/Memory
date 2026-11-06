@@ -800,5 +800,119 @@
             "--std=08",
             "-fsynopsys"
         ]
+    },
+    "FlashSimulation": {
+        "toplevel": "flash_simulation",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/ROM/SoC/flash_simulation.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.flash_simulation",
+        "parameters": {
+            "size_bytes": 4096,
+            "rom_file": "tests/python/unittests/rom/data/testROM.hex"
+        },
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ]
+    },
+    "FlashLoaderUnit": {
+        "toplevel": "flash_loader",
+        "sources": [
+            "src/ROM/SoC/flash_loader.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.flash_loader_unit",
+        "parameters": {
+            "addr_width": 8
+        },
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ]
+    },
+    "FlashJtagCore": {
+        "toplevel": "flash_jtag_core",
+        "sources": [
+            "src/ROM/SoC/flash_jtag_core.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.flash_jtag_core",
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ]
+    },
+    "OnchipRamPortBlock": {
+        "toplevel": "onchip_ram_port",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/RAM/SoC/onchip_ram_port.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.onchip_ram_port_block",
+        "parameters": {
+            "size_bytes": 4096
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "OnchipRamPortBlockOffset": {
+        "toplevel": "onchip_ram_port",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/RAM/SoC/onchip_ram_port.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.onchip_ram_port_block_offset",
+        "parameters": {
+            "size_bytes": 4096,
+            "base_kib": 8
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "AxiSlaveWordBridge": {
+        "toplevel": "axi_slave_word_bridge",
+        "sources": [
+            "src/barramento/SoC/axi_slave_word_bridge.vhd"
+        ],
+        "test_module": "tests.python.unittests.barramento.axi_slave_word_bridge",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "AxiMasterBridge": {
+        "toplevel": "axi_master_bridge",
+        "sources": [
+            "src/barramento/SoC/axi_master_bridge.vhd"
+        ],
+        "test_module": "tests.python.unittests.barramento.axi_master_bridge",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
