@@ -10,7 +10,7 @@ The internal FLASH has a single, dual-port copy. Port B belongs to the MEM stage
 | :--- | :--- | :--- |
 | [flash_jtag_core](flash_jtag_core.md) | JTAG clock | Instruction and data registers and the handing over of a command |
 | `flash_loader` | Clock of the FLASH port B | Runs the command, switches port B and keeps the halt state |
-| `flash_jtag_shell` (`src/ROM/Cyclone-V/`) | | Instance of Intel's `sld_virtual_jtag`, FPGA only |
+| `flash_jtag_shell` (`src/ROM/Cyclone-V/`) | | Instance of the Common-Components `virtual_jtag` (Intel's `sld_virtual_jtag`) plus `flash_jtag_core`, FPGA only |
 
 ### 1.1. Guarantee that the core does not read during the write
 

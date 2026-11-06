@@ -35,7 +35,7 @@ provides:
       - src/RAM/SoC/ram_chip.vhd
       - src/RAM/SoC/onchip_ram_port.vhd
   ram_cyclone_v:
-    requires: [Common-Components/utils]
+    requires: [Common-Components/utils, block_ram]
     sources:
       - src/RAM/FPGA/Cyclone-V/ram.vhd
   rom_simulation:
@@ -51,20 +51,24 @@ provides:
     sources:
       - src/ROM/SoC/flash_jtag_core.vhd
       - src/ROM/SoC/flash_loader.vhd
+  block_ram:
+    requires: []
+    sources:
+      - src/block_ram/altera/block_ram.vhd
   boot_memory:
-    requires: [Common-Components/utils]
+    requires: [Common-Components/utils, block_ram]
     sources:
       - src/ROM/Cyclone-V/boot_memory.vhd
   flash:
-    requires: [Common-Components/utils]
+    requires: [Common-Components/utils, block_ram]
     sources:
       - src/ROM/Cyclone-V/flash.vhd
   flash_store:
-    requires: [Common-Components/utils]
+    requires: [Common-Components/utils, block_ram]
     sources:
       - src/ROM/Cyclone-V/flash_store.vhd
   flash_jtag_shell:
-    requires: [flash_loader]
+    requires: [flash_loader, Common-Components/virtual_jtag]
     sources:
       - src/ROM/Cyclone-V/flash_jtag_shell.vhd
   sdram:

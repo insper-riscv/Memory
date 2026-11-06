@@ -10,7 +10,7 @@ A FLASH interna tem uma só cópia, de duas portas. A porta B é do estágio MEM
 | :--- | :--- | :--- |
 | [flash_jtag_core](flash_jtag_core.md) | Clock da JTAG | Registradores de instrução e de dados e a passagem de um comando |
 | `flash_loader` | Clock da porta B da FLASH | Executa o comando, comuta a porta B e guarda o estado de parada |
-| `flash_jtag_shell` (`src/ROM/Cyclone-V/`) | | Instância do `sld_virtual_jtag` da Intel, só para a FPGA |
+| `flash_jtag_shell` (`src/ROM/Cyclone-V/`) | | Instância do `virtual_jtag` do Common-Components (o `sld_virtual_jtag` da Intel) mais o `flash_jtag_core`, só para a FPGA |
 
 ### 1.1. Garantia de que o núcleo não lê durante a escrita
 

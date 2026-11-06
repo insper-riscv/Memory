@@ -1,9 +1,9 @@
 -- =============================================================================
--- Memória da BOOT_MEMORY (IP altsyncram de uma porta, 4 KB por padrão)
+-- Memória da BOOT_MEMORY (instância de uma porta da block_ram, 4 KB por padrão)
 --
 -- Memória do carregador de partida, fixo e genérico. É gravada uma vez, na
 -- compilação completa do Quartus, com o init_file "./boot_memory_init.mif", e não tem
--- acesso pela JTAG: o IP não declara ENABLE_RUNTIME_MOD, então o In-System Memory
+-- acesso pela JTAG: a instância não dá instance_name (sem ENABLE_RUNTIME_MOD), então o In-System Memory
 -- Content Editor não a enxerga, e só a FLASH é regravada a cada teste. O tamanho
 -- precisa concordar com o da BOOT_MEMORY no core e no config.yaml da plataforma (4 KB
 -- são 1024 palavras e 10 bits de endereço).
@@ -11,9 +11,6 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
-
-library altera_mf;
-use altera_mf.altera_mf_components.all;
 
 library work;
 use work.utils_pkg.all;
@@ -42,30 +39,20 @@ end entity boot_memory;
 architecture rtl of boot_memory is
 begin
 
-	u_altsyncram : altsyncram
+	u_block_ram : entity work.block_ram
 	generic map (
-		address_aclr_a => "NONE",
-		clock_enable_input_a => "BYPASS",
-		clock_enable_output_a => "BYPASS",
-		init_file => "./boot_memory_init.mif",
-		intended_device_family => "Cyclone V",
-		lpm_type => "altsyncram",
-		numwords_a => size_bytes / 4,
 		operation_mode => "SINGLE_PORT",
-		outdata_aclr_a => "NONE",
-		outdata_reg_a => "UNREGISTERED",
-		read_during_write_mode_port_a => "NEW_DATA_NO_NBE_READ",
-		widthad_a => log2_exact(size_bytes) - 2,
-		width_a => 32,
-		width_byteena_a => 1
+		word_count => size_bytes / 4,
+		address_width => log2_exact(size_bytes) - 2,
+		init_file => "./boot_memory_init.mif"
 	)
 	port map (
-		address_a => i_address,
-		clock0 => i_clk,
-		rden_a => i_rden,
-		wren_a => i_wren,
-		data_a => i_data,
-		q_a => o_q
+		i_clk_a => i_clk,
+		i_address_a => i_address,
+		i_data_a => i_data,
+		i_rden_a => i_rden,
+		i_wren_a => i_wren,
+		o_q_a => o_q
 	);
 
 end architecture rtl;
