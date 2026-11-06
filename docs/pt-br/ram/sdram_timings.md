@@ -6,21 +6,21 @@ A DE0-CV tem uma SDRAM SDR de 512 Mbit (32M x 16). Os tempos vêm da tabela de c
 
 ## 2. Datasheet contra o controlador
 
-| Parâmetro | Datasheet `-7`, CL3 | Constante em `sdram_pkg` | Ciclos a 7 ns |
-| :--- | :--- | :--- | ---: |
-| Período do clock (tCK3) | 7 ns no mínimo | `T_CK_PS` = 7000 | 1 |
-| ACTIVE até READ ou WRITE (tRCD) | 15 ns, 3 ciclos | `T_RCD_PS` = 15000 | 3 |
-| PRECHARGE até ACTIVE (tRP) | 15 ns, 3 ciclos | `T_RP_PS` = 15000 | 3 |
-| ACTIVE até PRECHARGE (tRAS) | 37 ns no mínimo, 6 ciclos | `T_RAS_PS` = 42000 | 6 |
-| ACTIVE até ACTIVE no mesmo banco, e REF até REF (tRC) | 60 ns, 9 ciclos | `T_RC_PS` = 60000 e `T_RFC_PS` = 63000 | 9 |
-| Último dado de escrita até PRECHARGE (tDPL) | 14 ns, 2 ciclos | `T_WR_PS` = 14000 | 2 |
-| LOAD MODE REGISTER até qualquer comando (tMRD) | 14 ns, 2 ciclos | `T_MRD_CK` = 2 | 2 |
-| Refresh | 8192 ciclos em 64 ms | `T_REFI_PS` = 7812500 | 1116 |
-| Espera de energização antes do primeiro comando | 100 us | `T_INIT_PS` = 200 us | |
-| Comandos AUTO REFRESH na energização | pelo menos 2 | `INIT_REFRESHES` = 8 | |
-| Latência CAS | 3 a 143 MHz | `CAS_LATENCY` = 3 | |
+| Parâmetro | Datasheet `-7`, CL3 | Constante em `sdram_pkg` | Ciclos a 7 ns | Ciclos a 10 ns |
+| :--- | :--- | :--- | ---: | ---: |
+| Período do clock (tCK3) | 7 ns no mínimo | `T_CK_PS` = 7000 | 1 | 1 |
+| ACTIVE até READ ou WRITE (tRCD) | 15 ns, 3 ciclos | `T_RCD_PS` = 15000 | 3 | 2 |
+| PRECHARGE até ACTIVE (tRP) | 15 ns, 3 ciclos | `T_RP_PS` = 15000 | 3 | 2 |
+| ACTIVE até PRECHARGE (tRAS) | 37 ns no mínimo, 6 ciclos | `T_RAS_PS` = 42000 | 6 | 5 |
+| ACTIVE até ACTIVE no mesmo banco, e REF até REF (tRC) | 60 ns, 9 ciclos | `T_RC_PS` = 60000 e `T_RFC_PS` = 63000 | 9 | 6 (tRFC: 7) |
+| Último dado de escrita até PRECHARGE (tDPL) | 14 ns, 2 ciclos | `T_WR_PS` = 14000 | 2 | 2 |
+| LOAD MODE REGISTER até qualquer comando (tMRD) | 14 ns, 2 ciclos | `T_MRD_CK` = 2 | 2 | 2 |
+| Refresh | 8192 ciclos em 64 ms | `T_REFI_PS` = 7812500 | 1116 | 782 |
+| Espera de energização antes do primeiro comando | 100 us | `T_INIT_PS` = 200 us | |  |
+| Comandos AUTO REFRESH na energização | pelo menos 2 | `INIT_REFRESHES` = 8 | |  |
+| Latência CAS | 3 a 143 MHz | `CAS_LATENCY` = 3 | |  |
 
-Toda constante é igual ao valor do datasheet ou mais conservadora. As contagens de ciclos que o controlador deriva das constantes são iguais às da tabela de frequência e latência do datasheet para o grau `-7` em CL3 (tRCD 3, tRAS 6, tRP 3, tRC 9, tDPL 2, tMRD 2).
+Toda constante é igual ao valor do datasheet ou mais conservadora. As contagens de ciclos que o controlador deriva das constantes são iguais às da tabela de frequência e latência do datasheet para o grau `-7` em CL3 (tRCD 3, tRAS 6, tRP 3, tRC 9, tDPL 2, tMRD 2). A coluna de 10 ns é a do controlador no clock de 100 MHz do núcleo: o gerador de ciclos arredonda cada tempo para cima no período de 10 ns, e como `T_CK_PS` não entra nas constantes dos tempos, nenhum tempo do chip é violado.
 
 ## 3. O que a tabela não cobre
 

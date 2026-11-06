@@ -15,6 +15,8 @@ use work.sdram_pkg.all;
 
 entity sdram_ctrl_tb is
   generic (
+    -- Período do clock em picossegundos, base da conversão dos tempos do chip em ciclos.
+    tck_ps         : natural := T_CK_PS;
     -- Ciclos de espera após a energização antes do primeiro comando.
     init_cycles    : natural := cycles(T_INIT_PS, T_CK_PS);
     -- Ciclos entre dois refreshes.
@@ -86,7 +88,7 @@ architecture rtl of sdram_ctrl_tb is
 begin
 
   u_ctrl : entity work.sdram_ctrl
-    generic map (init_cycles => init_cycles, refresh_cycles => refresh_cycles)
+    generic map (tck_ps => tck_ps, init_cycles => init_cycles, refresh_cycles => refresh_cycles)
     port map (
       i_clk => i_clk, i_rst => i_rst,
       i_req_tog => i_req_tog, o_ack_tog => o_ack_tog, o_init_done => o_init_done,
@@ -101,7 +103,7 @@ begin
   dq <= dq_out when dq_oe = '1' else (others => 'Z');
 
   u_chip : entity work.sdram_model
-    generic map (init_file => "")
+    generic map (tck_ps => tck_ps, init_file => "")
     port map (
       i_clk => i_clk, i_cke => cke, i_cs_n => cs_n, i_ras_n => ras_n, i_cas_n => cas_n,
       i_we_n => we_n, i_ba => ba, i_a => a, i_dqm => dqm, io_dq => dq, i_reinit => i_rst,

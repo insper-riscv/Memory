@@ -2,7 +2,21 @@
 // pedido e o chip (dados lidos) são entradas livres; as asserções olham o barramento de comandos da SDRAM, que
 // é o contrato com o chip. A prova roda com init_cycles e refresh_cycles pequenos (INIT e REFC), o que só
 // encurta a espera de 200 us e o período de refresh; os tempos do chip (tRCD, tRP, tRC, tRFC, tMRD) são os do
-// pacote sdram_pkg a 7 ns de período, ou seja, os do projeto: 3, 3, 9, 9 e 2 ciclos.
+// pacote sdram_pkg convertidos em ciclos pelo período do clock: a 7 ns são 3, 3, 9, 9 e 2 ciclos (o padrão), e a 10 ns
+// (o controlador no clock do núcleo a 100 MHz) são 2, 2, 6, 7 e 2, que a rodada com TCK_PS = 10000 passa em C_RCD, C_RP,
+// C_RC e C_RFC.
+`ifndef C_RCD
+`define C_RCD 3
+`endif
+`ifndef C_RP
+`define C_RP 3
+`endif
+`ifndef C_RC
+`define C_RC 9
+`endif
+`ifndef C_RFC
+`define C_RFC 9
+`endif
 `ifndef INIT
 `define INIT 6
 `endif
@@ -17,7 +31,7 @@
 `endif
 
 module props (input clk);
-  localparam C_RCD = 3, C_RP = 3, C_RC = 9, C_RFC = 9, T_MRD = 2, N_INIT_REF = 8;
+  localparam C_RCD = `C_RCD, C_RP = `C_RP, C_RC = `C_RC, C_RFC = `C_RFC, T_MRD = 2, N_INIT_REF = 8;
   localparam [3:0] NOP = 4'b0111, ACTIVE = 4'b0011, READ = 4'b0101, WRITE = 4'b0100, PRE = 4'b0010, REF = 4'b0001, LMR = 4'b0000;
   localparam [12:0] MODE = 13'b0000000110001;
 
