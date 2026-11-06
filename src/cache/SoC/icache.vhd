@@ -69,7 +69,9 @@ entity icache is
     -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão).
     rom_base_kib : natural := 524288;
     -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão).
-    rom_end_kib  : natural := 1048576
+    rom_end_kib  : natural := 1048576;
+    -- Com valor não negativo, a seleção da cache sai do endereço registrado (selecionado a partir deste endereço, em KiB), e a porta i_sel é ignorada; -1 usa i_sel. Tira a decodificação do PC do caminho até a cache.
+    sel_from_kib : integer := -1
   );
   port (
     -- Clock das memórias de instrução: lê as RAMs e registra o endereço de busca.
@@ -172,6 +174,10 @@ architecture rtl of icache is
   signal addr_q   : std_logic_vector(31 downto 0) := (others => '0');
   -- Valor de sel na última borda.
   signal sel_q    : std_logic := '0';
+  -- Seleção efetiva do endereço registrado: sel_q, ou a decodificação do endereço registrado com sel_from_kib.
+  signal sel_eff  : std_logic;
+  -- Parte do acerto que não depende da leitura das RAMs: seleção, sem varredura em curso e endereço inalterado.
+  signal early_ok : std_logic;
 
   -- A tag lida bate com a do endereço registrado.
   signal tag_match : std_logic;
@@ -228,8 +234,11 @@ architecture rtl of icache is
 begin
 
   tag_match <= '1' when tag_rd = (in_rom(addr_q) & addr_q(25 downto TAG_LOW)) else '0';
-  hit       <= sel_q and valid_rd and tag_match and (not blocked);
-  o_ready     <= hit when addr_q = i_addr else '0';
+  sel_eff   <= sel_q when sel_from_kib < 0 else
+               '1' when unsigned(addr_q) >= shift_left(to_unsigned(maximum(sel_from_kib, 0), 32), 10) else '0';
+  hit       <= sel_eff and valid_rd and tag_match and (not blocked);
+  early_ok  <= sel_eff and (not blocked) when addr_q = i_addr else '0';
+  o_ready   <= early_ok and valid_rd and tag_match;
   o_data      <= ram_rd;
 
   fill_w <= i_d_rdata when cnt = "00" else
@@ -331,7 +340,7 @@ begin
                 st      <= S_SWEEP;
               end if;
             -- uma falha do endereço que ainda está em addr: traz a sua linha
-            elsif sel_q = '1' and hit = '0' and addr_q = i_addr and i_invalidate = '0' then
+            elsif sel_eff = '1' and hit = '0' and addr_q = i_addr and i_invalidate = '0' then
               fill_tag <= in_rom(addr_q) & addr_q(25 downto TAG_LOW);
               fill_idx <= addr_q(INDEX_BITS + 3 downto 4);
               st       <= S_FILL_REQ;

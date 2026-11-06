@@ -33,13 +33,13 @@ The core's stores are not observed by the cache. Only an invalidation (the progr
 | Port | Direction | Width | Meaning |
 | :--- | :--- | ---: | :--- |
 | `i_clk` | input | 1 | Instruction-memory clock; reads the RAMs and registers the fetch address |
-| `i_clk_cpu` | input | 1 | Clock of the state machine, the valid vector and the reset (the core clock) |
-| `i_rst` | input | 1 | Reset, active at 1; invalidates every line |
+| `i_clk_cpu` | input | 1 | Clock of the state machine, the valid sweep and the reset (the core clock) |
+| `i_rst` | input | 1 | Reset, active at 1; sweeps and invalidates every line |
 | `i_addr` | input | 32 | Fetch address (the PC) |
 | `i_sel` | input | 1 | The fetch address belongs to the SDRAM or the FLASH |
 | `o_ready` | output | 1 | The instruction on `o_data` is the one for the current address |
 | `o_data` | output | 32 | Fetched instruction |
-| `i_invalidate` | input | 1 | Pulse that drops every line (default 0) |
+| `i_invalidate` | input | 1 | Pulse that asks for the sweep of every line (default 0) |
 | `o_miss` | output | 1 | One-cycle pulse at the start of each line fill |
 | `i_inval_region` | input | 1 | Pulse that drops the lines of the region from `i_inval_first` to `i_inval_last` (default 0) |
 | `i_inval_first` | input | 32 | First byte address of the region to drop (default 0) |
@@ -73,10 +73,10 @@ The region bit in the tag keeps a FLASH line and an SDRAM line with the same bit
 
 ### 3.2. Lookup and core-side contract
 
-The data RAM, the tag RAM and the valid vector are read on `i_clk` with the address of `i_addr`, and the address and `i_sel` are registered on the same edge. After that edge, the instruction of the registered address is on `o_data`, and `o_ready` says it is the right one.
+The data, tag and valid RAMs are read on `i_clk` with the address of `i_addr`, and the address and `i_sel` are registered on the same edge. After that edge, the instruction of the registered address is on `o_data`, and `o_ready` says it is the right one.
 
 $$
-\text{o\_ready} = \text{sel\_q} \wedge \text{valid\_rd} \wedge (\text{tag\_rd} = \text{tag}(\text{addr\_q})) \wedge (\text{addr\_q} = \text{i\_addr})
+\text{o\_ready} = \text{sel\_q} \wedge \neg\text{blocked} \wedge \text{valid\_rd} \wedge (\text{tag\_rd} = \text{tag}(\text{addr\_q})) \wedge (\text{addr\_q} = \text{i\_addr})
 $$
 
 The last term drops `o_ready` if `i_addr` changed since the edge. The core samples `o_ready` and `o_data` on its own edge, a fraction of a clock after `i_clk`, and while `o_ready` is at 0 it keeps the address stable. A hit therefore has `o_ready` at 1 in the cycle after the edge that registered the address.
@@ -87,11 +87,12 @@ The machine runs on `i_clk_cpu`.
 
 | State | Function | Output |
 | :--- | :--- | :--- |
-| `S_IDLE` | Waits for a miss. If the registered `i_sel` is 1, there is no hit, the registered address equals `i_addr` and `i_invalidate` is 0, it records the tag and the index of the line and moves to `S_FILL_REQ` | |
+| `S_IDLE` | Waits for a miss. With `blocked` at 1 and a sweep pending, it starts `S_SWEEP`. Otherwise, if the registered `i_sel` is 1, there is no hit, the registered address equals `i_addr` and `i_invalidate` is 0, it records the tag and the index of the line and moves to `S_FILL_REQ` | |
 | `S_FILL_REQ` | Builds the line request with the address $\text{base} \,\Vert\, \text{tag} \,\Vert\, \text{index} \,\Vert\, 0000_2$ and raises `o_d_rden` and `o_d_line` | `o_miss` at 1 |
 | `S_FILL_WAIT` | Waits for `i_d_ready`, then lowers the request | |
-| `S_FILL_GET` | Stores one word per cycle in the data RAM (words 0 to 3); on word 3 it stores the tag and marks the line valid | |
+| `S_FILL_GET` | Stores one word per cycle in the data RAM (words 0 to 3); on word 3 it stores the tag and the valid bit | |
 | `S_SETTLE` | One cycle for the registered read to see the new tag and valid bit | |
+| `S_SWEEP`, `S_RELEASE` | Invalidation sweep (section 3.5) | |
 
 During the fill, `i_addr` may change (a branch moved the PC). The line keeps being brought into the index recorded at the start.
 
@@ -106,23 +107,30 @@ Let $k$ be the number of `S_FILL_WAIT` cycles ($k \ge 1$) and assume `i_clk` equ
 
 ### 3.5. Invalidation
 
-A pulse on `i_invalidate` clears the valid vector in one `i_clk_cpu` cycle. If the machine is not in `S_IDLE`, the pulse also marks the fill in progress for discard. At the end of the fill (word 3), the line is marked valid only if there was no discard and `i_invalidate` is 0 in that cycle. Thus no stored line is older than the last invalidation. The discard mark is cleared when the machine returns to `S_IDLE`.
+The valid bit of each line lives in a RAM read with the same address as the data and tag RAMs, which takes the one-input-per-line multiplexer out of the path between the PC and the cache. The RAM cannot be cleared at once, so an invalidation is a sweep that clears one line per `i_clk_cpu` cycle.
+
+A pulse on `i_invalidate` asks for the sweep of every line. A pulse on `i_inval_region` asks for the lines of the region (section 3.6). Any request raises `blocked`, and while `blocked` is 1 no lookup hits and no fill starts. A request that arrives while the machine is not in `S_IDLE` stays pending and is served when the machine returns to `S_IDLE`; a second request that finds another pending becomes the request for every line. Thus no stored line is older than the last invalidation: a fill in progress finishes, and the sweep that follows clears its line if it falls in the request.
+
+| State | Function |
+| :--- | :--- |
+| `S_SWEEP` | Clears line `sw_idx` and moves to the next, from `pend_first` to `pend_first + pend_off` (modulo the number of lines) |
+| `S_RELEASE` | One cycle for the registered read to see the last clear; if another request arrived, it returns to `S_IDLE` and sweeps again, otherwise it lowers `blocked` |
+
+A sweep of every line costs $L$ cycles, where $L$ is the number of lines (256 at 4 KB), plus three of waiting.
 
 ### 3.6. Region invalidation
 
-A pulse on `i_inval_region` drops the lines of the addresses from `i_inval_first` to `i_inval_last`, which is what the FLASH controller asks for at the end of an erase or program. The cache stores the tag, not the full address, so it drops by index: every line whose index holds some address of the region, including the one of another region with the same index. With $N$ lines in the region and $L$ lines in the cache, the region drops the lines of index $i$ such that
+A pulse on `i_inval_region` drops the lines of the addresses from `i_inval_first` to `i_inval_last`, which is what the FLASH controller asks for at the end of an erase or a program. The cache stores the tag, not the full address, so it drops by index: every line whose index contains some address of the region, including the one of another region with the same index. With $N$ lines in the region and $L$ lines in the cache, the sweep clears the lines of index $i$ such that
 
 $$
 (i - i_{first}) \bmod L < N \qquad \text{or} \qquad N \ge L
 $$
 
-where $i_{first}$ is the index of the address `i_inval_first`. A region with `i_inval_last` below `i_inval_first` has no effect.
-
-The request is registered and applied in the next cycle. If the state machine is not in `S_IDLE` and the line being filled falls in the region, the fill is discarded as with `i_invalidate`. Because the valid bit read has one cycle of delay, no line of the region hits from the fourth cycle after the pulse.
+where $i_{first}$ is the index of the address `i_inval_first`. A region with `i_inval_last` below `i_inval_first` has no effect. The request is registered and applied in the next cycle; the lines outside the region keep their data but do not hit while the sweep runs.
 
 ### 3.7. Reset
 
-`i_rst` takes the machine to `S_IDLE` and clears the valid vector, the discard mark, the request signals and the word counter.
+`i_rst` takes the machine to `S_IDLE` with `blocked` at 1 and a sweep of every line pending, and clears the request signals and the word counter. The cache is ready $L + 3$ cycles after the reset.
 
 ## 4. Integration
 

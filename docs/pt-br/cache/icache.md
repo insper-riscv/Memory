@@ -33,13 +33,13 @@ Os stores do core não são observados pela cache. Só uma invalidação (o `fen
 | Porta | Direção | Largura | Significado |
 | :--- | :--- | ---: | :--- |
 | `i_clk` | entrada | 1 | Clock das memórias de instrução; lê as RAMs e registra o endereço de busca |
-| `i_clk_cpu` | entrada | 1 | Clock da máquina de estados, do vetor de validade e do reset (o clock do core) |
-| `i_rst` | entrada | 1 | Reset, ativo em 1; invalida todas as linhas |
+| `i_clk_cpu` | entrada | 1 | Clock da máquina de estados, da varredura de validade e do reset (o clock do core) |
+| `i_rst` | entrada | 1 | Reset, ativo em 1; varre e invalida todas as linhas |
 | `i_addr` | entrada | 32 | Endereço de busca (o PC) |
 | `i_sel` | entrada | 1 | O endereço de busca pertence à SDRAM ou à FLASH |
 | `o_ready` | saída | 1 | A instrução em `o_data` é a do endereço atual |
 | `o_data` | saída | 32 | Instrução buscada |
-| `i_invalidate` | entrada | 1 | Pulso que derruba todas as linhas (padrão 0) |
+| `i_invalidate` | entrada | 1 | Pulso que pede a varredura de todas as linhas (padrão 0) |
 | `o_miss` | saída | 1 | Pulso de um ciclo no início de cada preenchimento de linha |
 | `i_inval_region` | entrada | 1 | Pulso que derruba as linhas da região de `i_inval_first` a `i_inval_last` (padrão 0) |
 | `i_inval_first` | entrada | 32 | Primeiro endereço de byte da região a derrubar (padrão 0) |
@@ -73,10 +73,10 @@ O bit de região na tag impede que uma linha da FLASH e uma da SDRAM com os mesm
 
 ### 3.2. Consulta e contrato do lado do core
 
-As RAMs de dados, de tags e o vetor de validade são lidos em `i_clk` com o endereço de `i_addr`, e o endereço e `i_sel` são registrados na mesma borda. Depois dessa borda, a instrução do endereço registrado está em `o_data`, e `o_ready` indica que ela é a certa.
+As RAMs de dados, de tags e de validade são lidas em `i_clk` com o endereço de `i_addr`, e o endereço e `i_sel` são registrados na mesma borda. Depois dessa borda, a instrução do endereço registrado está em `o_data`, e `o_ready` indica que ela é a certa.
 
 $$
-\text{o\_ready} = \text{sel\_q} \wedge \text{valid\_rd} \wedge (\text{tag\_rd} = \text{tag}(\text{addr\_q})) \wedge (\text{addr\_q} = \text{i\_addr})
+\text{o\_ready} = \text{sel\_q} \wedge \neg\text{blocked} \wedge \text{valid\_rd} \wedge (\text{tag\_rd} = \text{tag}(\text{addr\_q})) \wedge (\text{addr\_q} = \text{i\_addr})
 $$
 
 O último termo faz `o_ready` cair se `i_addr` mudou desde a borda. O core amostra `o_ready` e `o_data` na sua própria borda, uma fração de clock depois de `i_clk`, e enquanto `o_ready` está em 0 mantém o endereço estável. Um acerto, portanto, tem `o_ready` em 1 no ciclo seguinte à borda que registrou o endereço.
@@ -87,11 +87,12 @@ A máquina roda em `i_clk_cpu`.
 
 | Estado | Função | Saída |
 | :--- | :--- | :--- |
-| `S_IDLE` | Espera uma falha. Se `i_sel` registrado está em 1, não há acerto, o endereço registrado é igual a `i_addr` e `i_invalidate` está em 0, registra a tag e o índice da linha e passa a `S_FILL_REQ` | |
+| `S_IDLE` | Espera uma falha. Com `blocked` em 1 e uma varredura pendente, inicia `S_SWEEP`. Senão, se `i_sel` registrado está em 1, não há acerto, o endereço registrado é igual a `i_addr` e `i_invalidate` está em 0, registra a tag e o índice da linha e passa a `S_FILL_REQ` | |
 | `S_FILL_REQ` | Monta o pedido de linha com o endereço $\text{base} \,\Vert\, \text{tag} \,\Vert\, \text{índice} \,\Vert\, 0000_2$ e levanta `o_d_rden` e `o_d_line` | `o_miss` em 1 |
 | `S_FILL_WAIT` | Espera `i_d_ready`, então baixa o pedido | |
-| `S_FILL_GET` | Grava uma palavra por ciclo nas RAMs de dados (palavras 0 a 3); na palavra 3 grava a tag e marca a linha como válida | |
+| `S_FILL_GET` | Grava uma palavra por ciclo nas RAMs de dados (palavras 0 a 3); na palavra 3 grava a tag e o bit de validade | |
 | `S_SETTLE` | Um ciclo para a leitura registrada ver a tag e a validade novas | |
+| `S_SWEEP`, `S_RELEASE` | Varredura de invalidação (seção 3.5) | |
 
 Durante o preenchimento, `i_addr` pode mudar (um desvio moveu o PC). A linha continua sendo trazida para o índice registrado no início.
 
@@ -106,23 +107,30 @@ Seja $k$ o número de ciclos de `S_FILL_WAIT` ($k \ge 1$) e supondo `i_clk` igua
 
 ### 3.5. Invalidação
 
-Um pulso em `i_invalidate` zera o vetor de validade em um ciclo de `i_clk_cpu`. Se a máquina não está em `S_IDLE`, o pulso também marca o preenchimento em andamento para descarte. Ao fim do preenchimento (palavra 3), a linha só é marcada como válida se não houve descarte e `i_invalidate` está em 0 naquele ciclo. Assim, nenhuma linha guardada é mais antiga que a última invalidação. A marca de descarte é limpa quando a máquina volta a `S_IDLE`.
+O bit de validade de cada linha fica numa RAM lida com o mesmo endereço das RAMs de dados e de tags, o que tira o multiplexador de uma entrada por linha do caminho entre o PC e a cache. Zerar a RAM de uma vez não é possível, então uma invalidação é uma varredura que zera uma linha por ciclo de `i_clk_cpu`.
+
+Um pulso em `i_invalidate` pede a varredura de todas as linhas. Um pulso em `i_inval_region` pede a das linhas da região (seção 3.6). Qualquer pedido levanta `blocked`, e enquanto `blocked` está em 1 nenhuma consulta acerta e nenhum preenchimento começa. Um pedido que chega com a máquina fora de `S_IDLE` fica pendente e é atendido quando ela volta a `S_IDLE`; um segundo pedido que encontra outro pendente vira o pedido de todas as linhas. Assim nenhuma linha guardada é mais velha que a última invalidação: um preenchimento em andamento termina, e a varredura que vem depois zera a linha dele se ela cair no pedido.
+
+| Estado | Função |
+| :--- | :--- |
+| `S_SWEEP` | Zera a linha `sw_idx` e passa à seguinte, de `pend_first` até `pend_first + pend_off` (módulo o número de linhas) |
+| `S_RELEASE` | Um ciclo para a leitura registrada ver o último zero; se chegou outro pedido, volta a `S_IDLE` e varre de novo, senão baixa `blocked` |
+
+Uma varredura de todas as linhas custa $L$ ciclos, em que $L$ é o número de linhas (256 em 4 KB), mais três de espera.
 
 ### 3.6. Invalidação por região
 
-Um pulso em `i_inval_region` derruba as linhas dos endereços de `i_inval_first` a `i_inval_last`, que é o que o controlador de FLASH pede ao fim de um apagar ou gravar. A cache guarda a tag, não o endereço completo, então derruba por índice: toda linha cujo índice contém algum endereço da região, inclusive a de outra região com o mesmo índice. Com $N$ linhas na região e $L$ linhas na cache, a região derruba as linhas de índice $i$ tais que
+Um pulso em `i_inval_region` derruba as linhas dos endereços de `i_inval_first` a `i_inval_last`, que é o que o controlador de FLASH pede ao fim de um apagar ou gravar. A cache guarda a tag, não o endereço completo, então derruba por índice: toda linha cujo índice contém algum endereço da região, inclusive a de outra região com o mesmo índice. Com $N$ linhas na região e $L$ linhas na cache, a varredura zera as linhas de índice $i$ tais que
 
 $$
 (i - i_{primeira}) \bmod L < N \qquad \text{ou} \qquad N \ge L
 $$
 
-em que $i_{primeira}$ é o índice do endereço `i_inval_first`. Uma região com `i_inval_last` menor que `i_inval_first` não tem efeito.
-
-O pedido é registrado e aplicado no ciclo seguinte. Se a máquina não está em `S_IDLE` e a linha em preenchimento cai na região, o preenchimento é descartado como no `i_invalidate`. Como o bit de validade lido tem um ciclo de atraso, nenhuma linha da região acerta a partir do quarto ciclo depois do pulso.
+em que $i_{primeira}$ é o índice do endereço `i_inval_first`. Uma região com `i_inval_last` menor que `i_inval_first` não tem efeito. O pedido é registrado e aplicado no ciclo seguinte; as linhas fora da região mantêm o dado, mas não acertam enquanto a varredura roda.
 
 ### 3.7. Reset
 
-`i_rst` leva a máquina a `S_IDLE`, zera o vetor de validade, a marca de descarte, os sinais de pedido e o contador de palavras.
+`i_rst` leva a máquina a `S_IDLE` com `blocked` em 1 e uma varredura de todas as linhas pendente, e zera os sinais de pedido e o contador de palavras. A cache fica pronta $L + 3$ ciclos depois do reset.
 
 ## 4. Integração
 
