@@ -11,6 +11,7 @@ The FLASH occupies the region that starts at `0x20000000` when the ROM is extern
 1. The request stays stable on `i_addr`, `i_rden` and `i_line` until `o_ready` rises.
 2. `o_ready` stays high as a level until `i_advance` says the request was consumed.
 3. The data read changes only on the next request.
+4. An address outside the window of the chip reads zero (section 3.3), as in every block of the memory contract.
 
 ### 1.2. Request types
 

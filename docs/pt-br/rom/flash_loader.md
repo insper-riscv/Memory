@@ -18,6 +18,10 @@ A FLASH interna tem uma só cópia, de duas portas. A porta B é do estágio MEM
 2. Uma escrita ou uma leitura pedida com o núcleo em execução é recusada, não altera a memória e acende o bit de recusa do status até a próxima parada.
 3. Com o núcleo parado o seletor da porta B escolhe o carregador, e o endereço do estágio MEM é ignorado.
 
+### 1.2. Porta de depuração da FLASH
+
+O carregador é a porta de depuração do backend de FLASH emulada, e a tabela da porta de depuração de cada backend está em [sdram_debug](../ram/sdram_debug.md), seção 7.
+
 ## 2. Interface
 
 ### 2.1. Generic

@@ -11,6 +11,7 @@ A FLASH ocupa a região que começa em `0x20000000` quando a ROM é externa ao n
 1. O pedido fica estável em `i_addr`, `i_rden` e `i_line` até `o_ready` subir.
 2. `o_ready` permanece em nível alto até `i_advance` indicar que o pedido foi consumido.
 3. O dado lido só muda no pedido seguinte.
+4. Um endereço fora da janela do chip lê zero (seção 3.3), como em todo bloco do contrato de memória.
 
 ### 1.2. Tipos de pedido
 

@@ -18,6 +18,10 @@ The internal FLASH has a single, dual-port copy. Port B belongs to the MEM stage
 2. A write or a read requested with the core running is refused, does not change the memory and raises the refusal bit of the status until the next halt.
 3. With the core halted the port B selector picks the loader, and the address of the MEM stage is ignored.
 
+### 1.2. FLASH debug port
+
+The loader is the debug port of the emulated FLASH backend, and the table of the debug port of each backend is in [sdram_debug](../ram/sdram_debug.md), section 7.
+
 ## 2. Interface
 
 ### 2.1. Generic
