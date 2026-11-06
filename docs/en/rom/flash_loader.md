@@ -85,7 +85,7 @@ The command leaves when the shift ends. The status of a command is only up to da
 | ---: | :--- | :--- |
 | 0 | status | Sends nothing, only reads the status |
 | 1 | halt | Halts the core, clears the checksum and the count |
-| 2 | run | Releases the core, which restarts from the BOOT_ROM |
+| 2 | run | Releases the core, which restarts from the BOOT_MEMORY |
 | 3 | write | Writes `data` to word `addr`, and the cursor becomes `addr + 1` |
 | 4 | read | Reads word `addr`, and the cursor becomes `addr + 1` |
 | 5 | summary | Returns the checksum in `data` and the number of words written in `addr` |
@@ -108,7 +108,7 @@ A scan of $32N + 1$ bits writes $N$ consecutive words from the cursor, which adv
 1. The host sends command 1, and the core halts.
 2. It sends command 6 with the index of the first word and a STREAM scan with the image.
 3. It sends command 5 and compares the sum and the count with those of the image.
-4. It sends command 2, and the core restarts from the BOOT_ROM and runs the new test.
+4. It sends command 2, and the core restarts from the BOOT_MEMORY and runs the new test.
 
 ## 5. Behavior
 

@@ -10,7 +10,7 @@
 | Política de escrita da plataforma | Write-through, write-around | O hospedeiro lê a SDRAM atrás da cache sem flush (ver [CACHE_HOST_COHERENCE.md](../bugs/CACHE_HOST_COHERENCE.md)) | Um store leva a escrita completa na SDRAM |
 | Política de escrita do módulo | Write-back é o padrão do módulo `dcache` | É o que um core sem porta de depuração atrás da cache usaria | Precisa de um flush antes de qualquer outra leitura da memória |
 | Endereços sem cache | A janela de periféricos e os últimos 4 KB da SDRAM | Periféricos têm efeitos colaterais nas leituras, e a janela compartilhada é lida e escrita pelo hospedeiro | As palavras ali nunca acertam |
-| Controle da cache | Periférico 7: uma escrita faz flush, o bit 1 também invalida, e uma leitura dá busy | Nenhuma instrução ou CSR novo no core | O programa ou a boot ROM precisa escrevê-lo |
+| Controle da cache | Periférico 7: uma escrita faz flush, o bit 1 também invalida, e uma leitura dá busy | Nenhuma instrução ou CSR novo no core | O programa ou a memória de boot precisa escrevê-lo |
 | Flush | Varredura das 256 linhas, atendida antes de qualquer acesso que espera | Simples, e nenhum acesso roda enquanto as linhas se movem | No mínimo 768 clocks, a cada vez |
 | Latência do acerto | Dois clocks | A RAM tem leitura com registrador, como as RAMs de bloco da FPGA, e um clock exigiria leitura combinacional | Todo load paga dois clocks |
 

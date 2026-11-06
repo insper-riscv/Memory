@@ -24,7 +24,7 @@ Um flush colocado no `_exit` ajudou só os programas em C que retornam de `main`
 
 Uma cache write-through com write-around (um store que falha não traz a linha) não guarda dado sujo. O hospedeiro vê cada store assim que ele termina, sem flush, e os loads ainda acertam. O preço é que um store leva a escrita completa na SDRAM (14 clocks) em vez de 2.
 
-O mesmo problema de coerência existe no sentido contrário: o hospedeiro escreve o programa seguinte atrás da cache, então as linhas do programa anterior seriam lidas no lugar dele. A boot ROM da plataforma escreve o controle da cache com o bit 1 ligado quando um teste termina, o que descarta todas as linhas, e os acessos à janela compartilhada (os últimos 4 KB da SDRAM) pulam a cache.
+O mesmo problema de coerência existe no sentido contrário: o hospedeiro escreve o programa seguinte atrás da cache, então as linhas do programa anterior seriam lidas no lugar dele. A memória de boot da plataforma escreve o controle da cache com o bit 1 ligado quando um teste termina, o que descarta todas as linhas, e os acessos à janela compartilhada (os últimos 4 KB da SDRAM) pulam a cache.
 
 ## 4. Como evitar
 

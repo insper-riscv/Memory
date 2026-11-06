@@ -4,7 +4,7 @@ True dual-port memory IP that holds the test program (the internal FLASH) in a s
 
 ## 1. Role of the component in the SoC
 
-The internal FLASH starts right after the BOOT_ROM and runs to the start of the RAM (`0x00001000` to `0x00007FFF` in the default map, see [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)). Port A serves the instruction fetch (IF) stage. Port B serves the MEM stage, which reads the FLASH as data (for example to copy the `.data` section at startup), and the [flash_loader](flash_loader.md) loader, which writes it. The core only reads, because the write exists only on port B and the loader enables it only while the core is halted.
+The internal FLASH starts right after the BOOT_MEMORY and runs to the start of the RAM (`0x00001000` to `0x00007FFF` in the default map, see [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)). Port A serves the instruction fetch (IF) stage. Port B serves the MEM stage, which reads the FLASH as data (for example to copy the `.data` section at startup), and the [flash_loader](flash_loader.md) loader, which writes it. The core only reads, because the write exists only on port B and the loader enables it only while the core is halted.
 
 The fetch address indexes the IP directly, with no base subtraction, so the IP covers the whole range from zero to the start of the RAM and not only the logical FLASH span (32 KB of IP for 28 KB of FLASH). Each test image is left-padded with zeros up to the FLASH base before it becomes a `.mif`.
 

@@ -32,7 +32,7 @@ The names of the contract follow the `i_` and `o_` prefix of the CONTRIBUTING. T
 | `i_mask` | `byteena`, only in `ram` | `i_mask` | none |
 | `o_q` | `q` | `o_data_out` | `o_data` |
 
-The ROM IPs (`boot_rom` and `flash_store`) have `wren` and `data`, because the FPGA memory block is the same as a RAM one, but the board design keeps them at zero. The `rom_simulation` also has a second read port, with `i_addr2`, `i_clk2`, `i_re2` and `o_data2`.
+The ROM IPs (`boot_memory` and `flash_store`) have `wren` and `data`, because the FPGA memory block is the same as a RAM one, but the board design keeps them at zero. The `rom_simulation` also has a second read port, with `i_addr2`, `i_clk2`, `i_re2` and `o_data2`.
 
 ## 2. Timing
 
@@ -66,7 +66,7 @@ The clock is a separate pin, and the block only sees the edge it receives. There
 
 | Case | When it happens | What to do |
 | :--- | :--- | :--- |
-| Same clock as the core | The internal blocks of the board, such as the `BOOT_ROM` (wired to the `pll_clk_if` clock) and the FLASH storage (wired to `pll_clk_idexmem`), both 50 MHz clocks of the core | Wire directly, with no synchronization |
+| Same clock as the core | The internal blocks of the board, such as the `BOOT_MEMORY` (wired to the `pll_clk_if` clock) and the FLASH storage (wired to `pll_clk_idexmem`), both 50 MHz clocks of the core | Wire directly, with no synchronization |
 | Different clock | The SDRAM controller and the debug port, at 142.857 MHz, while the core runs at 50 MHz | Cross the domain with a request that toggles one signal (`req_tog`) and a response that toggles another (`ack_tog`), each read through two synchronizing flip-flops, with address, data and mask stable from the toggle of the request until the response |
 
 The crossing by toggling is what the bridge [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md) and the arbiter [sdram_arbiter](../ram/sdram_arbiter.md) use. A block must never receive `i_re`, `i_we` or `i_addr` from a clock domain other than its own without going through this synchronization.
@@ -175,7 +175,7 @@ A wide word allows moving several core words at once. The data cache uses this i
 
 | Type | Blocks |
 | :--- | :--- |
-| One-cycle memory | [ram](../ram/ram.md), [ram_simulation](../ram/ram_simulation.md), [boot_rom](../rom/boot_rom.md), [flash_store](../rom/flash_store.md), [rom_simulation](../rom/rom_simulation.md) |
+| One-cycle memory | [ram](../ram/ram.md), [ram_simulation](../ram/ram_simulation.md), [boot_memory](../rom/boot_memory.md), [flash_store](../rom/flash_store.md), [rom_simulation](../rom/rom_simulation.md) |
 | Variable-latency memory | [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md), [sdram_ctrl](../ram/sdram_ctrl.md) |
 | Dual-port memory | [rom_simulation](../rom/rom_simulation.md) (two reads) and [ram_chip](../ram/ram_chip.md) (data, instructions and debug) |
 
