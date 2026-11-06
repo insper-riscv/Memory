@@ -1,0 +1,34 @@
+name: version-bump
+
+# A pull request that changes the repository must raise the version in pyproject.toml (and the same
+# version in uv.lock) above the one on main. One that changes only submodule pointers, documentation or CI
+# files does not (the globs are the default `exempt` of the action). The job always runs and passes when
+# nothing asks for a bump, so it can be a required check.
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: version-bump-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  version-bump:
+    name: version-bump
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Fetch the base branch
+        env:
+          BASE: ${{ github.base_ref }}
+        run: git fetch --no-tags --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
+
+      - uses: insper-riscv/Infra/.github/actions/version-bump@onda1
+        with:
+          base: origin/${{ github.base_ref }}

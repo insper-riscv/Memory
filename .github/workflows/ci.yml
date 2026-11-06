@@ -29,8 +29,22 @@ jobs:
       actions: read
     outputs:
       skip: ${{ steps.lookup.outputs.skip }}
+      images: ${{ steps.plan.outputs.images }}
+      gates: ${{ steps.plan.outputs.gates }}
 
     steps:
+      - uses: actions/checkout@v7
+
+      # The digests of the CI images (ci-images.lock) and, for each gate, the key of its inputs: a gate whose
+      # key already has a pass (artifact ci-pass-<gate>-<key>) is skipped, whatever the commit, branch or event.
+      - name: Read the image digests and look for a pass of the same inputs
+        id: plan
+        uses: insper-riscv/Infra/.github/actions/ci-plan@onda1
+        with:
+          gates: |
+            formal|ci-vhdl|!docs/** !**/*.md !LICENSE !AUTHORS* !CITATION.cff !codeclone.baseline.json !ci-images.lock !.github/workflows/version-bump.yml !.github/workflows/tree.yml !pyproject.toml !uv.lock
+            unit-tests|ci-vhdl|!docs/** !**/*.md !LICENSE !AUTHORS* !CITATION.cff !codeclone.baseline.json !ci-images.lock !.github/workflows/version-bump.yml !.github/workflows/tree.yml !formal/**
+
       - name: Look for a passed pull request run of the same tree
         id: lookup
         env:
@@ -65,7 +79,7 @@ jobs:
     timeout-minutes: 15
     # GHDL, Yosys, SymbiYosys, z3, uv and riscv-tools of insper-riscv/Infra.
     container:
-      image: ghcr.io/insper-riscv/ci-vhdl:latest
+      image: ${{ fromJSON(needs.reuse.outputs.images)['ci-vhdl'] }}
 
     steps:
       - uses: actions/checkout@v7
@@ -84,11 +98,11 @@ jobs:
   unit-tests:
     name: unit-tests
     needs: reuse
-    if: ${{ needs.reuse.outputs.skip != 'true' }}
+    if: ${{ needs.reuse.outputs.skip != 'true' && fromJSON(needs.reuse.outputs.gates)['unit-tests'].skip != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     container:
-      image: ghcr.io/insper-riscv/ci-vhdl:latest
+      image: ${{ fromJSON(needs.reuse.outputs.images)['ci-vhdl'] }}
 
     steps:
       - uses: actions/checkout@v7
@@ -100,6 +114,18 @@ jobs:
 
       - name: Per-entity cocotb tests
         run: make test
+
+      - name: Record the pass of these inputs
+        # Only reached when every step above passed: a later run with the same key skips this gate.
+        env:
+          KEY: ${{ fromJSON(needs.reuse.outputs.gates)['unit-tests'].key }}
+        run: echo "$KEY" > ci-pass.txt
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ fromJSON(needs.reuse.outputs.gates)['unit-tests'].artifact }}
+          path: ci-pass.txt
+          overwrite: true
 
       - name: Upload waveforms
         if: failure()
@@ -115,7 +141,7 @@ jobs:
     # because a ruleset needs every required check to pass.
     name: formal - ${{ matrix.engine }}
     needs: reuse
-    if: ${{ needs.reuse.outputs.skip != 'true' }}
+    if: ${{ needs.reuse.outputs.skip != 'true' && fromJSON(needs.reuse.outputs.gates)['formal'].skip != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 30
     strategy:
@@ -123,7 +149,7 @@ jobs:
       matrix:
         engine: [yices, bitwuzla, boolector, abc-bmc3]
     container:
-      image: ghcr.io/insper-riscv/ci-vhdl:latest
+      image: ${{ fromJSON(needs.reuse.outputs.images)['ci-vhdl'] }}
 
     steps:
       - uses: actions/checkout@v7
@@ -152,7 +178,7 @@ jobs:
     # result of the pull request is reused (reuse), the engines are skipped and so is this job.
     name: formal
     needs: [reuse, formal-engine]
-    if: ${{ always() && needs.reuse.outputs.skip != 'true' }}
+    if: ${{ always() && needs.reuse.outputs.skip != 'true' && fromJSON(needs.reuse.outputs.gates)['formal'].skip != 'true' }}
     runs-on: ubuntu-26.04
     timeout-minutes: 10
 
@@ -172,6 +198,18 @@ jobs:
       - name: Decide across the engines
         run: bash formal/aggregate.sh formal-results
 
+      - name: Record the pass of these inputs
+        # Only reached when every step above passed: a later run with the same key skips this gate.
+        env:
+          KEY: ${{ fromJSON(needs.reuse.outputs.gates)['formal'].key }}
+        run: echo "$KEY" > ci-pass.txt
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: ${{ fromJSON(needs.reuse.outputs.gates)['formal'].artifact }}
+          path: ci-pass.txt
+          overwrite: true
+
   python-static-analysis:
     name: python-static-analysis
     needs: reuse
@@ -180,7 +218,7 @@ jobs:
     timeout-minutes: 15
     # The tools that need no project environment come pinned in the image (pylint, pyright, deptry and uv audit run with `uv run` in the environment `uv sync` builds).
     container:
-      image: ghcr.io/insper-riscv/ci-vhdl:latest
+      image: ${{ fromJSON(needs.reuse.outputs.images)['ci-vhdl'] }}
 
     steps:
       - uses: actions/checkout@v7
