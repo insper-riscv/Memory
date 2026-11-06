@@ -15,6 +15,13 @@
 -- pedido na borda em que vê ready, como as caches fazem.
 --
 -- Para uma cache só de leitura, i_wren fica em '0' e o caso do store não ocorre.
+--
+-- hold_rdata: com um mestre que não guarda o dado lido (o núcleo ligado direto, sem cache de dados), o endereço
+-- continua mudando depois que o pedido termina, e escolher o dado lido por ele faria o estágio de write-back ler
+-- a região errada. Com hold_rdata, o_rdata e o_rdata_x seguem a região do último pedido concluído (o_ready e
+-- i_advance em '1' com i_rden ou i_wren), registrada na mesma borda em que o chip troca o dado lido, e não
+-- mudam até o próximo pedido concluir. Sem hold_rdata a escolha é combinacional sobre o endereço, o que basta
+-- a uma cache, que guarda o dado ao terminar o pedido.
 -- =============================================================================
 
 library ieee;
@@ -28,7 +35,9 @@ entity mem_region_router is
     -- Fim exclusivo, em KiB, da região da FLASH (0x40000000 por padrão).
     rom_end_kib    : natural := 1048576;
     -- Tamanho, em KiB, da janela que o chip da FLASH atende a partir da base; a leitura além dela devolve zero.
-    rom_window_kib : natural := 1024
+    rom_window_kib : natural := 1024;
+    -- O dado lido segue a região do último pedido concluído, e não o endereço atual (mestre sem cache de dados).
+    hold_rdata     : boolean := false
   );
   port (
     -- Clock do módulo.
@@ -109,6 +118,12 @@ architecture rtl of mem_region_router is
   signal is_local : std_logic;
   -- O pedido local já foi visto, ready sobe e fica até advance.
   signal local_ready : std_logic := '0';
+  -- Região que escolhe o dado lido: a do endereço atual, ou a do último pedido concluído com hold_rdata.
+  signal rd_flash : std_logic;
+  -- Idem para o dado local (zero).
+  signal rd_local : std_logic;
+  -- Pedido concluído da região do endereço atual.
+  signal ready_sel : std_logic;
 
 begin
 
@@ -131,15 +146,50 @@ begin
   o_f_line    <= i_line;
   o_f_advance <= i_advance and is_flash and not is_local;
 
-  o_ready <= local_ready when is_local = '1' else
-             i_f_ready   when is_flash = '1' else
-             i_s_ready;
-  o_rdata <= (others => '0') when is_local = '1' else
-             i_f_rdata       when is_flash = '1' else
+  ready_sel <= local_ready when is_local = '1' else
+               i_f_ready   when is_flash = '1' else
+               i_s_ready;
+  o_ready <= ready_sel;
+  o_rdata <= (others => '0') when rd_local = '1' else
+             i_f_rdata       when rd_flash = '1' else
              i_s_rdata;
-  o_rdata_x <= (others => '0') when is_local = '1' else
-               i_f_rdata_x     when is_flash = '1' else
+  o_rdata_x <= (others => '0') when rd_local = '1' else
+               i_f_rdata_x     when rd_flash = '1' else
                i_s_rdata_x;
+
+  -- O dado lido segue o endereço atual.
+  g_live : if not hold_rdata generate
+  begin
+    rd_flash <= is_flash;
+    rd_local <= is_local;
+  end generate g_live;
+
+  -- O dado lido segue a região do último pedido concluído, guardada na borda em que o chip troca o dado.
+  g_hold : if hold_rdata generate
+    -- O dado lido que o mestre vê vem da FLASH.
+    signal held_flash : std_logic := '0';
+    -- O dado lido que o mestre vê é zero (o último pedido concluído foi local).
+    signal held_local : std_logic := '0';
+    -- O pedido atual conclui neste ciclo: acesso pedido, consumido e pronto.
+    signal completes  : std_logic;
+  begin
+    completes <= (i_rden or i_wren) and i_advance and ready_sel;
+    rd_flash  <= held_flash;
+    rd_local  <= held_local;
+
+    process (i_clk)
+    begin
+      if rising_edge(i_clk) then
+        if i_rst = '1' then
+          held_flash <= '0';
+          held_local <= '0';
+        elsif completes = '1' then
+          held_flash <= is_flash;
+          held_local <= is_local;
+        end if;
+      end if;
+    end process;
+  end generate g_hold;
 
   process (i_clk)
   begin
