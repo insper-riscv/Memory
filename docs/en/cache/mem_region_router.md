@@ -20,6 +20,7 @@ Two kinds of FLASH request never reach the chip and are completed inside the rou
 | `rom_base_kib` | natural | 524288 | Base of the FLASH region in KiB (0x20000000) |
 | `rom_end_kib` | natural | 1048576 | Exclusive end of the FLASH region in KiB (0x40000000) |
 | `rom_window_kib` | natural | 1024 | Size in KiB of the window the chip serves from the base; a read beyond it returns zero |
+| `hold_rdata` | boolean | false | The data read follows the region of the last completed request, not the current address (a master without a data cache, see section 3.4) |
 
 ### 2.2. Master ports
 
@@ -105,6 +106,16 @@ The request stays on the bus until `o_ready`, which is a level and falls only wi
 
 For a read-only cache, `i_wren` stays at 0 and the store case does not occur.
 
+### 3.4. Held read data (`hold_rdata`)
+
+A cache keeps the data when the request ends, so choosing the data combinationally by the address is enough. A master that does not keep the data, such as the core wired straight to the router, changes the address as soon as the request ends, and the write-back stage still reads the data a third of a cycle later. With `hold_rdata` set to `true`, `o_rdata` and `o_rdata_x` follow the region of the last completed request, which a register keeps on the edge in which the chip changes the data read.
+
+$$
+\text{completes} = (\texttt{i\_rden} \vee \texttt{i\_wren}) \wedge \texttt{i\_advance} \wedge \texttt{o\_ready}
+$$
+
+On the edge in which `completes` holds, the `flash` and `local` registers take the conditions of section 3.1; otherwise they keep their value. Reset clears them, and the data read goes back to the SDRAM one. With `hold_rdata` set to `false` no register exists and the behavior is that of section 3.1.
+
 ## 4. Integration
 
 | Instance | File | Connection |
@@ -112,7 +123,7 @@ For a read-only cache, `i_wren` stays at 0 and the store case does not occur.
 | `u_router_i` | `src/cache/SoC/sim/flash_path_system.vhd` | Master wired to the memory side of the [icache](icache.md), with `i_wren` at 0; FLASH output wired to master A of the [flash_arbiter](flash_arbiter.md); SDRAM output without a slave |
 | `u_router_b` | `src/cache/SoC/sim/flash_path_system.vhd` | Master wired to port B of the system, which stands for the memory side of a data cache; FLASH output wired to master B of the arbiter; SDRAM output without a slave |
 
-The memory side of the [dcache](dcache.md) uses the same request and answer convention. A FLASH store forwarded by the dcache is the case in which the router completes it with no effect. No instance in the repository wires the dcache to this router.
+The memory side of the [dcache](dcache.md) uses the same request and answer convention. A FLASH store forwarded by the dcache is the case in which the router completes it with no effect. No instance in the repository wires the dcache to this router. The modular top of Insper-RISC-V wires the core to the data router with `hold_rdata` set to `true` when there is no data cache.
 
 ## 5. Verification
 
@@ -122,6 +133,7 @@ The tests are cocotb tests in `tests/python/unittests/cache`, registered in `tes
 | :--- | :--- | :--- |
 | `MemRegionRouter` | [mem_region_router.py](../../../tests/python/unittests/cache/mem_region_router.py) | Line read to the SDRAM and to the FLASH, FLASH store absorbed, read outside the window returns zero, SDRAM store passed through, mixed sequence |
 | `MemRegionRouterLow` | [mem_region_router_low.py](../../../tests/python/unittests/cache/mem_region_router_low.py) | Generics `rom_base_kib` equal to 2, `rom_end_kib` equal to 32 and `rom_window_kib` equal to 30; a read inside the region reaches the ROM, region edges, ROM store absorbed and SDRAM store passed through |
+| `MemRegionRouterHold` | [mem_region_router_hold.py](../../../tests/python/unittests/cache/mem_region_router_hold.py) | Generic `hold_rdata` set to `true`; the FLASH word and the SDRAM word stay after the address changes, and an absorbed store leaves zero |
 | `FlashPath` | [flash_path.py](../../../tests/python/unittests/cache/flash_path.py) | Two routers, the icache, the arbiter and the chip together; a FLASH store never reaches the chip, a read beyond the window returns zero without touching the chip, SDRAM requests do not touch the FLASH path |
 
 ---

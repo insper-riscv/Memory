@@ -1,5 +1,6 @@
 # Every file path this repository's configuration references, checked by
 #   riscv-tools --root . check-paths --manifest paths.yaml
+repository: Memory
 tree:
   coverage:
     formal:
@@ -12,14 +13,6 @@ tree:
       sdram_arbiter: []
       sdram_cpu_bridge: []
       sdram_ctrl: []
-    # Entities without an entity test of their own, and why (changed only with a justification in the pull request).
-    exceptions:
-      axi_master_bridge: "Exercised through the data cache tests (DataCache, toplevel sdram_dcache_system) and proved in formal/axi_master."
-      axi_slave_word_bridge: "Exercised through the AXI SDRAM slave tests (toplevel axi_sdram_slave_system) and proved in formal/axi_slave."
-      flash_jtag_core: "Exercised through the FlashLoader test (toplevel flash_system), which drives the JTAG path."
-      flash_loader: "Exercised through the FlashLoader test (toplevel flash_system)."
-      flash_simulation: "Exercised through the FlashLoader test (toplevel flash_system), which uses it as the flash model."
-      onchip_ram_port: "Exercised through the OnchipRam tests (toplevel onchip_ram_system)."
   # Folders named after the board family, the memory kind or the SoC keep their capitals: they are identifiers.
   identifier_folders: [SoC, RAM, ROM, FPGA, Cyclone-V]
 references:
@@ -27,3 +20,139 @@ references:
   - {name: Quartus IP files, paths: [src/ROM/Cyclone-V/boot_rom.qip, src/ROM/Cyclone-V/flash.qip, src/ROM/Cyclone-V/flash_loader.qip, src/ROM/Cyclone-V/flash_store.qip, src/RAM/FPGA/Cyclone-V/ram.qip]}
   - {name: entry points, paths: [tests/python/runner.py, src/cache/SoC, src/RAM/SoC, src/ROM/SoC, src/ROM/SoC/sim, src/barramento/SoC, src/RAM/FPGA/debug/sdram, src/tests, formal/all.sh, formal/common.sh, formal/aggregate.sh, formal/test-aggregate.sh, formal/run.sh, formal/sdram_arbiter/props.sv, formal/axi_master/run.sh, formal/axi_master/props.sv, formal/axi_slave/run.sh, formal/axi_slave/props.sv, formal/flash_arbiter/run.sh, formal/flash_arbiter/props.sv, formal/flash_cmd_port/run.sh, formal/flash_cmd_port/props.sv, formal/mem_region_router/run.sh, formal/mem_region_router/props.sv, formal/sdram_cpu_bridge/run.sh, formal/sdram_cpu_bridge/props.sv, formal/sdram_ctrl/run.sh, formal/sdram_ctrl/props.sv, formal/icache/run.sh, formal/icache/props.sv, formal/dcache/run.sh, formal/dcache/props.sv]}
   - {name: design documents, paths: [docs/pt-br/barramento/dcache_axi.md, docs/pt-br/barramento/dcache_axi_decisions.md, docs/pt-br/formal/formal.md, docs/pt-br/formal/blocks.md, docs/pt-br/ram/sdram_debug.md, docs/pt-br/rom/flash_loader.md, docs/pt-br/rom/flash_jtag_core.md, docs/pt-br/rom/flash_simulation.md, docs/pt-br/rom/flash_cmd_port.md, docs/pt-br/ram/sdram_line.md, docs/pt-br/ram/sdram_subword_read.md, docs/pt-br/ram/sdram_timings.md, docs/pt-br/bugs/AXI_UNALIGNED_BYTE_STORE.md, docs/pt-br/bugs/CACHE_HOST_COHERENCE.md, docs/pt-br/bugs/CACHE_MASTER_SHARING.md, docs/pt-br/bugs/FILL_COUNT_24_BITS.md, docs/pt-br/bugs/JTAG_STATUS_POLL.md, docs/pt-br/bugs/QUARTUS_VHDL_SUBSET.md, docs/pt-br/bugs/SDRAM_MODEL_RESET_COMMAND.md, docs/en/barramento/dcache_axi.md, docs/en/barramento/dcache_axi_decisions.md, docs/en/formal/formal.md, docs/en/formal/blocks.md, docs/en/ram/sdram_debug.md, docs/en/rom/flash_loader.md, docs/en/rom/flash_jtag_core.md, docs/en/rom/flash_simulation.md, docs/en/rom/flash_cmd_port.md, docs/en/ram/sdram_line.md, docs/en/ram/sdram_subword_read.md, docs/en/ram/sdram_timings.md, docs/en/bugs/AXI_UNALIGNED_BYTE_STORE.md, docs/en/bugs/CACHE_HOST_COHERENCE.md, docs/en/bugs/CACHE_MASTER_SHARING.md, docs/en/bugs/FILL_COUNT_24_BITS.md, docs/en/bugs/JTAG_STATUS_POLL.md, docs/en/bugs/QUARTUS_VHDL_SUBSET.md, docs/en/bugs/SDRAM_MODEL_RESET_COMMAND.md]}
+
+provides:
+  # Each component lists its sources in GHDL dependency order and the components it needs. A requires with the
+  # prefix Common-Components/ names a block of the submodule at src/common. The components of the sim folders
+  # (models and systems) are the ones the entity tests build.
+  ram_simulation:
+    requires: [Common-Components/utils]
+    sources:
+      - src/RAM/SoC/ram_simulation.vhd
+  onchip_ram:
+    requires: [Common-Components/utils]
+    sources:
+      - src/RAM/SoC/ram_chip.vhd
+      - src/RAM/SoC/onchip_ram_port.vhd
+  ram_cyclone_v:
+    requires: [Common-Components/utils]
+    sources:
+      - src/RAM/FPGA/Cyclone-V/ram.vhd
+  rom_simulation:
+    requires: [Common-Components/utils]
+    sources:
+      - src/ROM/SoC/rom_simulation.vhd
+  flash_simulation:
+    requires: [Common-Components/utils]
+    sources:
+      - src/ROM/SoC/flash_simulation.vhd
+  flash_loader:
+    requires: []
+    sources:
+      - src/ROM/SoC/flash_jtag_core.vhd
+      - src/ROM/SoC/flash_loader.vhd
+  boot_rom:
+    requires: [Common-Components/utils]
+    sources:
+      - src/ROM/Cyclone-V/boot_rom.vhd
+  flash:
+    requires: [Common-Components/utils]
+    sources:
+      - src/ROM/Cyclone-V/flash.vhd
+  flash_store:
+    requires: [Common-Components/utils]
+    sources:
+      - src/ROM/Cyclone-V/flash_store.vhd
+  flash_jtag_shell:
+    requires: [flash_loader]
+    sources:
+      - src/ROM/Cyclone-V/flash_jtag_shell.vhd
+  sdram:
+    requires: [Common-Components/synchronizer]
+    sources:
+      - src/RAM/SoC/sdram/sdram_pkg.vhd
+      - src/RAM/SoC/sdram/sdram_ctrl.vhd
+      - src/RAM/SoC/sdram/sdram_cpu_bridge.vhd
+      - src/RAM/SoC/sdram/sdram_arbiter.vhd
+  sdram_debug:
+    requires: [Common-Components/synchronizer]
+    sources:
+      - src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd
+      - src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd
+  axi_master_bridge:
+    requires: []
+    sources:
+      - src/barramento/SoC/axi_master_bridge.vhd
+  axi_slave_word_bridge:
+    requires: []
+    sources:
+      - src/barramento/SoC/axi_slave_word_bridge.vhd
+  icache:
+    requires: [Common-Components/utils]
+    sources:
+      - src/cache/SoC/icache.vhd
+  dcache:
+    requires: [Common-Components/utils]
+    sources:
+      - src/cache/SoC/dcache.vhd
+  flash_chip:
+    requires: [Common-Components/utils]
+    sources:
+      - src/cache/SoC/flash_chip.vhd
+  flash_cmd_port:
+    requires: [Common-Components/utils]
+    sources:
+      - src/cache/SoC/flash_cmd_port.vhd
+  flash_arbiter:
+    requires: []
+    sources:
+      - src/cache/SoC/flash_arbiter.vhd
+  mem_region_router:
+    requires: []
+    sources:
+      - src/cache/SoC/mem_region_router.vhd
+  ifetch_bridge:
+    requires: []
+    sources:
+      - src/cache/SoC/ifetch_bridge.vhd
+  sdram_model:
+    requires: [sdram]
+    sources:
+      - src/RAM/SoC/sim/sdram_model.vhd
+  sdram_system:
+    requires: [sdram, sdram_debug, sdram_model]
+    sources:
+      - src/RAM/SoC/sim/sdram_system.vhd
+  sdram_bist:
+    requires: [sdram, sdram_model]
+    sources:
+      - src/tests/teste_sdram.vhd
+      - src/tests/teste_sdram_system.vhd
+  onchip_ram_system:
+    requires: [Common-Components/utils, onchip_ram, ram_simulation, dcache]
+    sources:
+      - src/RAM/SoC/sim/onchip_ram_system.vhd
+  flash_system:
+    requires: [Common-Components/utils, flash_simulation, flash_loader]
+    sources:
+      - src/ROM/SoC/sim/flash_system.vhd
+  axi_sdram_slave_system:
+    requires: [sdram, sdram_system, axi_slave_word_bridge]
+    sources:
+      - src/barramento/SoC/sim/axi_sdram_slave_system.vhd
+  sdram_dcache_system:
+    requires: [sdram, sdram_system, axi_master_bridge, axi_slave_word_bridge, dcache]
+    sources:
+      - src/cache/SoC/sim/sdram_dcache_system.vhd
+  flash_dual_system:
+    requires: [Common-Components/utils, flash_simulation, flash_chip, flash_cmd_port]
+    sources:
+      - src/cache/SoC/sim/flash_dual_system.vhd
+  flash_path_system:
+    requires: [icache, flash_chip, mem_region_router, flash_arbiter]
+    sources:
+      - src/cache/SoC/sim/flash_path_system.vhd
+  ifetch_path_system:
+    requires: [Common-Components/utils, ifetch_bridge, flash_chip, mem_region_router, flash_arbiter]
+    sources:
+      - src/cache/SoC/sim/ifetch_path_system.vhd
