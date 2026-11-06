@@ -125,6 +125,18 @@ architecture rtl of icache is
   -- Estado atual da cache.
   signal st : state_t := S_IDLE;
 
+  -- Primeiro endereço de byte selecionado quando a seleção sai do endereço registrado (sel_from_kib não negativo).
+  function sel_from_addr_of (kib : integer) return unsigned is
+  begin
+    if kib < 0 then
+      return to_unsigned(0, 32);
+    end if;
+    return shift_left(to_unsigned(kib, 32), 10);
+  end function sel_from_addr_of;
+
+  -- Primeiro endereço de byte selecionado (sel_from_kib não negativo).
+  constant SEL_FROM_ADDR : unsigned(31 downto 0) := sel_from_addr_of(sel_from_kib);
+
   -- Bits do índice da linha: o tamanho em bits dividido pelos 128 bits de uma linha, em logaritmo exato (falha se o tamanho não for uma potência de dois).
   function index_bits_of (bits : positive) return natural is
   begin
@@ -235,7 +247,7 @@ begin
 
   tag_match <= '1' when tag_rd = (in_rom(addr_q) & addr_q(25 downto TAG_LOW)) else '0';
   sel_eff   <= sel_q when sel_from_kib < 0 else
-               '1' when unsigned(addr_q) >= shift_left(to_unsigned(maximum(sel_from_kib, 0), 32), 10) else '0';
+               '1' when unsigned(addr_q) >= SEL_FROM_ADDR else '0';
   hit       <= sel_eff and valid_rd and tag_match and (not blocked);
   early_ok  <= sel_eff and (not blocked) when addr_q = i_addr else '0';
   o_ready   <= early_ok and valid_rd and tag_match;
