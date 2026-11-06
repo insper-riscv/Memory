@@ -42,8 +42,8 @@ jobs:
         uses: insper-riscv/Infra/.github/actions/ci-plan@main
         with:
           gates: |
-            formal|ci-vhdl|!docs/** !**/*.md !LICENSE !AUTHORS* !CITATION.cff !codeclone.baseline.json !ci-images.lock !.github/workflows/version-bump.yml !.github/workflows/tree.yml !pyproject.toml !uv.lock
-            unit-tests|ci-vhdl|!docs/** !**/*.md !LICENSE !AUTHORS* !CITATION.cff !codeclone.baseline.json !ci-images.lock !.github/workflows/version-bump.yml !.github/workflows/tree.yml !formal/**
+            formal|ci-vhdl|!docs/** !**/*.md !LICENSE !AUTHORS* !CITATION.cff !codeclone.baseline.json !.github/workflows/version-bump.yml !.github/workflows/tree.yml !pyproject.toml !uv.lock
+            unit-tests|ci-vhdl|!docs/** !**/*.md !LICENSE !AUTHORS* !CITATION.cff !codeclone.baseline.json !.github/workflows/version-bump.yml !.github/workflows/tree.yml !formal/**
 
       - name: Look for a passed pull request run of the same tree
         id: lookup

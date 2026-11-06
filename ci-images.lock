@@ -1,6 +1,0 @@
-# Digests of the CI images of insper-riscv/Infra. Do not edit by hand: the pull request of
-# the workflow Pin CI images (insper-riscv/Infra) rewrites this file when the images change.
-ci-vhdl=sha256:263aa3bd4650b8b9aebeedfff190c90646adb81ca5b53769b4318505b6abad64
-ci-elf=sha256:465ffaf573c4b432f32679a9a33f7a9d8285968924691cf10117a05174508c62
-ci-act4=sha256:893a865d371419394c04a1da35295fed4f853f763627113f7d9c89408fe55797
-dev_tools=sha256:763bfef2bb6a5fe97827cc6708049b472da4e7ab31881783b1e9b14b9f4e4358
