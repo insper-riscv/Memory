@@ -35,7 +35,7 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      # The digests of the CI images (ci-images.lock) and, for each gate, the key of its inputs: a gate whose
+      # The CI images (tag latest) and, for each gate, the key of its inputs: a gate whose
       # key already has a pass (artifact ci-pass-<gate>-<key>) is skipped, whatever the commit, branch or event.
       - name: Read the image digests and look for a pass of the same inputs
         id: plan
