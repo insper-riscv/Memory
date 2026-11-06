@@ -128,7 +128,7 @@ provides:
     sources:
       - src/ROM/SoC/chip_timing_pkg.vhd
   nor_flash_ctrl:
-    requires: [Common-Components/utils, Common-Components/synchronizer, chip_timing]
+    requires: [Common-Components/utils, Common-Components/synchronizer, chip_timing, latency_counter]
     sources:
       - src/ROM/SoC/nor_flash_ctrl.vhd
   nor_flash_model:
@@ -140,7 +140,7 @@ provides:
     sources:
       - src/ROM/SoC/sim/nor_flash_ctrl_tb.vhd
   sram_ctrl:
-    requires: [Common-Components/utils, chip_timing]
+    requires: [Common-Components/utils, chip_timing, latency_counter]
     sources:
       - src/RAM/SoC/sram_ctrl.vhd
   sram_model:

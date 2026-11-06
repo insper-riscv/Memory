@@ -1092,6 +1092,7 @@
             "src/common/src/utils_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/ROM/SoC/nor_flash_ctrl.vhd",
             "src/ROM/SoC/sim/nor_flash_model.vhd",
             "src/ROM/SoC/sim/nor_flash_ctrl_tb.vhd"
@@ -1110,6 +1111,7 @@
             "src/common/src/utils_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/ROM/SoC/nor_flash_ctrl.vhd",
             "src/ROM/SoC/sim/nor_flash_model.vhd",
             "src/ROM/SoC/sim/nor_flash_ctrl_tb.vhd"
@@ -1132,6 +1134,7 @@
             "src/common/src/utils_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/ROM/SoC/nor_flash_ctrl.vhd",
             "src/ROM/SoC/sim/nor_flash_model.vhd",
             "src/ROM/SoC/sim/nor_flash_ctrl_tb.vhd"
@@ -1176,6 +1179,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/sram_ctrl.vhd",
             "src/RAM/SoC/sim/sram_model.vhd",
             "src/RAM/SoC/sim/sram_ctrl_tb.vhd"
@@ -1193,6 +1197,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/sram_ctrl.vhd",
             "src/RAM/SoC/sim/sram_model.vhd",
             "src/RAM/SoC/sim/sram_ctrl_tb.vhd"
@@ -1215,6 +1220,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/sram_ctrl.vhd",
             "src/RAM/SoC/sim/sram_model.vhd",
             "src/RAM/SoC/sim/sram_ctrl_tb.vhd"

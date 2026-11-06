@@ -33,7 +33,9 @@
 -- sem tocar no chip: a leitura devolve zero e a escrita é descartada.
 --
 -- Tempos. O período do clock, a margem de pino e os tempos do chip são generics
--- (padrões em chip_timing_pkg, marcados "inferido" na ficha da DE2-115).
+-- (padrões em chip_timing_pkg, marcados "inferido" na ficha da DE2-115). Todas as
+-- esperas são contadas pela latency_counter, a máquina de latência única do
+-- repositório.
 -- =============================================================================
 
 library ieee;
@@ -137,14 +139,22 @@ architecture rtl of sram_ctrl is
   constant N_WH : positive := max_natural(cycles_of(max_natural(t_ha_ns, t_hd_ns), clk_period_ns, margin_ns),
                               max_natural(cycles_of(t_wc_ns, clk_period_ns, margin_ns), N_WL + 2) - N_WL - 1);
   -- Maior valor de contagem.
-  constant CNT_MAX : natural := N_RD + N_WL + N_WH;
+  constant CNT_MAX : natural := max_natural(N_RD, max_natural(N_WL, N_WH));
 
   -- Estados: livre, espera da leitura, escolha da meia palavra a escrever, preparação, WE# baixo, WE# alto e concluído.
   type state_t is (S_IDLE, S_RD, S_WSEL, S_WSETUP, S_WLOW, S_WHIGH, S_DONE);
   -- Estado atual.
   signal st       : state_t := S_IDLE;
-  -- Ciclos que faltam da espera em andamento.
-  signal cnt      : natural range 0 to CNT_MAX := 0;
+  -- Pedido de uma contagem de latência ('1' carrega).
+  signal lat_load  : std_logic;
+  -- Ciclos da contagem pedida.
+  signal lat_count : natural range 0 to CNT_MAX;
+  -- A contagem de latência termina nesta borda.
+  signal lat_last  : std_logic;
+  -- O acesso pedido em i_addr está fora da janela do chip.
+  signal acc_outw  : std_logic;
+  -- Começa uma leitura de chip nesta borda: o controlador está livre e o pedido de leitura está na janela.
+  signal rd_start  : std_logic;
   -- Meia palavra em andamento (0 a 7).
   signal half_n   : natural range 0 to 8 := 0;
   -- Última meia palavra do acesso (1 para uma palavra, 7 para uma linha).
@@ -195,13 +205,30 @@ begin
   o_sram_lb_n  <= lb_n_q;
   o_sram_ub_n  <= ub_n_q;
 
+  -- O endereço está fora da janela quando fica abaixo da base ou além do tamanho do chip.
+  acc_outw <= '1' when unsigned(i_addr(25 downto 0)) < base_kib * 1024
+                    or unsigned(i_addr(25 downto 0)) - base_kib * 1024 >= size_bytes else '0';
+  -- Uma leitura de chip começa com o controlador livre, sem pedido de escrita e com o pedido na janela.
+  rd_start <= '1' when st = S_IDLE and i_rden = '1' and i_wren = '0' and acc_outw = '0' else '0';
+
+  -- A máquina de contagem de latência única conta todas as esperas; cada estado que espera carrega a sua.
+  lat_load  <= '1' when rd_start = '1'
+                     or st = S_WSETUP
+                     or (st = S_RD and lat_last = '1' and half_n /= last_h)
+                     or (st = S_WLOW and lat_last = '1') else '0';
+  lat_count <= N_WL when st = S_WSETUP else
+               N_WH when st = S_WLOW else
+               N_RD;
+
+  u_latency : entity work.latency_counter
+    generic map (max_count => CNT_MAX)
+    port map (i_clk => i_clk, i_rst => i_rst, i_load => lat_load, i_count => lat_count, o_last => lat_last, o_wait => open);
+
   process (i_clk)
     -- Endereço de byte do acesso, alinhado a palavra ou a linha.
     variable a      : unsigned(31 downto 0);
     -- Deslocamento do acesso dentro do chip, em bytes.
     variable offset : unsigned(25 downto 0);
-    -- O acesso está fora da janela.
-    variable outw   : boolean;
   begin
     if rising_edge(i_clk) then
       if i_rst = '1' then
@@ -224,20 +251,12 @@ begin
                 a      := unsigned(i_addr(31 downto 2)) & "00";
                 last_h <= 1;
               end if;
-              outw := false;
-              if a(25 downto 0) < base_kib * 1024 then
-                outw := true;
-              else
-                offset := a(25 downto 0) - to_unsigned(base_kib * 1024, 26);
-                if offset(25 downto WINDOW_BITS) /= 0 then
-                  outw := true;
-                end if;
-              end if;
+              offset := a(25 downto 0) - to_unsigned(base_kib * 1024, 26);
               is_wr   <= i_wren;
               half_n  <= 0;
               wdata_q <= i_wdata_x & i_wdata;
               be_q    <= i_byteena_x & i_byteena;
-              if outw then
+              if acc_outw = '1' then
                 if i_wren = '0' then
                   pend_q <= (others => '0');
                 end if;
@@ -252,16 +271,13 @@ begin
                   lb_n_q  <= '0';
                   ub_n_q  <= '0';
                   dq_oe_q <= '0';
-                  cnt     <= N_RD;
                   st      <= S_RD;
                 end if;
               end if;
             end if;
 
           when S_RD =>
-            if cnt > 1 then
-              cnt <= cnt - 1;
-            else
+            if lat_last = '1' then
               for h in 0 to 7 loop
                 if half_n = h then
                   pend_q(16 * h + 15 downto 16 * h) <= i_sram_dq;
@@ -276,7 +292,6 @@ begin
               else
                 half_n <= half_n + 1;
                 addr_q <= addr_q + 1;
-                cnt    <= N_RD;
               end if;
             end if;
 
@@ -307,22 +322,16 @@ begin
 
           when S_WSETUP =>
             we_n_q <= '0';
-            cnt    <= N_WL;
             st     <= S_WLOW;
 
           when S_WLOW =>
-            if cnt > 1 then
-              cnt <= cnt - 1;
-            else
+            if lat_last = '1' then
               we_n_q <= '1';
-              cnt    <= N_WH;
               st     <= S_WHIGH;
             end if;
 
           when S_WHIGH =>
-            if cnt > 1 then
-              cnt <= cnt - 1;
-            else
+            if lat_last = '1' then
               half_n <= half_n + 1;
               addr_q <= addr_q + 1;
               st     <= S_WSEL;

@@ -39,7 +39,8 @@
 --
 -- Tempos. O período do clock, a margem de pino e os tempos do chip são generics
 -- (padrões em chip_timing_pkg, marcados "inferido" na ficha da DE2-115), e o
--- número de ciclos de cada espera sai deles na elaboração.
+-- número de ciclos de cada espera sai deles na elaboração. Todas as esperas são
+-- contadas pela latency_counter, a máquina de latência única do repositório.
 --
 -- Reset. i_rst baixa RESET# do chip por t_rp e só aceita pedidos t_rh depois de
 -- ele subir. Janela: o chip ocupa size_bytes bytes, uma potência de dois. Uma
@@ -197,17 +198,28 @@ architecture rtl of nor_flash_ctrl is
   -- Ciclos de espera depois da subida de RESET#.
   constant N_RH    : positive := cycles_of(t_rh_ns, clk_period_ns, margin_ns);
   -- Maior valor de contagem.
-  constant CNT_MAX : natural := N_RP + N_RH + N_BUSY + N_FIRST + N_NEXT + N_WL + N_WH;
+  constant CNT_MAX : natural := max_natural(N_RP, max_natural(N_RH, max_natural(N_BUSY, max_natural(N_FIRST,
+                                max_natural(N_NEXT, max_natural(N_WL, N_WH))))));
 
-  -- Estados: reset do chip, livre, leitura, leitura concluída, busca da palavra do buffer, escolha do byte a gravar,
-  -- passagem ao byte ou à palavra seguinte, preparação de um ciclo de escrita, WE# baixo, WE# alto, espera de t_busy,
-  -- espera de RY e fim da operação.
-  type state_t is (S_RESET, S_IDLE, S_RD, S_RD_DONE, S_FETCH, S_PBYTE, S_NEXT, S_WSETUP, S_WLOW, S_WHIGH, S_BUSY,
-                   S_POLL, S_FIN);
+  -- Estados: início do reset do chip, RESET# baixo, espera depois de RESET#, livre, leitura, leitura concluída, busca
+  -- da palavra do buffer, escolha do byte a gravar, passagem ao byte ou à palavra seguinte, preparação de um ciclo de
+  -- escrita, WE# baixo, WE# alto, espera de t_busy, espera de RY e fim da operação.
+  type state_t is (S_RST_ARM, S_RST_LOW, S_RST_HIGH, S_IDLE, S_RD, S_RD_DONE, S_FETCH, S_PBYTE, S_NEXT, S_WSETUP, S_WLOW,
+                   S_WHIGH, S_BUSY, S_POLL, S_FIN);
   -- Estado atual.
-  signal st        : state_t := S_RESET;
-  -- Ciclos que faltam da espera em andamento.
-  signal cnt       : natural range 0 to CNT_MAX := N_RP + N_RH;
+  signal st        : state_t := S_RST_ARM;
+  -- Pedido de uma contagem de latência ('1' carrega).
+  signal lat_load  : std_logic;
+  -- Ciclos da contagem pedida.
+  signal lat_count : natural range 0 to CNT_MAX;
+  -- A contagem de latência termina nesta borda.
+  signal lat_last  : std_logic;
+  -- Começa uma leitura de chip nesta borda: o controlador está livre, sem comando, e o pedido está na janela.
+  signal rd_start  : std_logic;
+  -- O pedido de leitura em i_addr está fora da janela do chip.
+  signal rd_outw   : std_logic;
+  -- Último passo da sequência de comando do chip está em WE# alto (a seguir vem a espera de t_busy).
+  signal seq_end   : std_logic;
   -- Byte da leitura em andamento (0 a 15).
   signal byte_n    : natural range 0 to 15 := 0;
   -- Último byte do pedido (3 para uma palavra, 15 para uma linha).
@@ -341,6 +353,33 @@ begin
   o_fl_rst_n    <= rst_n_q;
   o_fl_wp_n     <= '1';
 
+  -- Um pedido de leitura está fora da janela quando os bits 25 até o fim do tamanho não são todos zero.
+  rd_outw <= '1' when unsigned(i_addr(25 downto WINDOW_BITS)) /= 0 else '0';
+  -- Uma leitura de chip começa com o controlador livre, sem comando no ciclo e com o pedido na janela.
+  rd_start <= '1' when st = S_IDLE and i_cmd_valid = '0' and i_rden = '1' and rd_outw = '0' else '0';
+  -- O último passo da sequência de comando termina nesta borda quando WE# alto acaba no passo final.
+  seq_end <= '1' when (is_erase = '1' and step = 5) or (is_erase = '0' and step = 3) else '0';
+
+  -- A máquina de contagem de latência única conta todas as esperas; cada estado que espera carrega a sua.
+  lat_load <= '1' when st = S_RST_ARM
+                    or rd_start = '1'
+                    or st = S_WSETUP
+                    or (st = S_RST_LOW and lat_last = '1')
+                    or (st = S_RD and lat_last = '1' and byte_n /= last_b)
+                    or (st = S_WLOW and lat_last = '1')
+                    or (st = S_WHIGH and lat_last = '1' and seq_end = '1') else '0';
+  lat_count <= N_RP    when st = S_RST_ARM else
+               N_RH    when st = S_RST_LOW else
+               N_FIRST when st = S_IDLE else
+               N_NEXT  when st = S_RD else
+               N_WL    when st = S_WSETUP else
+               N_WH    when st = S_WLOW else
+               N_BUSY;
+
+  u_latency : entity work.latency_counter
+    generic map (max_count => CNT_MAX)
+    port map (i_clk => i_clk, i_rst => i_rst, i_load => lat_load, i_count => lat_count, o_last => lat_last, o_wait => open);
+
   process (i_clk)
     -- Deslocamento do endereço do comando dentro do chip.
     variable off      : unsigned(WINDOW_BITS - 1 downto 0);
@@ -370,8 +409,7 @@ begin
     if rising_edge(i_clk) then
       inval_q <= '0';
       if i_rst = '1' then
-        st      <= S_RESET;
-        cnt     <= N_RP + N_RH;
+        st      <= S_RST_ARM;
         rst_n_q <= '0';
         ce_n_q  <= '1';
         oe_n_q  <= '1';
@@ -383,14 +421,17 @@ begin
       else
         case st is
 
-          when S_RESET =>
-            if cnt > 0 then
-              cnt <= cnt - 1;
-            end if;
-            if cnt <= N_RH + 1 then
+          when S_RST_ARM =>
+            st <= S_RST_LOW;
+
+          when S_RST_LOW =>
+            if lat_last = '1' then
               rst_n_q <= '1';
+              st      <= S_RST_HIGH;
             end if;
-            if cnt = 0 then
+
+          when S_RST_HIGH =>
+            if lat_last = '1' then
               st <= S_IDLE;
             end if;
 
@@ -446,8 +487,7 @@ begin
                 last_b  <= 3;
               end if;
               byte_n <= 0;
-              if rd_addr(25 downto WINDOW_BITS) /= 0 then
-                out_win <= '1';
+              if rd_outw = '1' then
                 if i_line = '1' then
                   line_q <= (others => '0');
                 else
@@ -455,20 +495,16 @@ begin
                 end if;
                 st <= S_RD_DONE;
               else
-                out_win <= '0';
                 addr_q  <= rd_addr(WINDOW_BITS - 1 downto 0);
                 ce_n_q  <= '0';
                 oe_n_q  <= '0';
                 dq_oe_q <= '0';
-                cnt     <= N_FIRST;
                 st      <= S_RD;
               end if;
             end if;
 
           when S_RD =>
-            if cnt > 1 then
-              cnt <= cnt - 1;
-            else
+            if lat_last = '1' then
               for i in 0 to 15 loop
                 if byte_n = i then
                   line_q(8 * i + 7 downto 8 * i) <= i_fl_dq;
@@ -481,7 +517,6 @@ begin
               else
                 byte_n <= byte_n + 1;
                 addr_q <= addr_q + 1;
-                cnt    <= N_NEXT;
               end if;
             end if;
 
@@ -520,27 +555,20 @@ begin
 
           when S_WSETUP =>
             we_n_q <= '0';
-            cnt    <= N_WL;
             st     <= S_WLOW;
 
           when S_WLOW =>
-            if cnt > 1 then
-              cnt <= cnt - 1;
-            else
+            if lat_last = '1' then
               we_n_q <= '1';
-              cnt    <= N_WH;
               st     <= S_WHIGH;
             end if;
 
           when S_WHIGH =>
-            if cnt > 1 then
-              cnt <= cnt - 1;
-            elsif (is_erase = '1' and step = 5) or (is_erase = '0' and step = 3) then
+            if lat_last = '1' and seq_end = '1' then
               ce_n_q  <= '1';
               dq_oe_q <= '0';
-              cnt     <= N_BUSY;
               st      <= S_BUSY;
-            else
+            elsif lat_last = '1' then
               byte_adr := base_off + to_unsigned(4 * word_n + byte_k, WINDOW_BITS);
               byte_dat := word_q(8 * byte_k + 7 downto 8 * byte_k);
               seq_cycle(step + 1, is_erase, base_off, byte_adr, byte_dat, w_addr, w_data);
@@ -551,9 +579,7 @@ begin
             end if;
 
           when S_BUSY =>
-            if cnt > 1 then
-              cnt <= cnt - 1;
-            else
+            if lat_last = '1' then
               st <= S_POLL;
             end if;
 
