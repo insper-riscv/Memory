@@ -368,6 +368,22 @@
             "--std=08"
         ]
     },
+    "MemRegionRouterHold": {
+        "toplevel": "mem_region_router",
+        "sources": [
+            "src/cache/SoC/mem_region_router.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.mem_region_router_hold",
+        "parameters": {
+            "hold_rdata": true
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
     "FlashArbiter": {
         "toplevel": "flash_arbiter",
         "sources": [
