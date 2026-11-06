@@ -1,4 +1,4 @@
-"""mem_region_router with the ROM right after the BOOT_ROM.
+"""mem_region_router with the ROM right after the BOOT_MEMORY.
 
 The ROM region is [0x800, 0x8000) and the SDRAM is everything else, so
 the region comes from the generics and not from address bit 29.

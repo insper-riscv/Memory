@@ -10,7 +10,7 @@
 | Write policy of the platform | Write-through, write-around | The host reads the SDRAM behind the cache with no flush (see [CACHE_HOST_COHERENCE.md](../bugs/CACHE_HOST_COHERENCE.md)) | A store takes the full SDRAM write |
 | Write policy of the module | Write-back is the default of the `dcache` module | It is what a core without a debug port behind the cache would use | Needs a flush before anything else reads the memory |
 | Uncached addresses | The peripheral window and the last 4 KB of the SDRAM | Peripherals have side effects on reads; the shared window is read and written by the host | Words there never hit |
-| Cache control | Peripheral 7: a write flushes, bit 1 also invalidates, a read gives busy | No new instruction or CSR in the core | The program or the boot ROM must write it |
+| Cache control | Peripheral 7: a write flushes, bit 1 also invalidates, a read gives busy | No new instruction or CSR in the core | The program or the boot memory must write it |
 | Flush | Sweep of the 256 lines, served before any waiting access | Simple, and no access runs while lines move | 768 clocks at least, each time |
 | Hit latency | Two clocks | The RAM has a registered read, as FPGA block RAMs do; one clock needs a combinational read | Every load pays two clocks |
 

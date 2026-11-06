@@ -2,7 +2,7 @@
 
 ## 1. Role of the component in the SoC
 
-The icache is the core's read-only instruction cache. It sits on the fetch path of the SDRAM and FLASH addresses. The boot ROM does not go through it. When the instruction at the fetch address is not stored, the cache holds the core waiting (no `o_ready`) and brings the four-word line from memory.
+The icache is the core's read-only instruction cache. It sits on the fetch path of the SDRAM and FLASH addresses. The boot memory does not go through it. When the instruction at the fetch address is not stored, the cache holds the core waiting (no `o_ready`) and brings the four-word line from memory.
 
 | Property | Value |
 | :--- | :--- |

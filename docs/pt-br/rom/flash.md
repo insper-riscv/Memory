@@ -4,7 +4,7 @@ IP interno de memória de duas portas verdadeiras que guarda o programa de teste
 
 ## 1. Função do componente no SoC
 
-A FLASH interna começa logo depois da BOOT_ROM e vai até o início da RAM (`0x00001000` até `0x00007FFF` no mapa padrão, ver [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)). A porta A atende o estágio de busca de instruções (IF). A porta B atende o estágio MEM, que lê a FLASH como dado (por exemplo para copiar a seção `.data` na inicialização), e o carregador [flash_loader](flash_loader.md), que a escreve. O núcleo só lê, porque a escrita existe apenas na porta B e o carregador a habilita só com o núcleo parado.
+A FLASH interna começa logo depois da BOOT_MEMORY e vai até o início da RAM (`0x00001000` até `0x00007FFF` no mapa padrão, ver [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)). A porta A atende o estágio de busca de instruções (IF). A porta B atende o estágio MEM, que lê a FLASH como dado (por exemplo para copiar a seção `.data` na inicialização), e o carregador [flash_loader](flash_loader.md), que a escreve. O núcleo só lê, porque a escrita existe apenas na porta B e o carregador a habilita só com o núcleo parado.
 
 O endereço de busca indexa o IP direto, sem subtrair a base, então o IP cobre todo o intervalo de zero até o início da RAM e não só a faixa lógica da FLASH (32 KB de IP para 28 KB de FLASH). A imagem de cada teste é preenchida à esquerda com zeros até a base da FLASH antes de virar `.mif`.
 

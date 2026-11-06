@@ -85,7 +85,7 @@ O comando sai quando o deslocamento termina. O status de um comando só está at
 | ---: | :--- | :--- |
 | 0 | status | Não envia nada, só lê o status |
 | 1 | parar | Para o núcleo, zera a soma de verificação e a contagem |
-| 2 | liberar | Libera o núcleo, que reinicia pela BOOT_ROM |
+| 2 | liberar | Libera o núcleo, que reinicia pela BOOT_MEMORY |
 | 3 | escrever | Escreve `data` na palavra `addr`, e o cursor passa a `addr + 1` |
 | 4 | ler | Lê a palavra `addr`, e o cursor passa a `addr + 1` |
 | 5 | resumo | Devolve a soma de verificação em `data` e a quantidade de palavras escritas em `addr` |
@@ -108,7 +108,7 @@ Uma varredura de $32N + 1$ bits escreve $N$ palavras seguidas, a partir do curso
 1. O hospedeiro envia o comando 1, e o núcleo para.
 2. Envia o comando 6 com o índice da primeira palavra e uma varredura do STREAM com a imagem.
 3. Envia o comando 5 e compara a soma e a contagem com as da imagem.
-4. Envia o comando 2, e o núcleo reinicia pela BOOT_ROM e executa o teste novo.
+4. Envia o comando 2, e o núcleo reinicia pela BOOT_MEMORY e executa o teste novo.
 
 ## 5. Comportamento
 

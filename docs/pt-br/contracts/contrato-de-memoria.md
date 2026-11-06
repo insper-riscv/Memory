@@ -32,7 +32,7 @@ Os nomes do contrato seguem o prefixo `i_` e `o_` do CONTRIBUTING. Os IPs do Qua
 | `i_mask` | `byteena`, só no `ram` | `i_mask` | não tem |
 | `o_q` | `q` | `o_data_out` | `o_data` |
 
-Os IPs de ROM (`boot_rom` e `flash_store`) têm `wren` e `data`, porque o bloco de memória do FPGA é o mesmo de uma RAM, mas o desenho da placa os mantém em zero. O `rom_simulation` tem ainda uma segunda porta de leitura, com `i_addr2`, `i_clk2`, `i_re2` e `o_data2`.
+Os IPs de ROM (`boot_memory` e `flash_store`) têm `wren` e `data`, porque o bloco de memória do FPGA é o mesmo de uma RAM, mas o desenho da placa os mantém em zero. O `rom_simulation` tem ainda uma segunda porta de leitura, com `i_addr2`, `i_clk2`, `i_re2` e `o_data2`.
 
 ## 2. Tempo
 
@@ -66,7 +66,7 @@ O clock é um pino separado, e o bloco só enxerga a borda que recebe. Há dois 
 
 | Caso | Quando acontece | O que fazer |
 | :--- | :--- | :--- |
-| Mesmo clock do core | Os blocos internos da placa, como o `BOOT_ROM` (ligado ao clock `pll_clk_if`) e o armazenamento da FLASH (ligado ao `pll_clk_idexmem`), ambos clocks de 50 MHz do core | Ligar direto, sem sincronização |
+| Mesmo clock do core | Os blocos internos da placa, como o `BOOT_MEMORY` (ligado ao clock `pll_clk_if`) e o armazenamento da FLASH (ligado ao `pll_clk_idexmem`), ambos clocks de 50 MHz do core | Ligar direto, sem sincronização |
 | Clock diferente | O controlador da SDRAM e a porta de depuração, a 142,857 MHz, enquanto o core roda a 50 MHz | Cruzar o domínio por um pedido que inverte um sinal (`req_tog`) e uma resposta que inverte outro (`ack_tog`), cada um lido por dois flip-flops de sincronização, com endereço, dado e máscara estáveis da inversão do pedido até a resposta |
 
 O cruzamento por inversão é o que a ponte [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md) e o árbitro [sdram_arbiter](../ram/sdram_arbiter.md) usam. Um bloco nunca deve receber `i_re`, `i_we` ou `i_addr` de um domínio de clock que não seja o seu sem passar por essa sincronização.
@@ -175,7 +175,7 @@ Uma palavra larga permite mover várias palavras do core de uma vez. A cache de 
 
 | Tipo | Blocos |
 | :--- | :--- |
-| Memória de um ciclo | [ram](../ram/ram.md), [ram_simulation](../ram/ram_simulation.md), [boot_rom](../rom/boot_rom.md), [flash_store](../rom/flash_store.md), [rom_simulation](../rom/rom_simulation.md) |
+| Memória de um ciclo | [ram](../ram/ram.md), [ram_simulation](../ram/ram_simulation.md), [boot_memory](../rom/boot_memory.md), [flash_store](../rom/flash_store.md), [rom_simulation](../rom/rom_simulation.md) |
 | Memória de latência variável | [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md), [sdram_ctrl](../ram/sdram_ctrl.md) |
 | Memória de duas portas | [rom_simulation](../rom/rom_simulation.md) (duas leituras) e [ram_chip](../ram/ram_chip.md) (dados, instruções e depuração) |
 
