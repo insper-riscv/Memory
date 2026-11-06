@@ -27,6 +27,8 @@ The core's stores are not observed by the cache. Only an invalidation (the progr
 | `base_flash` | 6-bit vector | `001000` | Bits 31 to 26 appended to FLASH addresses on the memory side (0x20000000) |
 | `rom_base_kib` | natural | 524288 | Base of the ROM region in KiB; whatever falls in it is treated as FLASH (0x20000000) |
 | `rom_end_kib` | natural | 1048576 | Exclusive end of the ROM region in KiB (0x40000000) |
+| `sel_from_kib` | integer | -1 | With a non-negative value, the select comes from the registered address (selected from this address, in KiB) and `i_sel` is ignored |
+| `check_addr` | boolean | true | Checks on each lookup that the registered address is that of `i_addr`; with skewed clocks (the `i_clk` edge always before the core one) it can be turned off |
 
 ### 2.2. Ports
 
@@ -87,23 +89,24 @@ The machine runs on `i_clk_cpu`.
 
 | State | Function | Output |
 | :--- | :--- | :--- |
-| `S_IDLE` | Waits for a miss. With `blocked` at 1 and a sweep pending, it starts `S_SWEEP`. Otherwise, if the registered `i_sel` is 1, there is no hit, the registered address equals `i_addr` and `i_invalidate` is 0, it records the tag and the index of the line and moves to `S_FILL_REQ` | |
+| `S_IDLE` | Waits for a miss. With `blocked` at 1 and a sweep pending, it starts `S_SWEEP`. Otherwise, if the registered `i_sel` is 1, there is no hit, the registered address equals `i_addr` and `i_invalidate` is 0, it copies the registered address and moves to `S_FILL_PRE` | |
+| `S_FILL_PRE` | Computes the tag and the index of the line from the address copied in `S_IDLE`, off the fetch path | |
 | `S_FILL_REQ` | Builds the line request with the address $\text{base} \,\Vert\, \text{tag} \,\Vert\, \text{index} \,\Vert\, 0000_2$ and raises `o_d_rden` and `o_d_line` | `o_miss` at 1 |
 | `S_FILL_WAIT` | Waits for `i_d_ready`, then lowers the request | |
 | `S_FILL_GET` | Stores one word per cycle in the data RAM (words 0 to 3); on word 3 it stores the tag and the valid bit | |
-| `S_SETTLE` | One cycle for the registered read to see the new tag and valid bit | |
-| `S_SWEEP`, `S_RELEASE` | Invalidation sweep (section 3.5) | |
+| `S_SETTLE2`, `S_SETTLE` | Two cycles: the RAM writes come from registers and happen one cycle after the state that asks for them, and the registered read has to see the new tag and valid bit | |
+| `S_SWEEP`, `S_RELEASE`, `S_RELEASE2` | Invalidation sweep (section 3.5) | |
 
 During the fill, `i_addr` may change (a branch moved the PC). The line keeps being brought into the index recorded at the start.
 
 ### 3.4. Latency
 
-Let $k$ be the number of `S_FILL_WAIT` cycles ($k \ge 1$) and assume `i_clk` equal to `i_clk_cpu`. A miss is detected in `S_IDLE`, in the cycle after the edge that registered the address, and spends $1 + k + 4 + 1$ cycles from `S_FILL_REQ` to `S_SETTLE`. Counting the detection cycle, the miss costs $7 + k$ cycles more than a hit, and the next lookup hits.
+Let $k$ be the number of `S_FILL_WAIT` cycles ($k \ge 1$) and assume `i_clk` equal to `i_clk_cpu`. A miss is detected in `S_IDLE`, in the cycle after the edge that registered the address, and spends $1 + 1 + k + 4 + 2$ cycles from `S_FILL_PRE` to `S_SETTLE`. Counting the detection cycle, the miss costs $9 + k$ cycles more than a hit, and the next lookup hits.
 
 | Case | Cycles beyond a hit |
 | :--- | ---: |
 | Hit | 0 |
-| Miss | $7 + k$ |
+| Miss | $9 + k$ |
 
 ### 3.5. Invalidation
 
@@ -114,9 +117,9 @@ A pulse on `i_invalidate` asks for the sweep of every line. A pulse on `i_inval_
 | State | Function |
 | :--- | :--- |
 | `S_SWEEP` | Clears line `sw_idx` and moves to the next, from `pend_first` to `pend_first + pend_off` (modulo the number of lines) |
-| `S_RELEASE` | One cycle for the registered read to see the last clear; if another request arrived, it returns to `S_IDLE` and sweeps again, otherwise it lowers `blocked` |
+| `S_RELEASE`, `S_RELEASE2` | Two cycles for the registered write and the registered read to see the last clear; if another request arrived, it returns to `S_IDLE` and sweeps again, otherwise it lowers `blocked` |
 
-A sweep of every line costs $L$ cycles, where $L$ is the number of lines (256 at 4 KB), plus three of waiting.
+A sweep of every line costs $L$ cycles, where $L$ is the number of lines (256 at 4 KB), plus four of waiting.
 
 ### 3.6. Region invalidation
 
@@ -130,7 +133,7 @@ where $i_{first}$ is the index of the address `i_inval_first`. A region with `i_
 
 ### 3.7. Reset
 
-`i_rst` takes the machine to `S_IDLE` with `blocked` at 1 and a sweep of every line pending, and clears the request signals and the word counter. The cache is ready $L + 3$ cycles after the reset.
+`i_rst` takes the machine to `S_IDLE` with `blocked` at 1 and a sweep of every line pending, and clears the request signals and the word counter. The cache is ready $L + 4$ cycles after the reset.
 
 ## 4. Integration
 

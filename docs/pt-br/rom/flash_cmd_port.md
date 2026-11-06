@@ -33,6 +33,10 @@ A leitura continua enquanto a porta B escreve. Uma leitura de uma região em pro
 5. Gravar sobre um bit em 0 não o leva a 1; só um apagar do setor faz isso.
 6. O reset zera o latch, a recusa e a proteção.
 
+### 1.3. Outros backends de FLASH
+
+O controlador de FLASH NOR de um chip de dispositivo implementa a mesma face deste modelo: os comandos da seção 1.1 e as portas da seção 2.2. Os generics `sector_bytes` e `page_bytes` descrevem o chip, seja o modelo ou o dispositivo, e a plataforma apenas alinha as bancas da FLASH a múltiplos do setor.
+
 ## 2. Interface
 
 ### 2.1. Generics

@@ -56,9 +56,9 @@ SDRAM, FLASH atrás de cache e RAM externa levam vários ciclos, e a resposta de
 | Pino | Direção | Função |
 | :--- | :---: | :--- |
 | `o_ready` | saída | Nível que sobe quando o dado está pronto e permanece em `'1'` até o `advance` |
-| `i_advance` | entrada | Indica que o pedido foi consumido, e o chip pode aceitar o seguinte (no `ram_chip` chama-se `i_mem_advance`) |
+| `i_advance` | entrada | Indica que o pedido foi consumido, e o chip pode aceitar o seguinte; o nome é `i_advance` em todo bloco que cumpre o contrato |
 
-O pedido (endereço, dado, máscara, `i_re` e `i_we`) fica estável até `o_ready` subir, e o dado lido só muda no pedido seguinte. Um pedido de linha acrescenta `i_line`, que move quatro palavras, e três portas extras de 32 bits para as palavras 1 a 3 do dado e da leitura. Os chips documentados com esse contrato são [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md) e, do lado da SDRAM, a ponte [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md).
+O pedido (endereço, dado, máscara, `i_re` e `i_we`) fica estável até `o_ready` subir, e o dado lido só muda no pedido seguinte. Um pedido de linha acrescenta `i_line`, que move quatro palavras, e três portas extras de 32 bits para as palavras 1 a 3 do dado e da leitura. Um endereço fora da janela do bloco lê zero e a escrita é descartada, sem erro. O contrato é o mesmo para o backend emulado e para o de dispositivo de uma região, e quem o usa não distingue um do outro. Os chips documentados com esse contrato são [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md) e, do lado da SDRAM, a ponte [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md).
 
 ## 4. Clock
 

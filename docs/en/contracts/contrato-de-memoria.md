@@ -56,9 +56,9 @@ SDRAM, FLASH behind a cache and external RAM take several cycles, and the one-cy
 | Pin | Direction | Function |
 | :--- | :---: | :--- |
 | `o_ready` | output | Level that rises when the data is ready and stays at `'1'` until the `advance` |
-| `i_advance` | input | Tells that the request was consumed, and the chip can accept the next one (in the `ram_chip` it is called `i_mem_advance`) |
+| `i_advance` | input | Tells that the request was consumed, and the chip can accept the next one; the name is `i_advance` in every block that meets the contract |
 
-The request (address, data, mask, `i_re` and `i_we`) stays stable until `o_ready` rises, and the read data only changes at the next request. A line request adds `i_line`, which moves four words, and three extra 32-bit ports for words 1 to 3 of the data and of the read. The chips documented with this contract are [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md) and, on the SDRAM side, the bridge [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md).
+The request (address, data, mask, `i_re` and `i_we`) stays stable until `o_ready` rises, and the read data only changes at the next request. A line request adds `i_line`, which moves four words, and three extra 32-bit ports for words 1 to 3 of the data and of the read. An address outside the window of the block reads zero and the write is discarded, with no error. The contract is the same for the emulated backend and for the device backend of a region, and whoever uses it cannot tell one from the other. The chips documented with this contract are [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md) and, on the SDRAM side, the bridge [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md).
 
 ## 4. Clock
 
