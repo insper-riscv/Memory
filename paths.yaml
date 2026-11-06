@@ -18,24 +18,28 @@ tree:
 references:
   - {name: per-entity tests.json, file: tests/python/tests.json, yaml: "*.sources", base: .}
   - {name: Quartus IP files, paths: [src/ROM/Cyclone-V/boot_memory.qip, src/ROM/Cyclone-V/flash.qip, src/ROM/Cyclone-V/flash_loader.qip, src/ROM/Cyclone-V/flash_store.qip, src/RAM/FPGA/Cyclone-V/ram.qip]}
-  - {name: entry points, paths: [tests/python/runner.py, src/cache/SoC, src/RAM/SoC, src/ROM/SoC, src/ROM/SoC/sim, src/barramento/SoC, src/RAM/FPGA/debug/sdram, src/tests, formal/all.sh, formal/common.sh, formal/aggregate.sh, formal/test-aggregate.sh, formal/run.sh, formal/sdram_arbiter/props.sv, formal/axi_master/run.sh, formal/axi_master/props.sv, formal/axi_slave/run.sh, formal/axi_slave/props.sv, formal/flash_arbiter/run.sh, formal/flash_arbiter/props.sv, formal/flash_cmd_port/run.sh, formal/flash_cmd_port/props.sv, formal/mem_region_router/run.sh, formal/mem_region_router/props.sv, formal/sdram_cpu_bridge/run.sh, formal/sdram_cpu_bridge/props.sv, formal/sdram_ctrl/run.sh, formal/sdram_ctrl/props.sv, formal/icache/run.sh, formal/icache/props.sv, formal/dcache/run.sh, formal/dcache/props.sv]}
-  - {name: design documents, paths: [docs/pt-br/barramento/dcache_axi.md, docs/pt-br/barramento/dcache_axi_decisions.md, docs/pt-br/formal/formal.md, docs/pt-br/formal/blocks.md, docs/pt-br/ram/sdram_debug.md, docs/pt-br/rom/flash_loader.md, docs/pt-br/rom/flash_jtag_core.md, docs/pt-br/rom/flash_simulation.md, docs/pt-br/rom/flash_cmd_port.md, docs/pt-br/ram/sdram_line.md, docs/pt-br/ram/sdram_subword_read.md, docs/pt-br/ram/sdram_timings.md, docs/pt-br/bugs/AXI_UNALIGNED_BYTE_STORE.md, docs/pt-br/bugs/CACHE_HOST_COHERENCE.md, docs/pt-br/bugs/CACHE_MASTER_SHARING.md, docs/pt-br/bugs/FILL_COUNT_24_BITS.md, docs/pt-br/bugs/JTAG_STATUS_POLL.md, docs/pt-br/bugs/QUARTUS_VHDL_SUBSET.md, docs/pt-br/bugs/SDRAM_MODEL_RESET_COMMAND.md, docs/en/barramento/dcache_axi.md, docs/en/barramento/dcache_axi_decisions.md, docs/en/formal/formal.md, docs/en/formal/blocks.md, docs/en/ram/sdram_debug.md, docs/en/rom/flash_loader.md, docs/en/rom/flash_jtag_core.md, docs/en/rom/flash_simulation.md, docs/en/rom/flash_cmd_port.md, docs/en/ram/sdram_line.md, docs/en/ram/sdram_subword_read.md, docs/en/ram/sdram_timings.md, docs/en/bugs/AXI_UNALIGNED_BYTE_STORE.md, docs/en/bugs/CACHE_HOST_COHERENCE.md, docs/en/bugs/CACHE_MASTER_SHARING.md, docs/en/bugs/FILL_COUNT_24_BITS.md, docs/en/bugs/JTAG_STATUS_POLL.md, docs/en/bugs/QUARTUS_VHDL_SUBSET.md, docs/en/bugs/SDRAM_MODEL_RESET_COMMAND.md]}
+  - {name: entry points, paths: [tests/python/runner.py, src/cache/SoC, src/latency/SoC, src/RAM/SoC, src/ROM/SoC, src/ROM/SoC/sim, src/barramento/SoC, src/RAM/FPGA/debug/sdram, src/tests, formal/all.sh, formal/common.sh, formal/aggregate.sh, formal/test-aggregate.sh, formal/run.sh, formal/sdram_arbiter/props.sv, formal/axi_master/run.sh, formal/axi_master/props.sv, formal/axi_slave/run.sh, formal/axi_slave/props.sv, formal/flash_arbiter/run.sh, formal/flash_arbiter/props.sv, formal/flash_cmd_port/run.sh, formal/flash_cmd_port/props.sv, formal/latency_counter/run.sh, formal/latency_counter/props.sv, formal/mem_region_router/run.sh, formal/mem_region_router/props.sv, formal/sdram_cpu_bridge/run.sh, formal/sdram_cpu_bridge/props.sv, formal/sdram_ctrl/run.sh, formal/sdram_ctrl/props.sv, formal/icache/run.sh, formal/icache/props.sv, formal/dcache/run.sh, formal/dcache/props.sv]}
+  - {name: design documents, paths: [docs/pt-br/barramento/dcache_axi.md, docs/pt-br/barramento/dcache_axi_decisions.md, docs/pt-br/formal/formal.md, docs/pt-br/formal/blocks.md, docs/pt-br/ram/sdram_debug.md, docs/pt-br/rom/flash_loader.md, docs/pt-br/rom/flash_jtag_core.md, docs/pt-br/rom/flash_simulation.md, docs/pt-br/rom/flash_cmd_port.md, docs/pt-br/latency/latency_counter.md, docs/pt-br/ram/sdram_line.md, docs/pt-br/ram/sdram_subword_read.md, docs/pt-br/ram/sdram_timings.md, docs/pt-br/bugs/AXI_UNALIGNED_BYTE_STORE.md, docs/pt-br/bugs/CACHE_HOST_COHERENCE.md, docs/pt-br/bugs/CACHE_MASTER_SHARING.md, docs/pt-br/bugs/FILL_COUNT_24_BITS.md, docs/pt-br/bugs/JTAG_STATUS_POLL.md, docs/pt-br/bugs/QUARTUS_VHDL_SUBSET.md, docs/pt-br/bugs/SDRAM_MODEL_RESET_COMMAND.md, docs/en/barramento/dcache_axi.md, docs/en/barramento/dcache_axi_decisions.md, docs/en/formal/formal.md, docs/en/formal/blocks.md, docs/en/ram/sdram_debug.md, docs/en/rom/flash_loader.md, docs/en/rom/flash_jtag_core.md, docs/en/rom/flash_simulation.md, docs/en/rom/flash_cmd_port.md, docs/en/latency/latency_counter.md, docs/en/ram/sdram_line.md, docs/en/ram/sdram_subword_read.md, docs/en/ram/sdram_timings.md, docs/en/bugs/AXI_UNALIGNED_BYTE_STORE.md, docs/en/bugs/CACHE_HOST_COHERENCE.md, docs/en/bugs/CACHE_MASTER_SHARING.md, docs/en/bugs/FILL_COUNT_24_BITS.md, docs/en/bugs/JTAG_STATUS_POLL.md, docs/en/bugs/QUARTUS_VHDL_SUBSET.md, docs/en/bugs/SDRAM_MODEL_RESET_COMMAND.md]}
 
 provides:
   # Each component lists its sources in GHDL dependency order and the components it needs. A requires with the
   # prefix Common-Components/ names a block of the submodule at src/common. The components of the sim folders
   # (models and systems) are the ones the entity tests build.
+  latency_counter:
+    requires: []
+    sources:
+      - src/latency/SoC/latency_counter.vhd
   ram_simulation:
     requires: [Common-Components/utils]
     sources:
       - src/RAM/SoC/ram_simulation.vhd
   onchip_ram:
-    requires: [Common-Components/utils]
+    requires: [Common-Components/utils, latency_counter]
     sources:
       - src/RAM/SoC/ram_chip.vhd
       - src/RAM/SoC/onchip_ram_port.vhd
   ram_cyclone_v:
-    requires: [Common-Components/utils]
+    requires: [Common-Components/utils, block_ram]
     sources:
       - src/RAM/FPGA/Cyclone-V/ram.vhd
   rom_simulation:
@@ -51,20 +55,24 @@ provides:
     sources:
       - src/ROM/SoC/flash_jtag_core.vhd
       - src/ROM/SoC/flash_loader.vhd
+  block_ram:
+    requires: []
+    sources:
+      - src/block_ram/altera/block_ram.vhd
   boot_memory:
-    requires: [Common-Components/utils]
+    requires: [Common-Components/utils, block_ram]
     sources:
       - src/ROM/Cyclone-V/boot_memory.vhd
   flash:
-    requires: [Common-Components/utils]
+    requires: [Common-Components/utils, block_ram]
     sources:
       - src/ROM/Cyclone-V/flash.vhd
   flash_store:
-    requires: [Common-Components/utils]
+    requires: [Common-Components/utils, block_ram]
     sources:
       - src/ROM/Cyclone-V/flash_store.vhd
   flash_jtag_shell:
-    requires: [flash_loader]
+    requires: [flash_loader, Common-Components/virtual_jtag]
     sources:
       - src/ROM/Cyclone-V/flash_jtag_shell.vhd
   sdram:
@@ -96,7 +104,7 @@ provides:
     sources:
       - src/cache/SoC/dcache.vhd
   flash_chip:
-    requires: [Common-Components/utils]
+    requires: [Common-Components/utils, latency_counter]
     sources:
       - src/cache/SoC/flash_chip.vhd
   flash_cmd_port:

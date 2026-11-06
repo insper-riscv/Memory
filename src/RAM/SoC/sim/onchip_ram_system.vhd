@@ -25,7 +25,9 @@ entity onchip_ram_system is
     -- Tamanho da memória em bytes, uma potência de dois.
     size_bytes    : positive := 4096;
     -- Onde a memória começa dentro dos 64 MB da região, em KiB.
-    base_kib      : natural  := 0
+    base_kib      : natural  := 0;
+    -- Latência emulada em bordas, a mesma no ram_chip e no adaptador (0 deixa ao ram_chip o padrão e ao adaptador a estrutural).
+    latency       : natural  := 0
   );
   port (
     -- Clock do sistema.
@@ -73,6 +75,17 @@ architecture rtl of onchip_ram_system is
 
   -- Bits do índice de palavra do bloco de RAM.
   constant WORD_BITS : natural := log2_exact(size_bytes) - 2;
+  -- Latência do ram_chip: a emulada, ou o padrão do modelo (8) quando não há.
+  pure function chip_latency_of(n : natural) return natural is
+  begin
+    if n > 0 then
+      return n;
+    end if;
+    return 8;
+  end function;
+
+  -- Latência entregue ao ram_chip.
+  constant CHIP_LATENCY : natural := chip_latency_of(latency);
 
   -- Lado da memória: endereço do acesso.
   signal m_addr    : std_logic_vector(31 downto 0);
@@ -151,7 +164,7 @@ begin
   -- O modelo ram_chip como referência do contrato.
   g_chip : if use_chip generate
     u_chip : entity work.ram_chip
-      generic map (size_bytes => size_bytes, base_kib => base_kib)
+      generic map (size_bytes => size_bytes, base_kib => base_kib, latency => CHIP_LATENCY)
       port map (
         i_clk => i_clk, i_rst => i_rst,
         i_addr => m_addr, i_wdata => m_wdata, i_byteena => m_be, i_rden => m_rden, i_wren => m_wren,
@@ -164,7 +177,7 @@ begin
   -- O adaptador sobre o modelo de simulação do bloco de RAM.
   g_onchip : if not use_chip generate
     u_port : entity work.onchip_ram_port
-      generic map (size_bytes => size_bytes, base_kib => base_kib)
+      generic map (size_bytes => size_bytes, base_kib => base_kib, latency => latency)
       port map (
         i_clk => i_clk, i_rst => i_rst,
         i_addr => m_addr, i_wdata => m_wdata, i_byteena => m_be, i_rden => m_rden, i_wren => m_wren,

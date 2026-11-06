@@ -33,6 +33,10 @@ Reads go on while port B writes. A read of a region being programmed returns the
 5. Programming over a bit at 0 does not take it to 1; only an erase of the sector does.
 6. Reset clears the latch, the refusal and the protection.
 
+### 1.3. Other FLASH backends
+
+The NOR FLASH controller of a device chip implements the same face as this model: the commands of section 1.1 and the ports of section 2.2. The generics `sector_bytes` and `page_bytes` describe the chip, whether it is the model or the device, and the platform only aligns the FLASH banks to multiples of the sector.
+
 ## 2. Interface
 
 ### 2.1. Generics

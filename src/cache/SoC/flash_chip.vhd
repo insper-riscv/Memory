@@ -79,8 +79,12 @@ architecture rtl of flash_chip is
   type state_t is (S_IDLE, S_WAIT, S_DONE);
   -- Estado atual.
   signal st      : state_t := S_IDLE;
-  -- Bordas que faltam para capturar a palavra em andamento.
-  signal cnt     : natural range 0 to 255 := 0;
+  -- Pedido de uma contagem de latência ('1' carrega).
+  signal lat_load  : std_logic;
+  -- Bordas da contagem pedida: a primeira latência num pedido novo, a seguinte entre palavras.
+  signal lat_count : natural range 0 to first_latency + next_latency;
+  -- A contagem de latência termina nesta borda.
+  signal lat_last  : std_logic;
   -- Palavra da linha em andamento (0 a 3).
   signal word_n  : natural range 0 to 3 := 0;
   -- Último índice de palavra do pedido (3 para uma linha, 0 para uma palavra).
@@ -104,6 +108,15 @@ begin
   o_ready    <= '1' when st = S_DONE else '0';
   o_busy     <= '1' when st = S_WAIT else '0';
 
+  -- Um pedido novo em repouso carrega a primeira latência, e uma palavra capturada que não é a última carrega a seguinte.
+  lat_load  <= '1' when (st = S_IDLE and i_rden = '1')
+                         or (st = S_WAIT and lat_last = '1' and word_n /= last_w) else '0';
+  lat_count <= first_latency when st = S_IDLE else next_latency;
+
+  u_latency : entity work.latency_counter
+    generic map (max_count => first_latency + next_latency)
+    port map (i_clk => i_clk, i_rst => i_rst, i_load => lat_load, i_count => lat_count, o_last => lat_last, o_wait => open);
+
   process (i_clk)
     -- Endereço-base da linha em andamento.
     variable next_base : unsigned(31 downto 0);
@@ -113,7 +126,6 @@ begin
     if rising_edge(i_clk) then
       if i_rst = '1' then
         st     <= S_IDLE;
-        cnt    <= 0;
         word_n <= 0;
       else
         case st is
@@ -135,14 +147,11 @@ begin
               base   <= next_base;
               addr_q <= std_logic_vector(next_base);
               word_n <= 0;
-              cnt    <= first_latency;
               st     <= S_WAIT;
             end if;
 
           when S_WAIT =>
-            if cnt > 1 then
-              cnt <= cnt - 1;
-            else
+            if lat_last = '1' then
               if out_win = '1' then
                 captured := (others => '0');
               else
@@ -162,7 +171,6 @@ begin
               else
                 word_n <= word_n + 1;
                 addr_q <= std_logic_vector(base + to_unsigned(4 * (word_n + 1), 32));
-                cnt    <= next_latency;
               end if;
             end if;
 
