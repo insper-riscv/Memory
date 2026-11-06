@@ -4,7 +4,7 @@
 -- Mapeamento direto, linhas de 16 bytes (quatro palavras), somente leitura. O tamanho é o genérico
 -- size_bits, uma potência de dois: 32768 bits (4 KB, 256 linhas) por padrão e 4096 bits (4 kbit, 32 linhas).
 -- Fica no caminho de busca dos endereços da SDRAM (0x40000000) e da FLASH
--- (0x20000000); a BOOT_ROM não passa por ela. A tag leva a região do endereço (dentro de [rom_base_kib, rom_end_kib)),
+-- (0x20000000); a BOOT_MEMORY não passa por ela. A tag leva a região do endereço (dentro de [rom_base_kib, rom_end_kib)),
 -- que distingue as duas regiões: sem ele, uma linha da FLASH e uma da SDRAM com os
 -- mesmos bits 25:12 se confundiriam.
 --
