@@ -28,8 +28,8 @@ Stores não chegam ao chip, porque a FLASH ignora escritas do núcleo.
 
 | Generic | Tipo | Padrão | Significado |
 | :--- | :--- | :--- | :--- |
-| `first_latency` | `natural` | 24 | Bordas de `i_clk` até a primeira palavra estar capturada. Mínimo 2; o contador interno vai de 0 a 255 |
-| `next_latency` | `natural` | 4 | Bordas entre uma palavra e a seguinte da mesma linha. Mínimo 2; mesmo limite de 255 |
+| `first_latency` | `natural` | 24 | Bordas de `i_clk` até a primeira palavra estar capturada. Mínimo 2 |
+| `next_latency` | `natural` | 4 | Bordas entre uma palavra e a seguinte da mesma linha. Mínimo 2 |
 | `size_bytes` | `positive` | 1048576 | Tamanho do chip em bytes, potência de dois de 16 bytes a 32 MB. Outro valor aborta a elaboração |
 
 ### 2.2. Portas
@@ -56,10 +56,10 @@ Stores não chegam ao chip, porque a FLASH ignora escritas do núcleo.
 | Estado | Condição de permanência | Ação | Próximo estado |
 | :--- | :--- | :--- | :--- |
 | `S_IDLE` | `i_rden = '0'` | Nenhuma | `S_WAIT` quando `i_rden = '1'`; antes registra a base, o fim de linha, a marca de fora da janela e o endereço em `o_mem_addr` |
-| `S_WAIT` | O contador de bordas ainda não chegou a 1 | Decrementa o contador | `S_DONE` ao capturar a última palavra do pedido |
+| `S_WAIT` | O [latency_counter](../latency/latency_counter.md) ainda não sinalizou a última borda | Espera | `S_DONE` ao capturar a última palavra do pedido |
 | `S_DONE` | `i_advance = '0'` | `o_ready = '1'` | `S_IDLE` quando `i_advance = '1'` |
 
-`o_busy` vale `'1'` em `S_WAIT` e `o_ready` vale `'1'` em `S_DONE`. O reset leva a `S_IDLE`. Cada captura grava a palavra em `o_rdata` (palavra 0) ou em uma fatia de 32 bits de `o_rdata_x`; depois da captura de uma palavra que não é a última, o endereço registrado avança 4 bytes e o contador é recarregado com `next_latency`. Um pedido de palavra não altera `o_rdata_x`.
+`o_busy` vale `'1'` em `S_WAIT` e `o_ready` vale `'1'` em `S_DONE`. O reset leva a `S_IDLE`. Cada captura grava a palavra em `o_rdata` (palavra 0) ou em uma fatia de 32 bits de `o_rdata_x`; depois da captura de uma palavra que não é a última, o endereço registrado avança 4 bytes e o `latency_counter` é recarregado com `next_latency`, na mesma borda da captura. Um pedido de palavra não altera `o_rdata_x`.
 
 ### 3.2. Latência
 
@@ -82,6 +82,7 @@ O chip ocupa $2^{W}$ bytes com $W = \log_2(\text{size\_bytes})$. Um pedido cujos
 | `icache` e `dcache` (`src/cache/`) | Mestres de linha; ver [dcache_axi.md](../barramento/dcache_axi.md) para a cache de dados |
 | `mem_region_router` | Separa o pedido entre SDRAM e FLASH, conclui stores à FLASH sem efeito e devolve zero para leituras além da janela sem acordar o chip |
 | `flash_arbiter` | Serializa os dois mestres sobre o único chip; um pedido em andamento nunca é interrompido |
+| [latency_counter](../latency/latency_counter.md) | Conta as bordas das duas latências; é a mesma máquina do [ram_chip](../ram/ram_chip.md) e do [onchip_ram_port](../ram/onchip_ram_port.md) |
 | [flash_cmd_port](flash_cmd_port.md) | Porta B do modelo: apaga, grava e protege o mesmo armazenamento enquanto este chip lê |
 | Armazenamento | Memória de leitura registrada comandada por `o_mem_addr` e `i_mem_data`. Na placa é o IP [flash_store](flash_store.md); na simulação modular é o modelo [rom_simulation](rom_simulation.md) |
 

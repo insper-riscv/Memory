@@ -337,6 +337,7 @@
         "toplevel": "flash_chip",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/cache/SoC/flash_chip.vhd"
         ],
         "test_module": "tests.python.unittests.cache.flash_chip",
@@ -372,6 +373,7 @@
         "toplevel": "flash_dual_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/cache/SoC/flash_chip.vhd",
             "src/cache/SoC/flash_cmd_port.vhd",
             "src/ROM/SoC/flash_simulation.vhd",
@@ -450,6 +452,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/cache/SoC/icache.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/cache/SoC/flash_chip.vhd",
             "src/cache/SoC/mem_region_router.vhd",
             "src/cache/SoC/flash_arbiter.vhd",
@@ -536,6 +539,7 @@
         "toplevel": "ram_chip",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_chip.vhd"
         ],
         "test_module": "tests.python.unittests.ram.ram_chip",
@@ -550,6 +554,7 @@
         "toplevel": "ram_chip",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_chip.vhd"
         ],
         "test_module": "tests.python.unittests.ram.ram_chip_small",
@@ -567,6 +572,7 @@
         "toplevel": "ram_chip",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_chip.vhd"
         ],
         "test_module": "tests.python.unittests.ram.ram_chip_offset",
@@ -585,6 +591,7 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
@@ -608,6 +615,7 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
@@ -632,6 +640,7 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
@@ -655,6 +664,7 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
@@ -679,6 +689,7 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
@@ -703,6 +714,7 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
@@ -728,6 +740,7 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
@@ -785,6 +798,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/cache/SoC/ifetch_bridge.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/cache/SoC/flash_chip.vhd",
             "src/cache/SoC/mem_region_router.vhd",
             "src/cache/SoC/flash_arbiter.vhd",
@@ -803,6 +817,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/cache/SoC/ifetch_bridge.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/cache/SoC/flash_chip.vhd",
             "src/cache/SoC/mem_region_router.vhd",
             "src/cache/SoC/flash_arbiter.vhd",
@@ -922,6 +937,7 @@
         "toplevel": "onchip_ram_port",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd"
         ],
         "test_module": "tests.python.unittests.ram.onchip_ram_port_block",
@@ -939,6 +955,7 @@
         "toplevel": "onchip_ram_port",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd"
         ],
         "test_module": "tests.python.unittests.ram.onchip_ram_port_block_offset",
@@ -978,5 +995,95 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "LatencyCounter": {
+        "toplevel": "latency_counter",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd"
+        ],
+        "test_module": "tests.python.unittests.latency.latency_counter",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "OnchipRamEmulated": {
+        "toplevel": "onchip_ram_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_chip.vhd",
+            "src/RAM/SoC/onchip_ram_port.vhd",
+            "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/dcache.vhd",
+            "src/RAM/SoC/sim/onchip_ram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.onchip_ram_emulated_latency",
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "parameters": {
+            "SIZE_BYTES": 4096,
+            "LATENCY": 9
+        }
+    },
+    "OnchipRamEmulatedChip": {
+        "toplevel": "onchip_ram_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_chip.vhd",
+            "src/RAM/SoC/onchip_ram_port.vhd",
+            "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/dcache.vhd",
+            "src/RAM/SoC/sim/onchip_ram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.onchip_ram_emulated_latency",
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "parameters": {
+            "SIZE_BYTES": 4096,
+            "LATENCY": 9,
+            "USE_CHIP": true
+        }
+    },
+    "OnchipRamEmulatedShort": {
+        "toplevel": "onchip_ram_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_chip.vhd",
+            "src/RAM/SoC/onchip_ram_port.vhd",
+            "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/dcache.vhd",
+            "src/RAM/SoC/sim/onchip_ram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.onchip_ram_emulated_short",
+        "build_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "test_args": [
+            "--std=08",
+            "-fsynopsys"
+        ],
+        "parameters": {
+            "SIZE_BYTES": 4096,
+            "LATENCY": 3
+        }
     }
 }
