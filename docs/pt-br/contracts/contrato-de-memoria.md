@@ -60,6 +60,8 @@ SDRAM, FLASH atrás de cache e RAM externa levam vários ciclos, e a resposta de
 
 O pedido (endereço, dado, máscara, `i_re` e `i_we`) fica estável até `o_ready` subir, e o dado lido só muda no pedido seguinte. Um pedido de linha acrescenta `i_line`, que move quatro palavras, e três portas extras de 32 bits para as palavras 1 a 3 do dado e da leitura. Um endereço fora da janela do bloco lê zero e a escrita é descartada, sem erro. O contrato é o mesmo para o backend emulado e para o de dispositivo de uma região, e quem o usa não distingue um do outro. Os chips documentados com esse contrato são [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md) e, do lado da SDRAM, a ponte [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md).
 
+Os modelos emulados que cumprem este contrato (`ram_chip`, `flash_chip` e o adaptador `onchip_ram_port` com `latency` maior que zero) contam a latência com a mesma máquina, o [latency_counter](../latency/latency_counter.md), e por isso um acesso leva as mesmas bordas na simulação e na placa.
+
 ## 4. Clock
 
 O clock é um pino separado, e o bloco só enxerga a borda que recebe. Há dois casos.
@@ -176,7 +178,7 @@ Uma palavra larga permite mover várias palavras do core de uma vez. A cache de 
 | Tipo | Blocos |
 | :--- | :--- |
 | Memória de um ciclo | [ram](../ram/ram.md), [ram_simulation](../ram/ram_simulation.md), [boot_memory](../rom/boot_memory.md), [flash_store](../rom/flash_store.md), [rom_simulation](../rom/rom_simulation.md) |
-| Memória de latência variável | [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md), [sdram_ctrl](../ram/sdram_ctrl.md) |
+| Memória de latência variável | [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md), [onchip_ram_port](../ram/onchip_ram_port.md) (latência emulada), [sdram_ctrl](../ram/sdram_ctrl.md) |
 | Memória de duas portas | [rom_simulation](../rom/rom_simulation.md) (duas leituras) e [ram_chip](../ram/ram_chip.md) (dados, instruções e depuração) |
 
 ---
