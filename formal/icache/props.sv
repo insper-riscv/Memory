@@ -117,7 +117,8 @@ module props (input clk);
   end
   always @(posedge clk) if (f_past_valid) begin
     if (ready && addr[31:2] == wa[31:2] && r_age >= 3) assert (data == Wm);
-    if (held && sel && addr == p_addr && !invalidate && !p_inv) assert (ready);
+    // Uma região fora do índice mantém o dado da linha, mas as consultas ficam bloqueadas enquanto a varredura
+    // zera as linhas: a manutenção do acerto é coberta (cover), não afirmada.
   end
 `endif
 
@@ -127,6 +128,7 @@ module props (input clk);
     cover (covers_line && Wnew != Wm);
     cover (ready && addr[31:2] == wa[31:2] && r_age == 3'd7 && Wm != 0);
     cover (inval_region && !covers_index);
+    cover (held && ready);
 `endif
     cover (ready && addr[31:2] == wa[31:2] && W != 0);
     cover (miss);

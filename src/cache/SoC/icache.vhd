@@ -119,7 +119,7 @@ end entity icache;
 architecture rtl of icache is
 
   -- Estados da cache: livre e as etapas do preenchimento de linha.
-  type state_t is (S_IDLE, S_FILL_REQ, S_FILL_WAIT, S_FILL_GET, S_SETTLE);
+  type state_t is (S_IDLE, S_FILL_REQ, S_FILL_WAIT, S_FILL_GET, S_SETTLE, S_SWEEP, S_RELEASE);
   -- Estado atual da cache.
   signal st : state_t := S_IDLE;
 
@@ -147,8 +147,20 @@ architecture rtl of icache is
   signal data_ram : data_t := (others => (others => '0'));
   -- Tag de cada linha.
   signal tag_ram  : tag_t  := (others => (others => '0'));
+  -- Memória de validade: um bit por linha, em RAM como as de dados e de tags, lida no mesmo endereço (a leitura de um vetor de registradores era o pior caminho do PC até a cache).
+  type valid_t is array (0 to LINES - 1) of std_logic;
   -- Bit de validade de cada linha.
-  signal valid    : std_logic_vector(LINES - 1 downto 0) := (others => '0');
+  signal valid_ram : valid_t := (others => '0');
+  -- Uma invalidação (pedido ou reset) está pendente ou em andamento: nenhuma consulta acerta e nenhum preenchimento começa até a varredura zerar as linhas.
+  signal blocked  : std_logic := '1';
+  -- Linha que a varredura de invalidação zera neste ciclo.
+  signal sw_idx   : unsigned(INDEX_BITS - 1 downto 0) := (others => '0');
+  -- Habilita de escrita da memória de validade.
+  signal valid_we : std_logic;
+  -- Endereço de escrita da memória de validade.
+  signal valid_wa : std_logic_vector(INDEX_BITS - 1 downto 0);
+  -- Dado de escrita da memória de validade (1 ao fim de um preenchimento, 0 na varredura).
+  signal valid_wd : std_logic;
 
   -- Palavra lida da memória de dados (leitura registrada).
   signal ram_rd   : std_logic_vector(31 downto 0) := (others => '0');
@@ -172,8 +184,6 @@ architecture rtl of icache is
   signal fill_idx : std_logic_vector(INDEX_BITS - 1 downto 0);
   -- Palavra da linha em preenchimento.
   signal cnt      : unsigned(1 downto 0) := (others => '0');
-  -- Um invalidate chegou durante o preenchimento, a linha será descartada.
-  signal drop     : std_logic := '0';
   -- Palavra da linha que acabou de chegar da memória.
   signal fill_w   : std_logic_vector(31 downto 0);
   -- Há um pedido de invalidação por região a aplicar neste ciclo.
@@ -184,6 +194,14 @@ architecture rtl of icache is
   signal rq_off   : unsigned(INDEX_BITS - 1 downto 0) := (others => '0');
   -- O pedido cobre todas as linhas da cache.
   signal rq_all   : std_logic := '0';
+  -- Há linhas a zerar à espera da varredura (um pedido que chegou com a máquina ocupada).
+  signal pend       : std_logic := '1';
+  -- Índice da primeira linha a zerar do pedido pendente.
+  signal pend_first : unsigned(INDEX_BITS - 1 downto 0) := (others => '0');
+  -- Linhas do pedido pendente menos uma.
+  signal pend_off   : unsigned(INDEX_BITS - 1 downto 0) := (others => '1');
+  -- Linhas que a varredura em andamento ainda zera depois da atual.
+  signal sw_left    : unsigned(INDEX_BITS - 1 downto 0) := (others => '0');
   -- Habilita de escrita da memória de dados.
   signal ram_we : std_logic;
   -- Habilita de escrita da memória de tags.
@@ -196,12 +214,6 @@ architecture rtl of icache is
   signal d_line_i : std_logic := '0';
   -- Endereço do pedido ao lado da memória (registrado).
   signal d_addr_i : std_logic_vector(31 downto 0) := (others => '0');
-
-  -- Uma linha de índice i pertence à região de invalidação que começa na linha first e tem off + 1 linhas (módulo o número de linhas), ou à região inteira (all_lines).
-  function in_region (i : natural; first : unsigned; off : unsigned; all_lines : std_logic) return boolean is
-  begin
-    return all_lines = '1' or (to_unsigned(i, first'length) - first) <= off;
-  end function in_region;
 
   -- A região da ROM: o endereço está em [rom_base_kib, rom_end_kib) KiB.
   function in_rom(addr : std_logic_vector(31 downto 0)) return std_logic is
@@ -216,7 +228,7 @@ architecture rtl of icache is
 begin
 
   tag_match <= '1' when tag_rd = (in_rom(addr_q) & addr_q(25 downto TAG_LOW)) else '0';
-  hit       <= sel_q and valid_rd and tag_match;
+  hit       <= sel_q and valid_rd and tag_match and (not blocked);
   o_ready     <= hit when addr_q = i_addr else '0';
   o_data      <= ram_rd;
 
@@ -227,13 +239,16 @@ begin
   ram_wa <= fill_idx & std_logic_vector(cnt);
   ram_we <= '1' when st = S_FILL_GET else '0';
   tag_we <= '1' when st = S_FILL_GET and cnt = "11" else '0';
+  valid_we <= '1' when st = S_SWEEP or (st = S_FILL_GET and cnt = "11") else '0';
+  valid_wa <= std_logic_vector(sw_idx) when st = S_SWEEP else fill_idx;
+  valid_wd <= '0' when st = S_SWEEP else '1';
 
   process (i_clk)
   begin
     if rising_edge(i_clk) then
       ram_rd   <= data_ram(to_integer(unsigned(i_addr(INDEX_BITS + 3 downto 2))));
       tag_rd   <= tag_ram(to_integer(unsigned(i_addr(INDEX_BITS + 3 downto 4))));
-      valid_rd <= valid(to_integer(unsigned(i_addr(INDEX_BITS + 3 downto 4))));
+      valid_rd <= valid_ram(to_integer(unsigned(i_addr(INDEX_BITS + 3 downto 4))));
       addr_q   <= i_addr;
       sel_q    <= i_sel;
       if ram_we = '1' then
@@ -241,6 +256,9 @@ begin
       end if;
       if tag_we = '1' then
         tag_ram(to_integer(unsigned(fill_idx))) <= fill_tag;
+      end if;
+      if valid_we = '1' then
+        valid_ram(to_integer(unsigned(valid_wa))) <= valid_wd;
       end if;
     end if;
   end process;
@@ -260,8 +278,11 @@ begin
       if i_rst = '1' then
         rq_v     <= '0';
         st       <= S_IDLE;
-        valid    <= (others => '0');
-        drop     <= '0';
+        sw_idx   <= (others => '0');
+        blocked  <= '1';
+        pend       <= '1';
+        pend_first <= (others => '0');
+        pend_off   <= (others => '1');
         d_rden_i <= '0';
         d_line_i <= '0';
         cnt      <= (others => '0');
@@ -278,18 +299,39 @@ begin
             rq_all <= '0';
           end if;
         end if;
-        if i_invalidate = '1' then
-          valid <= (others => '0');
-          if st /= S_IDLE then
-            drop <= '1';
+        -- um pedido de invalidação bloqueia as consultas até a varredura zerar as linhas dele; um segundo pedido
+        -- que encontra outro pendente vira o pedido de todas as linhas
+        if i_invalidate = '1' or rq_v = '1' then
+          blocked <= '1';
+          if i_invalidate = '1' then
+            pend       <= '1';
+            pend_first <= (others => '0');
+            pend_off   <= (others => '1');
+          elsif pend = '1' then
+            pend_first <= (others => '0');
+            pend_off   <= (others => '1');
+          else
+            pend       <= '1';
+            pend_first <= rq_first;
+            if rq_all = '1' then
+              pend_off <= (others => '1');
+            else
+              pend_off <= rq_off;
+            end if;
           end if;
         end if;
         case st is
 
           when S_IDLE =>
-            drop <= '0';
+            if blocked = '1' then
+              if pend = '1' and i_invalidate = '0' and rq_v = '0' then
+                sw_idx  <= pend_first;
+                sw_left <= pend_off;
+                pend    <= '0';
+                st      <= S_SWEEP;
+              end if;
             -- uma falha do endereço que ainda está em addr: traz a sua linha
-            if sel_q = '1' and hit = '0' and addr_q = i_addr and i_invalidate = '0' then
+            elsif sel_q = '1' and hit = '0' and addr_q = i_addr and i_invalidate = '0' then
               fill_tag <= in_rom(addr_q) & addr_q(25 downto TAG_LOW);
               fill_idx <= addr_q(INDEX_BITS + 3 downto 4);
               st       <= S_FILL_REQ;
@@ -315,9 +357,6 @@ begin
 
           when S_FILL_GET =>
             if cnt = "11" then
-              if drop = '0' and i_invalidate = '0' then
-                valid(to_integer(unsigned(fill_idx))) <= '1';
-              end if;
               cnt <= (others => '0');
               st  <= S_SETTLE;
             else
@@ -328,18 +367,25 @@ begin
           when S_SETTLE =>
             st <= S_IDLE;
 
-        end case;
-        -- invalidação por região: derruba as linhas do índice e descarta o preenchimento que cai nela
-        if rq_v = '1' then
-          for i in 0 to LINES - 1 loop
-            if in_region(i, rq_first, rq_off, rq_all) then
-              valid(i) <= '0';
+          -- varredura de invalidação: zera uma linha por ciclo
+          when S_SWEEP =>
+            if sw_left = 0 then
+              st <= S_RELEASE;
+            else
+              sw_idx  <= sw_idx + 1;
+              sw_left <= sw_left - 1;
             end if;
-          end loop;
-          if st /= S_IDLE and in_region(to_integer(unsigned(fill_idx)), rq_first, rq_off, rq_all) then
-            drop <= '1';
-          end if;
-        end if;
+
+          -- a escrita da última linha só aparece na leitura registrada um ciclo depois: as consultas voltam a acertar daqui
+          when S_RELEASE =>
+            if pend = '1' or i_invalidate = '1' or rq_v = '1' then
+              st <= S_IDLE;
+            else
+              blocked <= '0';
+              st      <= S_SETTLE;
+            end if;
+
+        end case;
       end if;
     end if;
   end process;
