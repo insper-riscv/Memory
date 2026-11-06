@@ -978,5 +978,169 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "NorFlashCtrl": {
+        "toplevel": "nor_flash_ctrl_tb",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/ROM/SoC/nor_flash_ctrl.vhd",
+            "src/ROM/SoC/sim/nor_flash_model.vhd",
+            "src/ROM/SoC/sim/nor_flash_ctrl_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.nor_flash_ctrl",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "NorFlashCtrl100": {
+        "toplevel": "nor_flash_ctrl_tb",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/ROM/SoC/nor_flash_ctrl.vhd",
+            "src/ROM/SoC/sim/nor_flash_model.vhd",
+            "src/ROM/SoC/sim/nor_flash_ctrl_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.nor_flash_ctrl",
+        "parameters": {
+            "clk_period_ns": 10,
+            "margin_ns": 2
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "NorFlashCtrlMargin": {
+        "toplevel": "nor_flash_ctrl_tb",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/ROM/SoC/nor_flash_ctrl.vhd",
+            "src/ROM/SoC/sim/nor_flash_model.vhd",
+            "src/ROM/SoC/sim/nor_flash_ctrl_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.nor_flash_ctrl",
+        "parameters": {
+            "clk_period_ns": 25,
+            "margin_ns": 7
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "NorFlashModel": {
+        "toplevel": "nor_flash_model",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/ROM/SoC/sim/nor_flash_model.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.nor_flash_model",
+        "parameters": {
+            "size_bytes": 65536,
+            "sector_bytes": 4096,
+            "t_prog_ns": 2000,
+            "t_erase_ns": 20000,
+            "abort_on_violation": false
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SramCtrl": {
+        "toplevel": "sram_ctrl_tb",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/RAM/SoC/sram_ctrl.vhd",
+            "src/RAM/SoC/sim/sram_model.vhd",
+            "src/RAM/SoC/sim/sram_ctrl_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sram_ctrl",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SramCtrl100": {
+        "toplevel": "sram_ctrl_tb",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/RAM/SoC/sram_ctrl.vhd",
+            "src/RAM/SoC/sim/sram_model.vhd",
+            "src/RAM/SoC/sim/sram_ctrl_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sram_ctrl",
+        "parameters": {
+            "clk_period_ns": 10,
+            "margin_ns": 2,
+            "base_kib": 64
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SramCtrlSlow": {
+        "toplevel": "sram_ctrl_tb",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/RAM/SoC/sram_ctrl.vhd",
+            "src/RAM/SoC/sim/sram_model.vhd",
+            "src/RAM/SoC/sim/sram_ctrl_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sram_ctrl",
+        "parameters": {
+            "clk_period_ns": 4,
+            "margin_ns": 1
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SramModel": {
+        "toplevel": "sram_model",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/RAM/SoC/sim/sram_model.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sram_model",
+        "parameters": {
+            "size_bytes": 65536,
+            "abort_on_violation": false
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }

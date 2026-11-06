@@ -115,6 +115,34 @@ provides:
     requires: []
     sources:
       - src/cache/SoC/ifetch_bridge.vhd
+  chip_timing:
+    requires: []
+    sources:
+      - src/ROM/SoC/chip_timing_pkg.vhd
+  nor_flash_ctrl:
+    requires: [Common-Components/utils, Common-Components/synchronizer, chip_timing]
+    sources:
+      - src/ROM/SoC/nor_flash_ctrl.vhd
+  nor_flash_model:
+    requires: [Common-Components/utils, chip_timing]
+    sources:
+      - src/ROM/SoC/sim/nor_flash_model.vhd
+  nor_flash_ctrl_tb:
+    requires: [nor_flash_ctrl, nor_flash_model]
+    sources:
+      - src/ROM/SoC/sim/nor_flash_ctrl_tb.vhd
+  sram_ctrl:
+    requires: [Common-Components/utils, chip_timing]
+    sources:
+      - src/RAM/SoC/sram_ctrl.vhd
+  sram_model:
+    requires: [Common-Components/utils, chip_timing]
+    sources:
+      - src/RAM/SoC/sim/sram_model.vhd
+  sram_ctrl_tb:
+    requires: [sram_ctrl, sram_model]
+    sources:
+      - src/RAM/SoC/sim/sram_ctrl_tb.vhd
   sdram_model:
     requires: [sdram]
     sources:
