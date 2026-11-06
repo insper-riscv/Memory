@@ -21,11 +21,11 @@ As portas são as do IP [flash](flash.md) (`i_clk_a`, `i_address_a`, `i_rden_a`,
 
 ## 3. Comportamento
 
-Cada porta tem o seu processo, na borda de subida do seu clock. A porta A captura a palavra do endereço quando `i_rden_a` vale `'1'`. A porta B grava `i_data_b` quando `i_wren_b` vale `'1'` e devolve o dado novo na mesma borda, e lê o endereço quando só `i_rden_b` vale `'1'`. As palavras que o arquivo não cobre ficam zeradas.
+Cada porta tem o seu processo, na borda de subida do seu clock. A porta A captura a palavra do endereço quando `i_rden_a` vale `'1'`. A porta B grava `i_data_b` quando `i_wren_b` vale `'1'` e devolve o dado novo na mesma borda, e lê o endereço quando só `i_rden_b` vale `'1'`. As palavras que o arquivo não cobre ficam zeradas. O vetor é alocado no heap durante a leitura do arquivo, então o tamanho não é limitado pela pilha do GHDL e vale para os 256 KB da plataforma `external-data`.
 
 ## 4. Verificação
 
-O teste `FlashLoader` usa este modelo dentro do topo `flash_system` (ver [flash_loader](flash_loader.md)).
+O teste `FlashLoader` usa este modelo dentro do topo `flash_system` (ver [flash_loader](flash_loader.md)), e o `FlashLoaderLarge` repete os mesmos testes com 256 KB, o tamanho da FLASH da plataforma `external-data`.
 
 ---
 
