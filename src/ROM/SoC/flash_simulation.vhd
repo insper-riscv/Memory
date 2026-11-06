@@ -53,12 +53,14 @@ architecture rtl of flash_simulation is
 
   -- Lê o conteúdo inicial do arquivo; as palavras que faltam ficam zeradas.
   impure function load_words(path : string) return words_t is
+    -- Ponteiro para o vetor, alocado no heap: um vetor de centenas de KB como variável local estoura o limite de pilha do GHDL.
+    type words_ptr_t is access words_t;
     -- Arquivo de entrada.
     file f         : text;
     -- Resultado da abertura do arquivo.
     variable state : file_open_status;
     -- Conteúdo lido.
-    variable words : words_t := (others => (others => '0'));
+    variable words : words_ptr_t := new words_t'(others => (others => '0'));
     -- Linha corrente.
     variable l     : line;
     -- Índice da palavra corrente.
@@ -80,7 +82,7 @@ architecture rtl of flash_simulation is
         file_close(f);
       end if;
     end if;
-    return words;
+    return words.all;
   end function;
 
   -- Conteúdo da FLASH.

@@ -21,11 +21,11 @@ The ports are those of the [flash](flash.md) IP (`i_clk_a`, `i_address_a`, `i_rd
 
 ## 3. Behavior
 
-Each port has its own process, on the rising edge of its clock. Port A captures the word of the address when `i_rden_a` is `'1'`. Port B stores `i_data_b` when `i_wren_b` is `'1'` and returns the new data on the same edge, and reads the address when only `i_rden_b` is `'1'`. The words the file does not cover stay zeroed.
+Each port has its own process, on the rising edge of its clock. Port A captures the word of the address when `i_rden_a` is `'1'`. Port B stores `i_data_b` when `i_wren_b` is `'1'` and returns the new data on the same edge, and reads the address when only `i_rden_b` is `'1'`. The words the file does not cover stay zeroed. The array is allocated on the heap while the file is read, so the size is not limited by the GHDL stack and holds for the 256 KB of the `external-data` platform.
 
 ## 4. Verification
 
-The `FlashLoader` test uses this model inside the `flash_system` top (see [flash_loader](flash_loader.md)).
+The `FlashLoader` test uses this model inside the `flash_system` top (see [flash_loader](flash_loader.md)), and `FlashLoaderLarge` repeats the same tests with 256 KB, the FLASH size of the `external-data` platform.
 
 ---
 
