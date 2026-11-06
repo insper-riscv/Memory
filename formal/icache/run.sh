@@ -30,8 +30,8 @@ netlist "$src" ic
 
 start prove ic_dbg.v bmc   28 ''        safety
 start prove ic_dbg.v cover 28 '-DCOVER' cover
-start prove ic_dbg.v bmc   22 '-DREGION' region
-start prove ic_dbg.v cover 22 '-DREGION -DCOVER' cover_region
+start prove ic_dbg.v bmc   32 '-DREGION' region
+start prove ic_dbg.v cover 32 '-DREGION -DCOVER' cover_region
 
 # Mutants of the VHDL: each defect must make the safety proof fail.
 export MUT_DEPTH=28
@@ -44,7 +44,7 @@ start_mutant hit_without_sel    "s/early_ok  <= sel_eff and (not blocked) when/e
 start_mutant partial_line       "s/o_d_line    <= d_line_i;/o_d_line    <= '0';/"
 wait
 # The region mutants need the REGION mode.
-export MUT_DEPTH=22 MUT_DEFS='-DREGION'
+export MUT_DEPTH=32 MUT_DEFS='-DREGION'
 start_mutant region_ignored     "s/pend_first <= rq_first;/pend_first <= rq_first + 1;/"
 start_mutant big_region_partial "s/if span_m1 >= LINES - 1 then/if false then/"
 wait
@@ -52,7 +52,7 @@ export MUT_DEPTH=28; unset MUT_DEFS
 
 expect "hit data, invalidation and bus requests (bounded, 28 clocks)" PASS safety
 expect "cover: a hit on the watched word, a miss and an invalidation during a fill are reachable" PASS cover
-expect "after a region, a hit is the current data (bounded, 22 clocks)" PASS region
+expect "after a region, a hit is the current data (bounded, 32 clocks)" PASS region
 expect "cover: a region that changes the word, a hit on the old data and a region off the index are reachable" PASS cover_region
 for m in region_ignored big_region_partial; do
   expect "mutant $m is caught" FAIL "mut_$m"

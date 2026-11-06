@@ -123,7 +123,7 @@ end entity icache;
 architecture rtl of icache is
 
   -- Estados da cache: livre e as etapas do preenchimento de linha.
-  type state_t is (S_IDLE, S_FILL_REQ, S_FILL_WAIT, S_FILL_GET, S_SETTLE, S_SWEEP, S_RELEASE, S_FILL_PRE);
+  type state_t is (S_IDLE, S_FILL_REQ, S_FILL_WAIT, S_FILL_GET, S_SETTLE, S_SWEEP, S_RELEASE, S_FILL_PRE, S_SETTLE2, S_RELEASE2);
   -- Estado atual da cache.
   signal st : state_t := S_IDLE;
 
@@ -171,6 +171,24 @@ architecture rtl of icache is
   signal blocked  : std_logic := '1';
   -- Linha que a varredura de invalidação zera neste ciclo.
   signal sw_idx   : unsigned(INDEX_BITS - 1 downto 0) := (others => '0');
+  -- Habilitação de escrita da memória de dados, registrada.
+  signal w_ram_we   : std_logic := '0';
+  -- Endereço de escrita da memória de dados, registrado.
+  signal w_ram_wa   : std_logic_vector(INDEX_BITS + 1 downto 0) := (others => '0');
+  -- Dado de escrita da memória de dados, registrado.
+  signal w_data     : std_logic_vector(31 downto 0) := (others => '0');
+  -- Habilitação de escrita da memória de tags, registrada.
+  signal w_tag_we   : std_logic := '0';
+  -- Índice de escrita da memória de tags, registrado.
+  signal w_tag_idx  : std_logic_vector(INDEX_BITS - 1 downto 0) := (others => '0');
+  -- Tag de escrita da memória de tags, registrada.
+  signal w_tag      : std_logic_vector(TAG_BITS - 1 downto 0) := (others => '0');
+  -- Habilitação de escrita da memória de validade, registrada.
+  signal w_valid_we : std_logic := '0';
+  -- Endereço de escrita da memória de validade, registrado.
+  signal w_valid_wa : std_logic_vector(INDEX_BITS - 1 downto 0) := (others => '0');
+  -- Dado de escrita da memória de validade, registrado.
+  signal w_valid_wd : std_logic := '0';
   -- Habilita de escrita da memória de validade.
   signal valid_we : std_logic;
   -- Endereço de escrita da memória de validade.
@@ -271,6 +289,28 @@ begin
   valid_wa <= std_logic_vector(sw_idx) when st = S_SWEEP else fill_idx;
   valid_wd <= '0' when st = S_SWEEP else '1';
 
+  -- Os controles, o endereço e o dado das escritas saem de registradores do clock do core: o caminho até as RAMs (no clock de busca) deixa de passar pela lógica da máquina e pelo roteador da memória. A escrita acontece um ciclo depois do estado que a pede.
+  process (i_clk_cpu)
+  begin
+    if rising_edge(i_clk_cpu) then
+      if i_rst = '1' then
+        w_ram_we   <= '0';
+        w_tag_we   <= '0';
+        w_valid_we <= '0';
+      else
+        w_ram_we   <= ram_we;
+        w_tag_we   <= tag_we;
+        w_valid_we <= valid_we;
+      end if;
+      w_ram_wa   <= ram_wa;
+      w_data     <= fill_w;
+      w_tag_idx  <= fill_idx;
+      w_tag      <= fill_tag;
+      w_valid_wa <= valid_wa;
+      w_valid_wd <= valid_wd;
+    end if;
+  end process;
+
   process (i_clk)
   begin
     if rising_edge(i_clk) then
@@ -279,14 +319,14 @@ begin
       valid_rd <= valid_ram(to_integer(unsigned(i_addr(INDEX_BITS + 3 downto 4))));
       addr_q   <= i_addr;
       sel_q    <= i_sel;
-      if ram_we = '1' then
-        data_ram(to_integer(unsigned(ram_wa))) <= fill_w;
+      if w_ram_we = '1' then
+        data_ram(to_integer(unsigned(w_ram_wa))) <= w_data;
       end if;
-      if tag_we = '1' then
-        tag_ram(to_integer(unsigned(fill_idx))) <= fill_tag;
+      if w_tag_we = '1' then
+        tag_ram(to_integer(unsigned(w_tag_idx))) <= w_tag;
       end if;
-      if valid_we = '1' then
-        valid_ram(to_integer(unsigned(valid_wa))) <= valid_wd;
+      if w_valid_we = '1' then
+        valid_ram(to_integer(unsigned(w_valid_wa))) <= w_valid_wd;
       end if;
     end if;
   end process;
@@ -391,7 +431,7 @@ begin
           when S_FILL_GET =>
             if cnt = "11" then
               cnt <= (others => '0');
-              st  <= S_SETTLE;
+              st  <= S_SETTLE2;
             else
               cnt <= cnt + 1;
             end if;
@@ -399,6 +439,10 @@ begin
           -- a leitura registrada precisa ver a tag e o bit de validade novos antes da próxima consulta
           when S_SETTLE =>
             st <= S_IDLE;
+
+          -- as escritas das RAMs saem de registradores e acontecem um ciclo depois: mais um ciclo antes da leitura nova
+          when S_SETTLE2 =>
+            st <= S_SETTLE;
 
           -- varredura de invalidação: zera uma linha por ciclo
           when S_SWEEP =>
@@ -411,6 +455,14 @@ begin
 
           -- a escrita da última linha só aparece na leitura registrada um ciclo depois: as consultas voltam a acertar daqui
           when S_RELEASE =>
+            if pend = '1' or i_invalidate = '1' or rq_v = '1' then
+              st <= S_IDLE;
+            else
+              st <= S_RELEASE2;
+            end if;
+
+          -- o último zero é escrito um ciclo depois do estado de varredura: as consultas só voltam a acertar depois dele
+          when S_RELEASE2 =>
             if pend = '1' or i_invalidate = '1' or rq_v = '1' then
               st <= S_IDLE;
             else
