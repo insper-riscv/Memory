@@ -20,9 +20,9 @@ from tests.python.unittests.dut import Dut
 
 
 async def complete(dut: Dut, addr: int, rd: int = 0, wr: int = 0) -> None:
-    """Hold the request until ready, advance for a cycle, then drop.
+    """Hold the request until ready, advance one cycle, then drop.
 
-    Unlike the plain request helper, it reads nothing before the advance:
+    Unlike the plain request helper, it reads nothing before advance:
     with hold_rdata the data read is only the request's own after it.
 
     """
@@ -45,7 +45,7 @@ async def complete(dut: Dut, addr: int, rd: int = 0, wr: int = 0) -> None:
 
 @cocotb.test()
 async def test_flash_data_survives_a_new_address(dut: Dut):
-    """Check that the FLASH word stays after the address leaves the FLASH."""
+    """Check the FLASH word stays after the address leaves it."""
     await start(dut)
     await complete(dut, FLASH + 0x400, rd=1)
     wanted = word(0x22220000, (FLASH + 0x400) & ~0xF)
@@ -57,7 +57,7 @@ async def test_flash_data_survives_a_new_address(dut: Dut):
 
 @cocotb.test()
 async def test_sdram_data_survives_a_new_address(dut: Dut):
-    """Check that the SDRAM word stays after the address enters the FLASH."""
+    """Check the SDRAM word stays after the address enters FLASH."""
     await start(dut)
     await complete(dut, SDRAM + 0x80, rd=1)
     wanted = word(0x11110000, (SDRAM + 0x80) & ~0xF)
@@ -69,7 +69,7 @@ async def test_sdram_data_survives_a_new_address(dut: Dut):
 
 @cocotb.test()
 async def test_an_absorbed_store_leaves_zero(dut: Dut):
-    """Check that a store absorbed by the router leaves zero as the data."""
+    """Check that an absorbed store leaves zero as the data."""
     await start(dut)
     await complete(dut, SDRAM + 0x80, rd=1)
     await complete(dut, FLASH + 0x20, wr=1)
