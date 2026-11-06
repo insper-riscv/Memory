@@ -1,0 +1,7 @@
+# SRAM assíncrona da DE2-115 (ISSI IS61WV102416BLL-10, 16 Mbit, 1M x 16, acesso de 10 ns). Peça inferida de fonte de terceiros.
+chip: IS61WV102416BLL-10
+kind: sram
+organization: {words: 1048576, width: 16}
+timing: {access_ns: 10, write_pulse_ns: 8}
+max_mhz: 100
+source: inferido

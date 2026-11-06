@@ -1,0 +1,21 @@
+# SDRAM da DE0-Nano (ISSI IS42S16160B-7, 256 Mbit, 16M x 16, 143 MHz, CL3). Fonte: porta VHDL de terceiros; os tempos
+# são os do datasheet da série -7 e precisam ser conferidos antes de ligar o controlador a este chip.
+chip: IS42S16160B-7
+kind: sdram
+organization: {words: 16777216, width: 16, banks: 4, row_bits: 13, col_bits: 9}
+cas_latency: 3
+timing:
+  tck_ps: 7000
+  trcd_ps: 15000
+  trp_ps: 15000
+  tras_ps: 37000
+  trc_ps: 60000
+  trfc_ps: 60000
+  twr_ps: 14000
+  tmrd_ck: 2
+  tinit_ps: 200000000
+  trefi_ps: 7812500
+  init_refreshes: 8
+io_timing: {input_setup_ns: 1.5, input_hold_ns: 0.8, access_ns: 5.4, output_hold_ns: 2.5}
+max_mhz: 143
+source: inferido
