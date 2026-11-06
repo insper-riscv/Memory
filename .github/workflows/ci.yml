@@ -39,7 +39,7 @@ jobs:
       # key already has a pass (artifact ci-pass-<gate>-<key>) is skipped, whatever the commit, branch or event.
       - name: Read the image digests and look for a pass of the same inputs
         id: plan
-        uses: insper-riscv/Infra/.github/actions/ci-plan@onda1
+        uses: insper-riscv/Infra/.github/actions/ci-plan@main
         with:
           gates: |
             formal|ci-vhdl|!docs/** !**/*.md !LICENSE !AUTHORS* !CITATION.cff !codeclone.baseline.json !ci-images.lock !.github/workflows/version-bump.yml !.github/workflows/tree.yml !pyproject.toml !uv.lock

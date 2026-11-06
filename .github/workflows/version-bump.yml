@@ -29,6 +29,6 @@ jobs:
           BASE: ${{ github.base_ref }}
         run: git fetch --no-tags --depth=1 origin "+refs/heads/$BASE:refs/remotes/origin/$BASE"
 
-      - uses: insper-riscv/Infra/.github/actions/version-bump@onda1
+      - uses: insper-riscv/Infra/.github/actions/version-bump@main
         with:
           base: origin/${{ github.base_ref }}
