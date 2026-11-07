@@ -153,6 +153,7 @@ architecture rtl of sdram_ctrl is
 
   -- Coluna do chip do comando READ ou WRITE: a coluna da palavra (ou a da palavra lcnt da linha) seguida dos bits que a rajada percorre.
   function chip_col (colword : std_logic_vector; lcnt : natural; line : std_logic) return std_logic_vector is
+    -- Coluna montada do chip.
     variable col : std_logic_vector(col_bits - 1 downto 0) := (others => '0');
   begin
     if line = '1' then

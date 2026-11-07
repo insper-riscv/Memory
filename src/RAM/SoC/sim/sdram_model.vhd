@@ -181,6 +181,7 @@ architecture rtl of sdram_model is
 
   -- Aplica a máscara de bytes: o byte com o bit de DQM em '0' recebe o dado dos pinos.
   function merge (old, pins : unit_t; dqm : std_logic_vector) return unit_t is
+    -- Unidade com a máscara aplicada.
     variable r : unit_t := old;
   begin
     for i in 0 to dq_width / 8 - 1 loop

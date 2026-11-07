@@ -102,6 +102,7 @@ package body sdram_pkg is
   end function;
 
   function dram_mode_register(dq_width : natural) return std_logic_vector is
+    -- Registrador de modo montado.
     variable mode : std_logic_vector(12 downto 0) := MODE_REG;
   begin
     if dram_beats(dq_width) = 1 then
@@ -111,6 +112,7 @@ package body sdram_pkg is
   end function;
 
   function dram_fit_a(v : std_logic_vector(12 downto 0); a_bits : natural) return std_logic_vector is
+    -- Valor ajustado ao barramento.
     variable r : std_logic_vector(a_bits - 1 downto 0) := (others => '0');
   begin
     for i in 0 to 12 loop
