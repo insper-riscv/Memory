@@ -2,7 +2,7 @@
 
 ## 1. Função do componente no SoC
 
-O núcleo JTAG da depuração da SDRAM é a lógica atrás de uma instância do Virtual JTAG. No clock da cadeia JTAG, ele desloca um comando de 64 bits vindo do hospedeiro, devolve o estado do comando anterior e entrega o comando ao mestre de depuração (`sdram_dbg_master`), que roda no clock do controlador. A instância do Virtual JTAG fica no invólucro de placa `Insper-RISC-V/src/cyclone-v/de0-cv/sdram_jtag_shell.vhd`, e em simulação o testbench conduz as portas do núcleo diretamente. Os registradores, os comandos e os limites do ponto de vista do hospedeiro estão em [sdram_debug.md](sdram_debug.md).
+O núcleo JTAG da depuração da SDRAM é a lógica atrás de uma instância do Virtual JTAG. No clock da cadeia JTAG, ele desloca um comando de 64 bits vindo do hospedeiro, devolve o estado do comando anterior e entrega o comando ao mestre de depuração (`sdram_dbg_master`), que roda no clock do controlador. A instância do Virtual JTAG fica no invólucro de placa `src/RAM/FPGA/debug/sdram/sdram_jtag_shell.vhd`, e em simulação o testbench conduz as portas do núcleo diretamente. Os registradores, os comandos e os limites do ponto de vista do hospedeiro estão em [sdram_debug.md](sdram_debug.md).
 
 ## 2. Interface
 
@@ -88,7 +88,7 @@ Um deslocamento com `op` igual a 0 só lê o status e não envia nada. A leitura
 
 | Item | Descrição |
 | :--- | :--- |
-| Instanciado em | `Insper-RISC-V/src/cyclone-v/de0-cv/sdram_jtag_shell.vhd` (placa, ao lado do `sld_virtual_jtag`) e `src/RAM/SoC/sim/sdram_system.vhd` (instância `u_jtag`, conduzida pelo testbench) |
+| Instanciado em | `src/RAM/FPGA/debug/sdram/sdram_jtag_shell.vhd` (placa, ao lado do `sld_virtual_jtag`) e `src/RAM/SoC/sim/sdram_system.vhd` (instância `u_jtag`, conduzida pelo testbench) |
 | Entrega comandos a | `sdram_dbg_master`, por `o_cmd_tog`, `o_op`, `o_be`, `o_addr` e `o_data` |
 | Recebe de | `sdram_dbg_master`, por `i_done_tog`, `i_rsp_addr`, `i_rsp_data` e `i_rsp_status` |
 | Hospedeiro | a instância do Virtual JTAG tem registrador de instrução de 2 bits, e a instrução 1 seleciona o DEBUG de 64 bits |

@@ -18,7 +18,11 @@
 --   5  lê a palavra seguinte à acessada por último
 --   6  escreve data na palavra seguinte à acessada por último, bytes por be
 --
--- rsp_addr é a última palavra acessada, rsp_data o que uma leitura devolveu e
+-- O código usa os bits 2 a 0 de op. Com addr_bits igual a 25 (a SDRAM de 128 MB da
+-- DE2-115), o bit 3 de op é o bit 24 do endereço de palavra do comando, o que cabe no
+-- mesmo quadro de 64 bits da porta de depuração; com 24 (o padrão) o bit 3 é ignorado.
+--
+-- rsp_addr é a última palavra acessada (seus 24 bits baixos), rsp_data o que uma leitura devolveu e
 -- rsp_status: bit 1 indica que o controlador não respondeu (o comando foi
 -- descartado) e bit 2 que a SDRAM está inicializada.
 -- =============================================================================
@@ -30,7 +34,9 @@ use ieee.numeric_std.all;
 entity sdram_dbg_master is
   generic (
     -- Ciclos de espera pela resposta do controlador antes de descartar o comando.
-    timeout_cycles : natural := 1 * 2**16
+    timeout_cycles : natural := 1 * 2**16;
+    -- Bits do endereço de palavra da SDRAM (24 ou 25); com 25, o bit 3 de i_op é o bit 24 do endereço.
+    addr_bits      : natural range 24 to 25 := 24
   );
   port (
     -- Clock do módulo.
@@ -42,7 +48,7 @@ entity sdram_dbg_master is
     i_cmd_tog    : in  std_logic;
     -- Alternância que confirma o comando concluído.
     o_done_tog   : out std_logic;
-    -- Código do comando de debug (0 a 6).
+    -- Código do comando de debug (0 a 6 nos bits 2 a 0) e, com addr_bits igual a 25, o bit 24 do endereço no bit 3.
     i_op         : in  std_logic_vector(3 downto 0);
     -- Habilita de bytes das escritas.
     i_be         : in  std_logic_vector(3 downto 0);
@@ -67,7 +73,7 @@ entity sdram_dbg_master is
     -- Porta do mestre B (porta de debug): escrita ('1') ou leitura ('0').
     o_b_we       : out std_logic;
     -- Porta do mestre B (porta de debug): endereço de palavra.
-    o_b_addr     : out std_logic_vector(23 downto 0);
+    o_b_addr     : out std_logic_vector(addr_bits - 1 downto 0);
     -- Porta do mestre B (porta de debug): dado de escrita.
     o_b_wdata    : out std_logic_vector(31 downto 0);
     -- Porta do mestre B (porta de debug): habilita de bytes da escrita.
@@ -100,9 +106,11 @@ architecture rtl of sdram_dbg_master is
   -- Dado do comando em execução.
   signal data_l   : std_logic_vector(31 downto 0) := (others => '0');
   -- Palavra sendo acessada.
-  signal cur_addr : unsigned(23 downto 0) := (others => '0');
+  signal cur_addr : unsigned(addr_bits - 1 downto 0) := (others => '0');
   -- Palavra acessada por último.
-  signal last     : unsigned(23 downto 0) := (others => '0');
+  signal last     : unsigned(addr_bits - 1 downto 0) := (others => '0');
+  -- Endereço de palavra do comando na entrada: i_addr e, com addr_bits igual a 25, o bit 3 de i_op acima dele.
+  signal cmd_addr : unsigned(addr_bits - 1 downto 0);
   -- Quantidade definida para o comando 3 (até 2**24).
   signal count    : unsigned(24 downto 0) := (others => '0');
   -- Palavras do preenchimento ainda por escrever.
@@ -137,13 +145,14 @@ begin
 
   o_done_tog   <= done_i;
   o_b_req_tog  <= req_i;
-  o_rsp_addr   <= std_logic_vector(last);
+  o_rsp_addr   <= std_logic_vector(last(23 downto 0));
+  cmd_addr     <= unsigned(i_op(3 downto 3) & i_addr) when addr_bits = 25 else unsigned(i_addr);
   o_rsp_data   <= rdata_i;
   o_rsp_status <= "00000" & init_sync(0) & err & '0';
   pending    <= '1' when cmd_sync(0) /= done_i else '0';
 
   process (i_clk)
-    procedure issue (a : unsigned(23 downto 0); we : std_logic; d : std_logic_vector(31 downto 0);
+    procedure issue (a : unsigned(addr_bits - 1 downto 0); we : std_logic; d : std_logic_vector(31 downto 0);
                      b : std_logic_vector(3 downto 0)) is
     begin
       o_b_addr  <= std_logic_vector(a);
@@ -174,24 +183,24 @@ begin
               be_l   <= i_be;
               data_l <= i_data;
               err    <= '0';
-              case i_op is
-                when "0001" =>
-                  issue(unsigned(i_addr), '0', (others => '0'), "1111");
-                when "0010" =>
-                  issue(unsigned(i_addr), '1', i_data, i_be);
-                when "0011" =>
+              case i_op(2 downto 0) is
+                when "001" =>
+                  issue(cmd_addr, '0', (others => '0'), "1111");
+                when "010" =>
+                  issue(cmd_addr, '1', i_data, i_be);
+                when "011" =>
                   if count = 0 then
                     done_i <= cmd_sync(0);
                   else
                     left <= count - 1;
-                    issue(unsigned(i_addr), '1', i_data, "1111");
+                    issue(cmd_addr, '1', i_data, "1111");
                   end if;
-                when "0100" =>
+                when "100" =>
                   count  <= unsigned(i_data(24 downto 0));
                   done_i <= cmd_sync(0);
-                when "0101" =>
+                when "101" =>
                   issue(last + 1, '0', (others => '0'), "1111");
-                when "0110" =>
+                when "110" =>
                   issue(last + 1, '1', i_data, i_be);
                 when others =>
                   done_i <= cmd_sync(0);
@@ -212,7 +221,7 @@ begin
             end if;
 
           when ST_NEXT =>
-            if op_l = "0011" and left /= 0 then
+            if op_l(2 downto 0) = "011" and left /= 0 then
               left <= left - 1;
               issue(cur_addr + 1, '1', data_l, "1111");
             else

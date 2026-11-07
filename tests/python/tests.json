@@ -1299,5 +1299,29 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "SdramDebugPort32": {
+        "toplevel": "sdram_system",
+        "sources": [
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
+            "src/RAM/SoC/sdram/sdram_arbiter.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "src/RAM/SoC/sim/sdram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_debug_port",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "dq_width": 32
+        }
     }
 }

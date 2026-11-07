@@ -198,8 +198,17 @@ architecture rtl of sdram_system is
   signal b_we : std_logic;
   -- Endereço de palavra do mestre B (debug).
   signal b_addr  : std_logic_vector(ADDR_BITS - 1 downto 0);
-  -- Endereço do mestre de depuração, de 24 bits fixos pelo protocolo JTAG (alcança as primeiras 2**24 palavras).
-  signal dbg_addr : std_logic_vector(23 downto 0);
+  -- Bits do endereço do mestre de depuração: 24 pelo protocolo JTAG, e 25 (o bit 24 vai no bit 3 de op) quando o chip tem mais palavras.
+  function dbg_bits_of (addr_bits : natural) return natural is
+  begin
+    if addr_bits >= 25 then
+      return 25;
+    end if;
+    return 24;
+  end function;
+  constant DBG_BITS : natural := dbg_bits_of(ADDR_BITS);
+  -- Endereço do mestre de depuração.
+  signal dbg_addr : std_logic_vector(DBG_BITS - 1 downto 0);
   -- Dado de escrita do mestre B (debug).
   signal b_wdata : std_logic_vector(31 downto 0);
   -- Dado lido do mestre B (debug).
@@ -287,6 +296,7 @@ begin
     );
 
   u_dbg : entity work.sdram_dbg_master
+    generic map (addr_bits => DBG_BITS)
     port map (
       i_clk => i_clk_mem, i_rst => i_rst_mem,
       i_cmd_tog => cmd_tog, o_done_tog => done_tog, i_op => d_op, i_be => d_be, i_addr => d_addr, i_data => d_data,

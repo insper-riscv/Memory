@@ -35,11 +35,15 @@ provides:
     requires: [Common-Components/utils]
     sources:
       - src/RAM/SoC/ram_simulation.vhd
-  onchip_ram:
+  # The synthesizable port over a memory block alone: ram_chip.vhd is a simulation model (protected type) that Quartus rejects.
+  onchip_ram_port:
     requires: [Common-Components/utils, latency_counter]
     sources:
-      - src/RAM/SoC/ram_chip.vhd
       - src/RAM/SoC/onchip_ram_port.vhd
+  onchip_ram:
+    requires: [Common-Components/utils, latency_counter, onchip_ram_port]
+    sources:
+      - src/RAM/SoC/ram_chip.vhd
   ram_cyclone_v:
     requires: [Common-Components/utils, block_ram]
     sources:
@@ -89,6 +93,10 @@ provides:
     sources:
       - src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd
       - src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd
+  sdram_jtag_shell:
+    requires: [sdram_debug, Common-Components/virtual_jtag]
+    sources:
+      - src/RAM/FPGA/debug/sdram/sdram_jtag_shell.vhd
   axi_master_bridge:
     requires: []
     sources:
