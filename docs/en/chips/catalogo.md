@@ -26,10 +26,11 @@ The `chips/` folder keeps one file per memory chip that some board carries. The 
 | `IS42S16320D-7` | `sdram` | 64 MiB | Datasheet; values of the DE0-CV controller |
 | `IS42S16320B-7` | `sdram` | 64 MiB per chip | Inherits `IS42S16320D-7`; inferred |
 | `IS42S16160B-7` | `sdram` | 32 MiB | Inferred from the `-7` series |
-| `AS4C4M16SA-7BCN` | `sdram` | 8 MiB | Inferred from the `-7` series |
+| `AS4C4M16SA-7BCN` | `sdram` | 8 MiB | Part and organization by the schematic; timings inferred from the `-7` series |
 | `IS61WV102416BLL-10` | `sram` | 2 MiB | Inferred |
 | `S29GL064N90` | `nor` | 8 MiB | Inferred; part suffix not verified |
 | `EPCS64` | `serial_flash` | 8 MiB | Inferred |
+| `W25Q16DV` | `serial_flash` | 2 MiB | Inferred; part confirmed by the schematic |
 
 The SDRAM capacity of a board is the chip capacity times the number of chips in parallel.
 

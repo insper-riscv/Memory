@@ -1,5 +1,5 @@
-# SDRAM da Arduino MKR Vidor 4000 (Alliance Memory AS4C4M16SA-7BCN, 64 Mbit, 4M x 16, 143 MHz, CL3). Confirmada pela
-# loja, não pelo esquemático; os tempos são os do datasheet da série -7 e precisam ser conferidos.
+# SDRAM da Arduino MKR Vidor 4000 (Alliance Memory AS4C4M16SA-7BCN, 64 Mbit, 4M x 16, 143 MHz, CL3). O chip e a organizacao
+# (A0 a A11, BS0 e BS1, 16 bits de dado) sao confirmados pelo esquematico (U9A); os tempos sao os do datasheet da serie -7 e precisam ser conferidos.
 chip: AS4C4M16SA-7BCN
 kind: sdram
 organization: {words: 4194304, width: 16, banks: 4, row_bits: 12, col_bits: 8}
