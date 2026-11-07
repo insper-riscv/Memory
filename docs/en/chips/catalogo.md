@@ -25,7 +25,7 @@ The `chips/` folder keeps one file per memory chip that some board carries. The 
 | :--- | :--- | ---: | :--- |
 | `IS42S16320D-7` | `sdram` | 64 MiB | Datasheet; values of the DE0-CV controller |
 | `IS42S16320B-7` | `sdram` | 64 MiB per chip | Inherits `IS42S16320D-7`; inferred |
-| `IS42S16160B-7` | `sdram` | 32 MiB | Inferred from the `-7` series |
+| `IS42S16160B-7` | `sdram` | 32 MiB | ISSI datasheet, `-7` column (the identification of the chip on the DE0-Nano is inferred) |
 | `AS4C4M16SA-7BCN` | `sdram` | 8 MiB | Part and organization by the schematic; timings inferred from the `-7` series |
 | `IS61WV102416BLL-10` | `sram` | 2 MiB | Inferred |
 | `S29GL064N90` | `nor` | 8 MiB | Inferred; part suffix not verified |

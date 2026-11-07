@@ -25,7 +25,7 @@ A pasta `chips/` guarda um arquivo por chip de memória que alguma placa carrega
 | :--- | :--- | ---: | :--- |
 | `IS42S16320D-7` | `sdram` | 64 MiB | Datasheet; valores do controlador da DE0-CV |
 | `IS42S16320B-7` | `sdram` | 64 MiB por chip | Herda o `IS42S16320D-7`; inferido |
-| `IS42S16160B-7` | `sdram` | 32 MiB | Inferido da série `-7` |
+| `IS42S16160B-7` | `sdram` | 32 MiB | Datasheet ISSI, coluna `-7` (a identificação do chip na DE0-Nano é inferida) |
 | `AS4C4M16SA-7BCN` | `sdram` | 8 MiB | Peça e organização pelo esquemático; tempos inferidos da série `-7` |
 | `IS61WV102416BLL-10` | `sram` | 2 MiB | Inferido |
 | `S29GL064N90` | `nor` | 8 MiB | Inferido; sufixo da peça não verificado |
