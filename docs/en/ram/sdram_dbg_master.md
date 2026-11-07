@@ -10,7 +10,7 @@ The SDRAM debug master runs, on the controller clock, the read, write and fill c
 
 | Generic | Type | Default | Meaning |
 | :--- | :--- | ---: | :--- |
-| `addr_bits` | natural from 24 to 25 | 24 | bits of the word address; with 25 (the 128 MB SDRAM of the DE2-115), bit 3 of `i_op` is bit 24 of the address |
+| `addr_bits` | natural from 23 to 25 | 24 | bits of the word address (23 is the 32 MB SDRAM of the DE0-Nano); with 25 (the 128 MB SDRAM of the DE2-115), bit 3 of `i_op` is bit 24 of the address |
 | `timeout_cycles` | natural | $2^{16}$ | cycles of waiting for the arbiter answer before the command is dropped |
 
 ### 2.2. Ports
