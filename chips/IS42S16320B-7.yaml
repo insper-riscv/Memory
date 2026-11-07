@@ -1,0 +1,4 @@
+# SDRAM da DE2-115 (dois chips em paralelo): a mesma série do chip da DE0-CV, sem repetir nenhum valor.
+chip: IS42S16320B-7
+extends: IS42S16320D-7
+source: inferido
