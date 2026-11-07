@@ -2,6 +2,6 @@
 chip: IS61WV102416BLL-10
 kind: sram
 organization: {words: 1048576, width: 16}
-timing: {access_ns: 10, write_pulse_ns: 8}
+timing: {access_ns: 10, read_cycle_ns: 10, write_cycle_ns: 10, ce_write_ns: 8, addr_write_ns: 8, write_pulse_ns: 8, data_setup_ns: 6, addr_hold_ns: 0, data_hold_ns: 0}
 max_mhz: 100
 source: inferido

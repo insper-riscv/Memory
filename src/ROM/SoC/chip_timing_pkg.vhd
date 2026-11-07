@@ -2,9 +2,12 @@
 -- Tempos dos chips de memória de dispositivo (FLASH NOR e SRAM assíncrona)
 --
 -- Reúne os tempos de datasheet que o controlador e o modelo de cada chip leem,
--- em nanossegundos, e a conversão de um tempo em ciclos de clock. É o lugar que o
--- pacote gerado do catálogo de chips (trilha M.2.3 do plano Multi-FPGA) passa a
--- ocupar: enquanto ele não existe, os valores abaixo são o padrão dos generics.
+-- em nanossegundos, e a conversão de um tempo em ciclos de clock. A fonte dos
+-- valores é o catálogo de chips (chips/S29GL064N90.yaml e
+-- chips/IS61WV102416BLL-10.yaml); o pacote é a forma que o VHDL lê, e
+-- tests/python/check_chip_timing.py (make check) falha se uma constante diferir do
+-- catálogo. O pacote gerado do catálogo (trilha M.2.3 do plano Multi-FPGA) o
+-- substitui sem mudar os nomes que os controladores usam.
 --
 -- Origem dos valores. Nenhum foi lido no datasheet nesta sessão: todos estão
 -- marcados "inferido" na ficha Plans/Multi-FPGA/placas/de2-115.md (seções 5.2 e
