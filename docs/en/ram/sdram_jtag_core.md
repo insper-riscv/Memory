@@ -2,7 +2,7 @@
 
 ## 1. Role of the component in the SoC
 
-The JTAG core of the SDRAM debug is the logic behind a Virtual JTAG instance. On the JTAG chain clock, it shifts in a 64-bit command from the host, returns the state of the previous command and hands the command to the debug master (`sdram_dbg_master`), which runs on the controller clock. The Virtual JTAG instance lives in the board wrapper `src/RAM/FPGA/debug/sdram/sdram_jtag_shell.vhd`, and in simulation the testbench drives the ports of the core directly. The registers, the commands and the limits from the host point of view are in [sdram_debug.md](sdram_debug.md).
+The JTAG core of the SDRAM debug is the logic behind a Virtual JTAG instance. On the JTAG chain clock, it shifts in a 64-bit command from the host, returns the state of the previous command and hands the command to the debug master (`sdram_dbg_master`), which runs on the controller clock. The Virtual JTAG instance lives in the board wrapper `src/RAM/FPGA/Cyclone-V/sdram_jtag_shell.vhd`, and in simulation the testbench drives the ports of the core directly. The registers, the commands and the limits from the host point of view are in [sdram_debug.md](sdram_debug.md).
 
 ## 2. Interface
 
@@ -88,7 +88,7 @@ A shift with `op` equal to 0 only reads the status and sends nothing. Reading th
 
 | Item | Description |
 | :--- | :--- |
-| Instantiated in | `src/RAM/FPGA/debug/sdram/sdram_jtag_shell.vhd` (board, next to the `sld_virtual_jtag`) and `src/RAM/SoC/sim/sdram_system.vhd` (instance `u_jtag`, driven by the testbench) |
+| Instantiated in | `src/RAM/FPGA/Cyclone-V/sdram_jtag_shell.vhd` (board, next to the `sld_virtual_jtag`) and `src/RAM/SoC/sim/sdram_system.vhd` (instance `u_jtag`, driven by the testbench) |
 | Delivers commands to | `sdram_dbg_master`, through `o_cmd_tog`, `o_op`, `o_be`, `o_addr` and `o_data` |
 | Receives from | `sdram_dbg_master`, through `i_done_tog`, `i_rsp_addr`, `i_rsp_data` and `i_rsp_status` |
 | Host | the Virtual JTAG instance has a 2-bit instruction register, and instruction 1 selects the 64-bit DEBUG |

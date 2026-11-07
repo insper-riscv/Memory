@@ -96,7 +96,7 @@ provides:
   sdram_jtag_shell:
     requires: [sdram_debug, Common-Components/virtual_jtag]
     sources:
-      - src/RAM/FPGA/debug/sdram/sdram_jtag_shell.vhd
+      - src/RAM/FPGA/Cyclone-V/sdram_jtag_shell.vhd
   axi_master_bridge:
     requires: []
     sources:
