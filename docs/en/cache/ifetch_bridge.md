@@ -23,8 +23,9 @@ The first address outside the register, the target of a branch included, starts 
 | Generic | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
 | `fetch_line` | boolean | `true` | Asks for the line of four words that contains the address (`true`) or only its word (`false`) |
-| `base_sdram` | 6-bit vector | `010000` | Bits 31 to 26 added to the SDRAM addresses on the memory side (0x40000000) |
-| `base_flash` | 6-bit vector | `001000` | Bits 31 to 26 added to the FLASH addresses on the memory side (0x20000000) |
+| `window_bits` | natural from 26 to 29 | 26 | Width of the address window of the cache: $2^{\texttt{window\_bits}}$ bytes (26 is 64 MiB, 27 is 128 MiB). The tag stores the bits below it |
+| `base_sdram` | 6-bit vector | `010000` | Bits 31 to 26 of the SDRAM addresses on the memory side (0x40000000); only bits 31 down to `window_bits` are used |
+| `base_flash` | 6-bit vector | `001000` | Bits 31 to 26 of the FLASH addresses on the memory side (0x20000000); only bits 31 down to `window_bits` are used |
 | `rom_base_kib` | natural | 524288 | Base of the ROM region in KiB; whatever falls in it is treated as FLASH |
 | `rom_end_kib` | natural | 1048576 | Exclusive end of the ROM region in KiB |
 
@@ -40,7 +41,7 @@ The first address outside the register, the target of a branch included, starts 
 | `o_data` | output | 32 | Fetched instruction |
 | `i_invalidate` | input | 1 | Pulse that discards the fetch register (default 0) |
 | `o_miss` | output | 1 | One-cycle pulse after the start of each request to the memory |
-| `o_d_addr` | output | 32 | Request address, with the region base on bits 31 to 26 |
+| `o_d_addr` | output | 32 | Request address, with the region base on bits 31 down to `window_bits` |
 | `o_d_rden` | output | 1 | Read request |
 | `o_d_line` | output | 1 | The request is for a line of four words |
 | `o_d_advance` | output | 1 | Equal to `i_d_ready` |
@@ -71,7 +72,7 @@ The machine runs on `i_clk`.
 | `S_IDLE` | If `i_sel` is 1, the register does not contain the fetch address and `i_invalidate` is 0, it records the pending address, builds the request and goes to `S_WAIT` |
 | `S_WAIT` | Holds the request until `i_d_ready`; then lowers `o_d_rden` and `o_d_line`, writes the fetch register and returns to `S_IDLE` |
 
-The request address is the region base (`base_flash` when the address is in $[\texttt{rom\_base\_kib}, \texttt{rom\_end\_kib})$ KiB, `base_sdram` otherwise) followed by bits 25 to 0 of the address, with the bits below the alignment cleared (16 bytes with `fetch_line` true, 4 bytes with false). The request stays stable until `i_d_ready`, which the chip holds as a level until `o_d_advance`.
+The request address is the region base (`base_flash` when the address is in $[\texttt{rom\_base\_kib}, \texttt{rom\_end\_kib})$ KiB, `base_sdram` otherwise) followed by bits `window_bits`$-1$ to 0 of the address, with the bits below the alignment cleared (16 bytes with `fetch_line` true, 4 bytes with false). The request stays stable until `i_d_ready`, which the chip holds as a level until `o_d_advance`.
 
 A request in progress cannot be aborted, because the chip finishes the wait and only then accepts another. A branch during the wait pays the rest of it, stores the word of the old address, which no longer matches the PC, and only then asks for the new address.
 

@@ -66,7 +66,7 @@ $$
 \text{o\_c\_addr} = \text{i\_addr}[25:2]
 $$
 
-The two low bits select the byte inside the word and do not go to the controller. Bits 31 to 26 are not used, and 24 bits of word address cover the 64 MB of the chip. In a line access, the controller also ignores the two low bits of the word address and uses the aligned 16-byte line that contains the address.
+The two low bits select the byte inside the word and do not go to the controller. The bits above `addr_bits + 1` are not used: with `addr_bits` equal to 24 (the default), the word address covers the 64 MB of the chip, and with 25 it covers the 128 MiB of the two chips of the DE2-115. In a line access, the controller also ignores the two low bits of the word address and uses the aligned 16-byte line that contains the address.
 
 ### 3.3. Clock crossing
 

@@ -66,7 +66,7 @@ $$
 \text{o\_c\_addr} = \text{i\_addr}[25:2]
 $$
 
-Os dois bits baixos escolhem o byte dentro da palavra e não vão ao controlador. Os bits 31 a 26 não são usados, e 24 bits de endereço de palavra cobrem os 64 MB do chip. Num acesso de linha, o controlador ignora ainda os dois bits baixos do endereço de palavra e usa a linha de 16 bytes alinhada que contém o endereço.
+Os dois bits baixos escolhem o byte dentro da palavra e não vão ao controlador. Os bits acima de `addr_bits + 1` não são usados: com `addr_bits` igual a 24 (padrão), o endereço de palavra cobre os 64 MB do chip, e com 25 cobre os 128 MiB dos dois chips da DE2-115. Num acesso de linha, o controlador ignora ainda os dois bits baixos do endereço de palavra e usa a linha de 16 bytes alinhada que contém o endereço.
 
 ### 3.3. Cruzamento de clocks
 
