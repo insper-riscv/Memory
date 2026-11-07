@@ -1323,5 +1323,40 @@
         "parameters": {
             "dq_width": 32
         }
+    },
+    "InstructionCacheWindow128": {
+        "toplevel": "icache",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/icache.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.instruction_cache_window",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "WINDOW_BITS": 27
+        }
+    },
+    "DataCacheWindow128": {
+        "toplevel": "dcache",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/dcache.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.data_cache_window",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "WRITE_THROUGH": false,
+            "WINDOW_BITS": 27
+        }
     }
 }

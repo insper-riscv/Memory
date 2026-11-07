@@ -6,7 +6,7 @@
 -- Fica no caminho de busca dos endereços da SDRAM (0x40000000) e da FLASH
 -- (0x20000000); a BOOT_MEMORY não passa por ela. A tag leva a região do endereço (dentro de [rom_base_kib, rom_end_kib)),
 -- que distingue as duas regiões: sem ele, uma linha da FLASH e uma da SDRAM com os
--- mesmos bits 25:12 se confundiriam.
+-- mesmos bits de tag se confundiriam.
 --
 -- Lado do core: addr é o endereço de busca (o PC) e sel diz que é um endereço da
 -- SDRAM. As RAMs têm leitura registrada, como as RAMs de bloco da FPGA, então a
@@ -47,9 +47,9 @@
 -- stores do core, que a cache não observa: só um fence.i os torna visíveis à
 -- busca.
 --
--- Divisão do endereço (64 MB por região): região (1 = ROM, pelos genéricos rom_base_kib e rom_end_kib), bits 25:12
+-- Divisão do endereço (janela de 2**window_bits bytes por região, 64 MiB por padrão): região (1 = ROM, pelos genéricos rom_base_kib e rom_end_kib), bits window_bits-1:12
 -- tag, 11:4 linha, 3:2 palavra (com 256 linhas; o índice ocupa log2 do número de linhas bits a partir do
--- bit 4 e a tag o que sobra até o bit 25). Os demais bits acima de 25 não são guardados; o
+-- bit 4 e a tag o que sobra até o bit window_bits-1). Os demais bits a partir de window_bits não são guardados; o
 -- lado da memória acrescenta a base da região neles (base_flash ou base_sdram).
 -- =============================================================================
 
@@ -62,7 +62,9 @@ entity icache is
   generic (
     -- Tamanho da cache em bits, uma potência de dois de pelo menos 256 (duas linhas de 128 bits): 32768 é 4 KB e 4096 é 4 kbit.
     size_bits  : positive := 32768;
-    -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória.
+    -- Largura do endereço que a janela da cache cobre, de 2**window_bits bytes (26 é 64 MiB, 27 é 128 MiB): a tag guarda os bits abaixo dela e a base da região, do lado da memória, completa os de cima.
+    window_bits : natural range 26 to 29 := 26;
+    -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória; só os bits de 31 até window_bits entram, os de baixo são da tag.
     base_sdram : std_logic_vector(5 downto 0) := "010000";
     -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
     base_flash : std_logic_vector(5 downto 0) := "001000";
@@ -150,14 +152,14 @@ architecture rtl of icache is
   constant INDEX_BITS : natural := index_bits_of(size_bits);
   -- Linhas da cache.
   constant LINES    : natural := 2 ** INDEX_BITS;
-  -- Bits da tag: a região (ROM ou não) e os bits 25 até INDEX_BITS + 4.
-  constant TAG_BITS : natural := 23 - INDEX_BITS;
+  -- Bits da tag: a região (ROM ou não) e os bits window_bits-1 até INDEX_BITS + 4.
+  constant TAG_BITS : natural := window_bits - 3 - INDEX_BITS;
   -- Primeiro bit da tag no endereço, logo acima do índice e do deslocamento dentro da linha.
   constant TAG_LOW  : natural := INDEX_BITS + 4;
 
   -- Memória de dados: quatro palavras por linha.
   type data_t is array (0 to 4 * LINES - 1) of std_logic_vector(31 downto 0);
-  -- Memória de tags: uma tag por linha (região e bits 25 até o fim do índice).
+  -- Memória de tags: uma tag por linha (região e bits window_bits-1 até o fim do índice).
   type tag_t  is array (0 to LINES - 1) of std_logic_vector(TAG_BITS - 1 downto 0);
   -- Palavras das linhas.
   signal data_ram : data_t := (others => (others => '0'));
@@ -269,7 +271,7 @@ architecture rtl of icache is
 
 begin
 
-  tag_match <= '1' when tag_rd = (in_rom(addr_q) & addr_q(25 downto TAG_LOW)) else '0';
+  tag_match <= '1' when tag_rd = (in_rom(addr_q) & addr_q(window_bits - 1 downto TAG_LOW)) else '0';
   sel_eff   <= sel_q when sel_from_kib < 0 else
                '1' when unsigned(addr_q) >= SEL_FROM_ADDR else '0';
   hit       <= sel_eff and valid_rd and tag_match and (not blocked);
@@ -406,15 +408,15 @@ begin
 
           -- a tag e o índice da linha saem do endereço copiado, fora do caminho da busca
           when S_FILL_PRE =>
-            fill_tag <= in_rom(fill_a) & fill_a(25 downto TAG_LOW);
+            fill_tag <= in_rom(fill_a) & fill_a(window_bits - 1 downto TAG_LOW);
             fill_idx <= fill_a(INDEX_BITS + 3 downto 4);
             st       <= S_FILL_REQ;
 
           when S_FILL_REQ =>
             if fill_tag(TAG_BITS - 1) = '1' then
-              d_addr_i <= base_flash & fill_tag(TAG_BITS - 2 downto 0) & fill_idx & "0000";
+              d_addr_i <= base_flash(5 downto window_bits - 26) & fill_tag(TAG_BITS - 2 downto 0) & fill_idx & "0000";
             else
-              d_addr_i <= base_sdram & fill_tag(TAG_BITS - 2 downto 0) & fill_idx & "0000";
+              d_addr_i <= base_sdram(5 downto window_bits - 26) & fill_tag(TAG_BITS - 2 downto 0) & fill_idx & "0000";
             end if;
             d_line_i <= '1';
             d_rden_i <= '1';
