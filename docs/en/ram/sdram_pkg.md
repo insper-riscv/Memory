@@ -33,7 +33,7 @@ The package has no ports and no generics. It exports constants, one function and
 
 | Bits | Value | Meaning |
 | :--- | :--- | :--- |
-| 2 to 0 | `001` | burst of 2 beats of 16 bits, which makes one 32-bit word |
+| 2 to 0 | `001` | burst of 2 beats of 16 bits, which makes one 32-bit word (`dram_mode_register` replaces it with `000`, a burst of 1 beat, when the chip has 32 data bits) |
 | 3 | `0` | sequential burst |
 | 6 to 4 | `011` | CAS latency 3 |
 | 9 | `0` | writes are also bursts |
@@ -58,6 +58,16 @@ Each command is the vector formed by chip select, RAS, CAS and write enable, all
 | Function | Parameters | Return |
 | :--- | :--- | :--- |
 | `cycles` | `ps` and `tck_ps`, both `natural` | number of clocks that cover `ps`, rounded up |
+
+### 2.5. Chip width functions
+
+| Function | Parameters | Return |
+| :--- | :--- | :--- |
+| `dram_beats` | `dq_width` | beats that move a 32-bit word, $32 / \text{dq\_width}$ |
+| `dram_word_addr_bits` | `row_bits`, `bank_bits`, `col_bits`, `dq_width` | width of the 32-bit word address |
+| `dram_a_bits` | `row_bits`, `col_bits` | width of the chip address bus, the larger of `row_bits` and `col_bits` + 1 |
+| `dram_mode_register` | `dq_width` | `MODE_REG` with the burst of $32 / \text{dq\_width}$ beats in bits 2 to 0 (`001` for 16 bits, `000` for 32 bits) |
+| `dram_fit_a` | 13-bit value and `a_bits` | the value on the chip address bus, with zeros above and a cut of what does not fit |
 
 ## 3. Behavior
 

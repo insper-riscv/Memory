@@ -2,7 +2,7 @@
 
 ## 1. Role of the component in the SoC
 
-Behavioral model of the board's 32M x 16 SDR SDRAM, used only in simulation. It stores the written data in a sparse table and fails the simulation (`severity failure`) when the controller breaks a chip rule. A test that ends without a failure therefore proves that the controller meets the times of [sdram_pkg](sdram_pkg.md), the command order, the power-up, the mode register and the refresh interval. The model also offers debug ports that read and corrupt the stored memory.
+Behavioral model of the board's SDR SDRAM, used only in simulation. The generics fix the width of the data bus and the widths of row, bank and column, and the default is the 32M x 16 chip of the DE0-CV. It stores the written data in a sparse table and fails the simulation (`severity failure`) when the controller breaks a chip rule. A test that ends without a failure therefore proves that the controller meets the times of [sdram_pkg](sdram_pkg.md), the command order, the power-up, the mode register and the refresh interval. The model also offers debug ports that read and corrupt the stored memory.
 
 ## 2. Interface
 
@@ -12,6 +12,10 @@ Behavioral model of the board's 32M x 16 SDR SDRAM, used only in simulation. It 
 | :--- | :--- | :--- | :--- |
 | `tck_ps` | natural | `T_CK_PS` (7000) | clock period in ps, converted into simulation time |
 | `init_file` | string | empty | file with the initial image of the chip, empty for a zeroed chip |
+| `dq_width` | natural | 16 | width of the data bus in bits, 16 or 32, which sets the burst of $32 / \text{dq\_width}$ beats |
+| `row_bits` | natural | 13 | row address bits |
+| `bank_bits` | natural | 2 | bank address bits |
+| `col_bits` | natural | 10 | column address bits |
 
 ### 2.2. Chip ports
 
@@ -23,20 +27,20 @@ Behavioral model of the board's 32M x 16 SDR SDRAM, used only in simulation. It 
 | `i_ras_n` | in | 1 | row address strobe, active at `'0'` |
 | `i_cas_n` | in | 1 | column address strobe, active at `'0'` |
 | `i_we_n` | in | 1 | write enable, active at `'0'` |
-| `i_ba` | in | 2 | bank |
-| `i_a` | in | 13 | row or column address |
-| `i_dqm` | in | 2 | data byte mask, which masks at `'1'` |
-| `io_dq` | inout | 16 | DQ data pins |
+| `i_ba` | in | `bank_bits` | bank |
+| `i_a` | in | larger of `row_bits` and `col_bits` + 1 | row or column address |
+| `i_dqm` | in | `dq_width` / 8 | data byte mask, which masks at `'1'` |
+| `io_dq` | inout | `dq_width` | DQ data pins |
 | `i_reinit` | in | 1 | at `'1'` while the controller is in reset, and restarts the chip's power-up sequence |
 
 ### 2.3. Debug ports
 
 | Port | Dir. | Width | Meaning |
 | :--- | :--- | ---: | :--- |
-| `i_dbg_word_addr` | in | 24 | word address read directly from the stored memory |
+| `i_dbg_word_addr` | in | $AW$ (24 by default, 25 with `dq_width` equal to 32) | word address read directly from the stored memory |
 | `o_dbg_word_data` | out | 32 | word stored at that address, registered on the chip clock |
 | `i_dbg_flip` | in | 1 | a rising edge flips one bit of a stored word |
-| `i_dbg_flip_addr` | in | 24 | word address whose bit is flipped |
+| `i_dbg_flip_addr` | in | $AW$ | word address whose bit is flipped |
 | `i_dbg_flip_bit` | in | 5 | position of the flipped bit in the word |
 | `o_dbg_refreshes` | out | 32 | number of AUTO REFRESH commands received |
 | `o_dbg_init_ok` | out | 1 | `'1'` when the mode register was loaded after an accepted power-up sequence |
@@ -45,13 +49,13 @@ Behavioral model of the board's 32M x 16 SDR SDRAM, used only in simulation. It 
 
 ### 3.1. Storage
 
-The memory is a sparse table of 16-bit half-words, with 65536 buckets of linked lists. The key of each half-word is
+The memory is a sparse table of units of `dq_width` bits, the width of one beat, with 65536 buckets of linked lists. The key of each unit is
 
 $$
-k = (\text{row} \cdot 4 + \text{bank}) \cdot 1024 + \text{column}
+k = (\text{row} \cdot 2^{\text{bank\_bits}} + \text{bank}) \cdot 2^{\text{col\_bits}} + \text{column}
 $$
 
-and a position never written reads as zero. The word at address $w$ occupies half-words $2w$ (bits 15 to 0) and $2w+1$ (bits 31 to 16). On a write, a byte is stored only when its bit of `i_dqm` is `'0'`.
+and a position never written reads as zero. The word at address $w$ occupies the units $Bw$ to $Bw + B - 1$, lowest bits first, with $B = 32 / \text{dq\_width}$. On a write, a byte is stored only when its bit of `i_dqm` is `'0'`.
 
 ### 3.2. Initial image
 
@@ -81,17 +85,17 @@ The model does not check the interval between ACTIVE commands of different banks
 
 ### 3.5. Read and write
 
-A READ puts the half-word at the column address and the next one into a read pipeline. The first beat appears on the DQ pins $CL$ edges after the edge on which the chip samples the command, and the second beat one edge later. Outside those two clocks the model releases the pins (high impedance).
+A READ puts the $B = 32 / \text{dq\_width}$ beats from the column into a read pipeline. The first beat appears on the DQ pins $CL$ edges after the edge on which the chip samples the command, and each following one an edge after the previous. Outside those clocks the model releases the pins (high impedance). The column of the command must be a multiple of $B$, and the model fails the simulation otherwise.
 
-On a WRITE the first half-word is stored on the command edge and the second on the next edge, each with the byte mask of that clock.
+On a WRITE the first beat is stored on the command edge and the second, when $B = 2$, on the next edge, each with the byte mask of that clock.
 
 With address bit 10 at `'1'`, the command does an auto-precharge. The bank closes and accepts an ACTIVE only after the instant
 
 $$
-t_{idle} = t_{pre} + T_{RP}, \quad t_{pre} = \max\left(t_{cmd} + 2\,T_{CK},\; t_{act} + T_{RAS}\right)
+t_{idle} = t_{pre} + T_{RP}, \quad t_{pre} = \max\left(t_{cmd} + B\,T_{CK},\; t_{act} + T_{RAS}\right)
 $$
 
-for the READ. For the WRITE, $t_{cmd} + 2\,T_{CK}$ is replaced by $t_{cmd} + T_{CK} + T_{WR}$. Each burst command occupies the bus for $2\,T_{CK}$, so the second READ of a line must come two clocks after the first.
+for the READ. For the WRITE, $t_{cmd} + B\,T_{CK}$ is replaced by $t_{cmd} + (B - 1)\,T_{CK} + T_{WR}$. Each burst command occupies the bus for $B\,T_{CK}$, so the second READ of a line must come $B$ clocks after the first.
 
 ### 3.6. Debug
 

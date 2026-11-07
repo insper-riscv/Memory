@@ -17,6 +17,8 @@ O bloco tem uma porta de entrada de clock e uma de reset, três portas de mestre
 | `i_clk` | entrada | 1 | clock do árbitro e do controlador |
 | `i_rst` | entrada | 1 | reset síncrono, ativo em `'1'` |
 
+O generic `addr_bits` (natural, padrão 24) é a largura do endereço de palavra de 32 bits do chip, 25 com o chip de 32 bits da DE2-115.
+
 ### 2.2. Sinais de cada mestre e do controlador
 
 Para o árbitro, a direção dos sinais de um mestre é a da coluna "Mestre". No lado do controlador as direções se invertem, porque o árbitro é quem pede.
@@ -26,7 +28,7 @@ Para o árbitro, a direção dos sinais de um mestre é a da coluna "Mestre". No
 | toggle de pedido | `i_a_req_tog` | `i_ins_req_tog` | `i_b_req_tog` | `o_c_req_tog` | 1 | entrada |
 | toggle de confirmação | `o_a_ack_tog` | `o_ins_ack_tog` | `o_b_ack_tog` | `i_c_ack_tog` | 1 | saída |
 | escrita ou leitura | `i_a_we` | `i_ins_we` | `i_b_we` | `o_c_we` | 1 | entrada |
-| endereço de palavra | `i_a_addr` | `i_ins_addr` | `i_b_addr` | `o_c_addr` | 24 | entrada |
+| endereço de palavra | `i_a_addr` | `i_ins_addr` | `i_b_addr` | `o_c_addr` | `addr_bits` (24) | entrada |
 | dado de escrita | `i_a_wdata` | `i_ins_wdata` | `i_b_wdata` | `o_c_wdata` | 32 | entrada |
 | habilita de bytes | `i_a_be` | `i_ins_be` | `i_b_be` | `o_c_be` | 4 | entrada |
 | dado lido | `o_a_rdata` | `o_ins_rdata` | `o_b_rdata` | `i_c_rdata` | 32 | saída |

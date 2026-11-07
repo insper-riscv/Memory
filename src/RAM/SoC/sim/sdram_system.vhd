@@ -22,7 +22,15 @@ entity sdram_system is
     -- Ciclos entre dois refreshes.
     refresh_cycles : natural := cycles(T_REFI_PS, T_CK_PS) * 9 / 10;
     -- Arquivo com a imagem inicial do chip.
-    init_file      : string  := ""
+    init_file      : string  := "";
+    -- Largura do barramento de dados DQ do chip, em bits (16 ou 32).
+    dq_width       : natural := 16;
+    -- Bits do endereço de linha do chip.
+    row_bits       : natural := 13;
+    -- Bits do endereço de banco do chip.
+    bank_bits      : natural := 2;
+    -- Bits do endereço de coluna do chip.
+    col_bits       : natural := 10
   );
   port (
     -- Clock do lado do controlador SDRAM.
@@ -77,13 +85,13 @@ entity sdram_system is
     -- A inicialização da SDRAM terminou ('1').
     o_init_done       : out std_logic;
     -- Endereço de palavra lido diretamente do modelo do chip, para depuração.
-    i_dbg_word_addr   : in  std_logic_vector(23 downto 0);
+    i_dbg_word_addr   : in  std_logic_vector(dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0);
     -- Palavra do modelo do chip no endereço de dbg_word_addr.
     o_dbg_word_data   : out std_logic_vector(31 downto 0);
     -- Pulso que inverte um bit de uma palavra armazenada, para provar que uma verificação nota a corrupção.
     i_dbg_flip        : in  std_logic;
     -- Endereço de palavra cujo bit é invertido.
-    i_dbg_flip_addr   : in  std_logic_vector(23 downto 0);
+    i_dbg_flip_addr   : in  std_logic_vector(dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0);
     -- Posição do bit invertido na palavra.
     i_dbg_flip_bit    : in  std_logic_vector(4 downto 0);
     -- Contagem de comandos AUTO REFRESH recebidos pelo chip.
@@ -111,6 +119,8 @@ entity sdram_system is
 end entity sdram_system;
 
 architecture rtl of sdram_system is
+  -- Bits do endereço de palavra de 32 bits do chip.
+  constant ADDR_BITS : natural := dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width);
   -- Alternância de pedido da ponte de dados ao árbitro.
   signal req_tog : std_logic;
   -- Alternância de confirmação do árbitro à ponte de dados.
@@ -120,7 +130,7 @@ architecture rtl of sdram_system is
   -- Escrita ('1') do controlador.
   signal c_we : std_logic;
   -- Endereço de palavra do controlador.
-  signal c_addr  : std_logic_vector(23 downto 0);
+  signal c_addr  : std_logic_vector(ADDR_BITS - 1 downto 0);
   -- Dado de escrita do controlador.
   signal c_wdata : std_logic_vector(31 downto 0);
   -- Dado lido do controlador.
@@ -151,7 +161,7 @@ architecture rtl of sdram_system is
   -- Escrita ('1') do mestre A (ponte de dados).
   signal a_we : std_logic;
   -- Endereço de palavra do mestre A (ponte de dados).
-  signal a_addr  : std_logic_vector(23 downto 0);
+  signal a_addr  : std_logic_vector(ADDR_BITS - 1 downto 0);
   -- Dado de escrita do mestre A (ponte de dados).
   signal a_wdata : std_logic_vector(31 downto 0);
   -- Dado lido do mestre A (ponte de dados).
@@ -165,7 +175,7 @@ architecture rtl of sdram_system is
   -- Escrita ('1') do mestre I.
   signal i_we : std_logic;
   -- Endereço de palavra do mestre I (ponte de instruções).
-  signal i_caddr  : std_logic_vector(23 downto 0);
+  signal i_caddr  : std_logic_vector(ADDR_BITS - 1 downto 0);
   -- Dado de escrita do mestre I (ponte de instruções).
   signal i_cwdata : std_logic_vector(31 downto 0);
   -- Dado lido do mestre I (ponte de instruções).
@@ -187,7 +197,9 @@ architecture rtl of sdram_system is
   -- Escrita ('1') do mestre B (debug).
   signal b_we : std_logic;
   -- Endereço de palavra do mestre B (debug).
-  signal b_addr  : std_logic_vector(23 downto 0);
+  signal b_addr  : std_logic_vector(ADDR_BITS - 1 downto 0);
+  -- Endereço do mestre de depuração, de 24 bits fixos pelo protocolo JTAG (alcança as primeiras 2**24 palavras).
+  signal dbg_addr : std_logic_vector(23 downto 0);
   -- Dado de escrita do mestre B (debug).
   signal b_wdata : std_logic_vector(31 downto 0);
   -- Dado lido do mestre B (debug).
@@ -225,22 +237,24 @@ architecture rtl of sdram_system is
   -- Habilita de escrita, ativo em '0'.
   signal we_n : std_logic;
   -- Seleção do banco.
-  signal ba   : std_logic_vector(1 downto 0);
+  signal ba   : std_logic_vector(bank_bits - 1 downto 0);
   -- Endereço de linha ou de coluna.
-  signal a    : std_logic_vector(12 downto 0);
+  signal a    : std_logic_vector(dram_a_bits(row_bits, col_bits) - 1 downto 0);
   -- Máscara de bytes dos dados.
-  signal dqm  : std_logic_vector(1 downto 0);
+  signal dqm  : std_logic_vector(dq_width / 8 - 1 downto 0);
   -- Pinos de dados DQ.
-  signal dq   : std_logic_vector(15 downto 0);
+  signal dq   : std_logic_vector(dq_width - 1 downto 0);
   -- Dado que o controlador coloca nos pinos DQ.
-  signal dq_out : std_logic_vector(15 downto 0);
+  signal dq_out : std_logic_vector(dq_width - 1 downto 0);
   -- O controlador dirige os pinos DQ ('1').
   signal dq_oe  : std_logic;
 begin
 
   o_init_done <= init_i;
+  b_addr      <= std_logic_vector(resize(unsigned(dbg_addr), ADDR_BITS));
 
   u_bridge : entity work.sdram_cpu_bridge
+    generic map (addr_bits => ADDR_BITS)
     port map (
       i_clk_cpu => i_clk_cpu, i_rst_cpu => i_rst_cpu,
       i_addr => i_addr, i_wdata => i_wdata, i_byteena => i_byteena, i_rden => i_rden, i_wren => i_wren,
@@ -252,6 +266,7 @@ begin
     );
 
   u_ibridge : entity work.sdram_cpu_bridge
+    generic map (addr_bits => ADDR_BITS)
     port map (
       i_clk_cpu => i_clk_cpu, i_rst_cpu => i_rst_cpu,
       i_addr => i_ins_addr, i_wdata => (others => '0'), i_byteena => (others => '0'), i_rden => i_ins_rden, i_wren => '0',
@@ -277,11 +292,12 @@ begin
       i_cmd_tog => cmd_tog, o_done_tog => done_tog, i_op => d_op, i_be => d_be, i_addr => d_addr, i_data => d_data,
       o_rsp_addr => r_addr, o_rsp_data => r_data, o_rsp_status => r_status,
       i_init_done => init_i,
-      o_b_req_tog => b_req, i_b_ack_tog => b_ack, o_b_we => b_we, o_b_addr => b_addr,
+      o_b_req_tog => b_req, i_b_ack_tog => b_ack, o_b_we => b_we, o_b_addr => dbg_addr,
       o_b_wdata => b_wdata, o_b_be => b_be, i_b_rdata => b_rdata
     );
 
   u_arb : entity work.sdram_arbiter
+    generic map (addr_bits => ADDR_BITS)
     port map (
       i_clk => i_clk_mem, i_rst => i_rst_mem,
       i_a_req_tog => a_req, o_a_ack_tog => a_ack, i_a_we => a_we, i_a_addr => a_addr,
@@ -299,7 +315,8 @@ begin
 
   u_ctrl : entity work.sdram_ctrl
     generic map (tck_ps => tck_ps, init_cycles => init_cycles, refresh_cycles => refresh_cycles,
-                 sync_req => false)
+                 sync_req => false, dq_width => dq_width, row_bits => row_bits, bank_bits => bank_bits,
+                 col_bits => col_bits)
     port map (
       i_clk => i_clk_mem, i_rst => i_rst_mem,
       i_req_tog => req_tog, o_ack_tog => ack_tog, o_init_done => init_i,
@@ -314,7 +331,8 @@ begin
   dq <= dq_out when dq_oe = '1' else (others => 'Z');
 
   u_chip : entity work.sdram_model
-    generic map (tck_ps => tck_ps, init_file => init_file)
+    generic map (tck_ps => tck_ps, init_file => init_file, dq_width => dq_width, row_bits => row_bits,
+                 bank_bits => bank_bits, col_bits => col_bits)
     port map (
       i_clk => i_clk_mem, i_cke => cke, i_cs_n => cs_n, i_ras_n => ras_n, i_cas_n => cas_n,
       i_we_n => we_n, i_ba => ba, i_a => a, i_dqm => dqm, io_dq => dq, i_reinit => i_rst_mem,

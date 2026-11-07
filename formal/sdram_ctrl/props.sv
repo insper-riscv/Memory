@@ -17,6 +17,9 @@
 `ifndef C_RFC
 `define C_RFC 9
 `endif
+`ifndef DQ
+`define DQ 16     // largura do barramento de dados do chip: 16 (rajada de 2) ou 32 (rajada de 1)
+`endif
 `ifndef INIT
 `define INIT 6
 `endif
@@ -33,21 +36,24 @@
 module props (input clk);
   localparam C_RCD = `C_RCD, C_RP = `C_RP, C_RC = `C_RC, C_RFC = `C_RFC, T_MRD = 2, N_INIT_REF = 8;
   localparam [3:0] NOP = 4'b0111, ACTIVE = 4'b0011, READ = 4'b0101, WRITE = 4'b0100, PRE = 4'b0010, REF = 4'b0001, LMR = 4'b0000;
-  localparam [12:0] MODE = 13'b0000000110001;
+  localparam DQ = `DQ, AW = 24 + (`DQ == 32);
+  // O registrador de modo: latência CAS 3, sequencial, rajada de 2 beats (16 bits) ou de 1 (32 bits).
+  localparam [12:0] MODE = (`DQ == 32) ? 13'b0000000110000 : 13'b0000000110001;
 
   (* anyseq *) wire rst, req_tog, we, line;
-  (* anyseq *) wire [23:0] addr;
+  (* anyseq *) wire [AW-1:0] addr;
   (* anyseq *) wire [31:0] wdata;
   (* anyseq *) wire [3:0] be;
   (* anyseq *) wire [95:0] wdata_x;
   (* anyseq *) wire [11:0] be_x;
-  (* anyseq *) wire [15:0] dq_in;
+  (* anyseq *) wire [DQ-1:0] dq_in;
   wire ack_tog, init_done, cke, cs_n, ras_n, cas_n, we_n, dq_oe;
   wire [31:0] rdata;
   wire [95:0] rdata_x;
-  wire [1:0] ba, dqm;
+  wire [1:0] ba;
+  wire [DQ/8-1:0] dqm;
   wire [12:0] a;
-  wire [15:0] dq_out;
+  wire [DQ-1:0] dq_out;
 
   sdram_ctrl dut (.i_clk(clk), .i_rst(rst), .i_req_tog(req_tog), .o_ack_tog(ack_tog), .o_init_done(init_done),
     .i_we(we), .i_addr(addr), .i_wdata(wdata), .i_be(be), .o_rdata(rdata), .i_line(line), .i_wdata_x(wdata_x),
@@ -61,7 +67,7 @@ module props (input clk);
   wire non_nop = f_past_valid && cmd != NOP;
 
   reg p_req = 0, p_ack = 0, p_we = 0, p_line = 0;
-  reg [23:0] p_addr = 0;
+  reg [AW-1:0] p_addr = 0;
   reg [31:0] p_wdata = 0;
   reg [3:0] p_be = 0;
   reg [95:0] p_wx = 0;

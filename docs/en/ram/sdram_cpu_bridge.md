@@ -29,13 +29,15 @@ The same bridge serves the data path and the instruction path, in two instances.
 
 ### 2.2. Controller side
 
+The generic `addr_bits` (natural, default 24) is the width of the 32-bit word address of the chip, 25 with the 32-bit chip of the DE2-115.
+
 | Port | Dir. | Width | Meaning |
 | :--- | :--- | ---: | :--- |
 | `o_req_tog` | out | 1 | each flip is a new request |
 | `i_ack_tog` | in | 1 | acknowledge toggle of the controller, synchronized inside the bridge |
 | `i_init_done` | in | 1 | the SDRAM initialization finished, synchronized inside the bridge |
 | `o_c_we` | out | 1 | write (`'1'`) or read (`'0'`) |
-| `o_c_addr` | out | 24 | word address |
+| `o_c_addr` | out | `addr_bits` | word address, bits `addr_bits` + 1 to 2 of `i_addr` |
 | `o_c_wdata` | out | 32 | write data |
 | `o_c_be` | out | 4 | byte enables |
 | `i_c_rdata` | in | 32 | read data |

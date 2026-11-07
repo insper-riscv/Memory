@@ -29,13 +29,15 @@ A mesma ponte serve ao caminho de dados e ao de instruções, em duas instância
 
 ### 2.2. Lado do controlador
 
+O generic `addr_bits` (natural, padrão 24) é a largura do endereço de palavra de 32 bits do chip, 25 com o chip de 32 bits da DE2-115.
+
 | Porta | Dir. | Largura | Significado |
 | :--- | :--- | ---: | :--- |
 | `o_req_tog` | saída | 1 | cada inversão é um pedido novo |
 | `i_ack_tog` | entrada | 1 | toggle de confirmação do controlador, sincronizado dentro da ponte |
 | `i_init_done` | entrada | 1 | a inicialização da SDRAM terminou, sincronizada dentro da ponte |
 | `o_c_we` | saída | 1 | escrita (`'1'`) ou leitura (`'0'`) |
-| `o_c_addr` | saída | 24 | endereço de palavra |
+| `o_c_addr` | saída | `addr_bits` | endereço de palavra, os bits `addr_bits` + 1 a 2 de `i_addr` |
 | `o_c_wdata` | saída | 32 | dado de escrita |
 | `o_c_be` | saída | 4 | habilita de bytes |
 | `i_c_rdata` | entrada | 32 | dado lido |

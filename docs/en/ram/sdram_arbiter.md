@@ -17,6 +17,8 @@ The block has one clock input and one reset input, three master ports and one co
 | `i_clk` | in | 1 | clock of the arbiter and of the controller |
 | `i_rst` | in | 1 | synchronous reset, active at `'1'` |
 
+The generic `addr_bits` (natural, default 24) is the width of the 32-bit word address of the chip, 25 with the 32-bit chip of the DE2-115.
+
 ### 2.2. Signals of each master and of the controller
 
 For the arbiter, the direction of a master's signals is the one in the "Master" column. On the controller side the directions are reversed, because the arbiter is the one that requests.
@@ -26,7 +28,7 @@ For the arbiter, the direction of a master's signals is the one in the "Master" 
 | request toggle | `i_a_req_tog` | `i_ins_req_tog` | `i_b_req_tog` | `o_c_req_tog` | 1 | in |
 | acknowledge toggle | `o_a_ack_tog` | `o_ins_ack_tog` | `o_b_ack_tog` | `i_c_ack_tog` | 1 | out |
 | write or read | `i_a_we` | `i_ins_we` | `i_b_we` | `o_c_we` | 1 | in |
-| word address | `i_a_addr` | `i_ins_addr` | `i_b_addr` | `o_c_addr` | 24 | in |
+| word address | `i_a_addr` | `i_ins_addr` | `i_b_addr` | `o_c_addr` | `addr_bits` (24) | in |
 | write data | `i_a_wdata` | `i_ins_wdata` | `i_b_wdata` | `o_c_wdata` | 32 | in |
 | byte enables | `i_a_be` | `i_ins_be` | `i_b_be` | `o_c_be` | 4 | in |
 | read data | `o_a_rdata` | `o_ins_rdata` | `o_b_rdata` | `i_c_rdata` | 32 | out |

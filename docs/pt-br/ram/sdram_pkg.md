@@ -33,7 +33,7 @@ O pacote não tem portas nem generics. Exporta constantes, uma função e nenhum
 
 | Bits | Valor | Significado |
 | :--- | :--- | :--- |
-| 2 a 0 | `001` | rajada de 2 beats de 16 bits, o que forma uma palavra de 32 bits |
+| 2 a 0 | `001` | rajada de 2 beats de 16 bits, o que forma uma palavra de 32 bits (`dram_mode_register` troca por `000`, rajada de 1 beat, quando o chip tem 32 bits de dados) |
 | 3 | `0` | rajada sequencial |
 | 6 a 4 | `011` | latência CAS 3 |
 | 9 | `0` | escritas também em rajada |
@@ -58,6 +58,16 @@ Cada comando é o vetor formado por chip select, RAS, CAS e write enable, todos 
 | Função | Parâmetros | Retorno |
 | :--- | :--- | :--- |
 | `cycles` | `ps` e `tck_ps`, ambos `natural` | número de clocks que cobrem `ps`, arredondado para cima |
+
+### 2.5. Funções da largura do chip
+
+| Função | Parâmetros | Retorno |
+| :--- | :--- | :--- |
+| `dram_beats` | `dq_width` | beats que movem uma palavra de 32 bits, $32 / \text{dq\_width}$ |
+| `dram_word_addr_bits` | `row_bits`, `bank_bits`, `col_bits`, `dq_width` | largura do endereço de palavra de 32 bits |
+| `dram_a_bits` | `row_bits`, `col_bits` | largura do barramento de endereço do chip, o maior entre `row_bits` e `col_bits` + 1 |
+| `dram_mode_register` | `dq_width` | `MODE_REG` com a rajada de $32 / \text{dq\_width}$ beats nos bits 2 a 0 (`001` para 16 bits, `000` para 32 bits) |
+| `dram_fit_a` | valor de 13 bits e `a_bits` | o valor no barramento de endereço do chip, com zeros acima e corte do que não cabe |
 
 ## 3. Comportamento
 

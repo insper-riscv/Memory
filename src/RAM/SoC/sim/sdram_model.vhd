@@ -1,5 +1,10 @@
 -- =============================================================================
--- Modelo comportamental da SDRAM SDR de 32M x 16 (somente simulação)
+-- Modelo comportamental da SDRAM SDR (somente simulação)
+--
+-- A largura do barramento de dados (dq_width, 16 ou 32) e as larguras de linha,
+-- banco e coluna são generics, e o padrão é o chip de 32M x 16 da DE0-CV. A
+-- rajada programada no registrador de modo tem 32 / dq_width beats, de modo que
+-- uma palavra de 32 bits é sempre uma rajada.
 --
 -- Guarda os dados escritos numa tabela esparsa e FAZ A SIMULAÇÃO FALHAR quando o
 -- controlador quebra uma regra do chip: ordem dos comandos, os tempos do
@@ -30,7 +35,15 @@ entity sdram_model is
     -- Período do clock em picossegundos.
     tck_ps    : natural := T_CK_PS;
     -- Arquivo com a imagem inicial do chip (vazio: chip zerado).
-    init_file : string  := ""
+    init_file : string  := "";
+    -- Largura do barramento de dados DQ, em bits (16 ou 32).
+    dq_width  : natural := 16;
+    -- Bits do endereço de linha.
+    row_bits  : natural := 13;
+    -- Bits do endereço de banco.
+    bank_bits : natural := 2;
+    -- Bits do endereço de coluna (no máximo 10).
+    col_bits  : natural := 10
   );
   port (
     -- Clock do módulo.
@@ -46,24 +59,24 @@ entity sdram_model is
     -- Habilita de escrita, ativo em '0'.
     i_we_n   : in    std_logic;
     -- Seleção do banco.
-    i_ba     : in    std_logic_vector(1 downto 0);
+    i_ba     : in    std_logic_vector(bank_bits - 1 downto 0);
     -- Endereço de linha ou de coluna.
-    i_a      : in    std_logic_vector(12 downto 0);
+    i_a      : in    std_logic_vector(dram_a_bits(row_bits, col_bits) - 1 downto 0);
     -- Máscara de bytes dos dados.
-    i_dqm    : in    std_logic_vector(1 downto 0);
+    i_dqm    : in    std_logic_vector(dq_width / 8 - 1 downto 0);
     -- Pinos de dados DQ.
-    io_dq     : inout std_logic_vector(15 downto 0);
+    io_dq     : inout std_logic_vector(dq_width - 1 downto 0);
     -- Em '1' enquanto o controlador está em reset: o chip começa uma nova sequência de energização (espera, PRECHARGE ALL, refreshes e registrador de modo).
     i_reinit : in    std_logic;
 
     -- Endereço de palavra lido diretamente do modelo do chip, para depuração.
-    i_dbg_word_addr   : in  std_logic_vector(23 downto 0);
+    i_dbg_word_addr   : in  std_logic_vector(dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0);
     -- Palavra do modelo do chip no endereço de dbg_word_addr.
     o_dbg_word_data   : out std_logic_vector(31 downto 0);
     -- Pulso que inverte um bit de uma palavra armazenada, para provar que uma verificação nota a corrupção.
     i_dbg_flip        : in  std_logic;
     -- Endereço de palavra cujo bit é invertido.
-    i_dbg_flip_addr   : in  std_logic_vector(23 downto 0);
+    i_dbg_flip_addr   : in  std_logic_vector(dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0);
     -- Posição do bit invertido na palavra.
     i_dbg_flip_bit    : in  std_logic_vector(4 downto 0);
     -- Contagem de comandos AUTO REFRESH recebidos pelo chip.
@@ -75,6 +88,14 @@ end entity sdram_model;
 
 architecture rtl of sdram_model is
 
+  -- Beats de dados por palavra de 32 bits (a rajada programada).
+  constant BEATS : natural := dram_beats(dq_width);
+  -- Valor do registrador de modo que o controlador deve carregar, no barramento de endereço do chip.
+  constant MODE_A : std_logic_vector(dram_a_bits(row_bits, col_bits) - 1 downto 0) :=
+    dram_fit_a(dram_mode_register(dq_width), dram_a_bits(row_bits, col_bits));
+  -- Dado de um beat nos pinos DQ.
+  subtype unit_t is std_logic_vector(dq_width - 1 downto 0);
+
   -- Nó da lista encadeada de um balde da tabela esparsa.
   type node_t;
   -- Ponteiro para um nó da tabela.
@@ -82,7 +103,7 @@ architecture rtl of sdram_model is
   -- Nó da lista encadeada de um balde da tabela esparsa.
   type node_t is record
     key  : natural;
-    val  : std_logic_vector(15 downto 0);
+    val  : unit_t;
     next_node : node_ptr_t;
   end record;
   -- Vetor de baldes da tabela esparsa.
@@ -90,7 +111,7 @@ architecture rtl of sdram_model is
 
   -- Tabela esparsa de meias-palavras de 16 bits, indexada por linha, banco e coluna.
   type sparse_t is protected
-    procedure write (key : natural; val : std_logic_vector(15 downto 0));
+    procedure write (key : natural; val : unit_t);
     impure function read (key : natural) return std_logic_vector;
   end protected sparse_t;
 
@@ -99,7 +120,7 @@ architecture rtl of sdram_model is
     -- Baldes da tabela esparsa.
     variable buckets : bucket_array_t := (others => null);
 
-    procedure write (key : natural; val : std_logic_vector(15 downto 0)) is
+    procedure write (key : natural; val : unit_t) is
       -- Nó corrente na busca da tabela.
       variable p : node_ptr_t := buckets(key mod 65536);
     begin
@@ -124,7 +145,7 @@ architecture rtl of sdram_model is
         end if;
         p := p.next_node;
       end loop;
-      return x"0000";
+      return (unit_t'range => '0');
     end function;
   end protected body sparse_t;
 
@@ -144,13 +165,13 @@ architecture rtl of sdram_model is
   -- Posição do pipeline de leitura: validade e dado de 16 bits.
   type rd_slot_t is record
     valid : boolean;
-    data  : std_logic_vector(15 downto 0);
+    data  : unit_t;
   end record;
   -- Pipeline que atrasa o dado lido pela latência CAS.
   type rd_pipe_t is array (1 to 6) of rd_slot_t;
 
   -- Valor que o chip coloca nos pinos DQ.
-  signal dq_drv : std_logic_vector(15 downto 0) := (others => 'Z');
+  signal dq_drv : unit_t := (others => 'Z');
   -- O chip dirige os pinos DQ.
   signal dq_oe  : std_logic := '0';
   -- Contagem dos comandos AUTO REFRESH recebidos.
@@ -158,9 +179,21 @@ architecture rtl of sdram_model is
   -- A sequência de energização foi aceita.
   signal init_ok       : std_logic := '0';
 
+  -- Aplica a máscara de bytes: o byte com o bit de DQM em '0' recebe o dado dos pinos.
+  function merge (old, pins : unit_t; dqm : std_logic_vector) return unit_t is
+    variable r : unit_t := old;
+  begin
+    for i in 0 to dq_width / 8 - 1 loop
+      if dqm(i) = '0' then
+        r(8 * i + 7 downto 8 * i) := pins(8 * i + 7 downto 8 * i);
+      end if;
+    end loop;
+    return r;
+  end function;
+
   function key_of (row : natural; bank : natural; col : natural) return natural is
   begin
-    return (row * 4 + bank) * 1024 + col;
+    return (row * 2**bank_bits + bank) * 2**col_bits + col;
   end function;
 
 begin
@@ -185,8 +218,9 @@ begin
         if l'length >= 8 then
           hread(l, w, ok);
           if ok then
-            mem.write(2 * idx, w(15 downto 0));
-            mem.write(2 * idx + 1, w(31 downto 16));
+            for k in 0 to BEATS - 1 loop
+              mem.write(BEATS * idx + k, w(dq_width * (k + 1) - 1 downto dq_width * k));
+            end loop;
           end if;
           idx := idx + 1;
         end if;
@@ -202,10 +236,15 @@ begin
   dbg_read : process (i_clk)
     -- Palavra lida do arquivo ou índice de palavra.
     variable w : natural;
+    -- Palavra de 32 bits montada dos beats.
+    variable word : std_logic_vector(31 downto 0);
   begin
     if rising_edge(i_clk) then
       w := to_integer(unsigned(i_dbg_word_addr));
-      o_dbg_word_data <= mem.read(2 * w + 1) & mem.read(2 * w);
+      for k in 0 to BEATS - 1 loop
+        word(dq_width * (k + 1) - 1 downto dq_width * k) := mem.read(BEATS * w + k);
+      end loop;
+      o_dbg_word_data <= word;
     end if;
   end process;
 
@@ -215,14 +254,14 @@ begin
     -- Índice da meia-palavra.
     variable k : natural;
     -- Meia-palavra lida da tabela.
-    variable v    : std_logic_vector(15 downto 0);
+    variable v    : unit_t;
   begin
     if rising_edge(i_dbg_flip) then
       w := to_integer(unsigned(i_dbg_flip_addr));
       k := to_integer(unsigned(i_dbg_flip_bit));
-      v := mem.read(2 * w + k / 16);
-      v(k mod 16) := not v(k mod 16);
-      mem.write(2 * w + k / 16, v);
+      v := mem.read(BEATS * w + k / dq_width);
+      v(k mod dq_width) := not v(k mod dq_width);
+      mem.write(BEATS * w + k / dq_width, v);
     end if;
   end process;
 
@@ -283,9 +322,9 @@ begin
     -- O comando usa auto-precharge.
     variable ap          : boolean;
     -- Valor antigo da meia-palavra.
-    variable old : std_logic_vector(15 downto 0);
+    variable old : unit_t;
     -- Valor novo depois de aplicar a máscara de bytes.
-    variable merged : std_logic_vector(15 downto 0);
+    variable merged : unit_t;
   begin
     if rising_edge(i_clk) then
 
@@ -319,9 +358,7 @@ begin
       -- 2. o segundo beat de uma escrita comandada na borda anterior
       if wr_pending then
         old    := mem.read(wr_key);
-        merged := old;
-        if i_dqm(0) = '0' then merged(7 downto 0)  := io_dq(7 downto 0);  end if;
-        if i_dqm(1) = '0' then merged(15 downto 8) := io_dq(15 downto 8); end if;
+        merged := merge(old, io_dq, i_dqm);
         mem.write(wr_key, merged);
         last_wr_end(wr_bank) := now;
         wr_pending := false;
@@ -346,15 +383,15 @@ begin
         end if;
 
         b   := to_integer(unsigned(i_ba));
-        row := to_integer(unsigned(i_a));
-        col := to_integer(unsigned(i_a(9 downto 0)));
+        row := to_integer(unsigned(i_a(row_bits - 1 downto 0)));
+        col := to_integer(unsigned(i_a(col_bits - 1 downto 0)));
         ap  := i_a(10) = '1';
 
         if cmd = CMD_LOAD_MODE then
           assert pre_all_ok and n_refresh >= 2
             report "SDRAM model: LOAD MODE REGISTER before PRECHARGE ALL and two refreshes" severity failure;
           assert now >= ref_until report "SDRAM model: LOAD MODE REGISTER inside tRFC" severity failure;
-          assert i_a = MODE_REG
+          assert i_a = MODE_A
             report "SDRAM model: unexpected mode register value" severity failure;
           mrs_done  := true;
           mrs_until := now + T_MRD_CK * TCK;
@@ -417,18 +454,18 @@ begin
           assert now - act_time(b) >= T_RCD_PS * 1 ps
             report "SDRAM model: read/write inside tRCD" severity failure;
           assert now >= burst_until report "SDRAM model: read/write overlaps i_a burst" severity failure;
-          assert col mod 2 = 0 report "SDRAM model: burst of 2 must start on an even column" severity failure;
+          assert col mod BEATS = 0 report "SDRAM model: the burst must start on a column aligned to its length" severity failure;
           key := key_of(bank_row(b), b, col);
 
           if cmd = CMD_READ then
-            -- primeiro beat lançado CL bordas depois desta, segundo beat uma borda depois
-            rd_pipe(CAS_LATENCY).valid := true;
-            rd_pipe(CAS_LATENCY).data  := mem.read(key);
-            rd_pipe(CAS_LATENCY + 1).valid := true;
-            rd_pipe(CAS_LATENCY + 1).data  := mem.read(key + 1);
-            burst_until := now + 2 * TCK;
+            -- primeiro beat lançado CL bordas depois desta, os seguintes uma borda depois do anterior
+            for k in 0 to BEATS - 1 loop
+              rd_pipe(CAS_LATENCY + k).valid := true;
+              rd_pipe(CAS_LATENCY + k).data  := mem.read(key + k);
+            end loop;
+            burst_until := now + BEATS * TCK;
             if ap then
-              pre_start := now + 2 * TCK;
+              pre_start := now + BEATS * TCK;
               if act_time(b) + T_RAS_PS * 1 ps > pre_start then
                 pre_start := act_time(b) + T_RAS_PS * 1 ps;
               end if;
@@ -437,17 +474,15 @@ begin
             end if;
           else
             old    := mem.read(key);
-            merged := old;
-            if i_dqm(0) = '0' then merged(7 downto 0)  := io_dq(7 downto 0);  end if;
-            if i_dqm(1) = '0' then merged(15 downto 8) := io_dq(15 downto 8); end if;
+            merged := merge(old, io_dq, i_dqm);
             mem.write(key, merged);
-            wr_pending := true;
+            wr_pending := BEATS = 2;
             wr_key     := key + 1;
             wr_bank    := b;
-            burst_until := now + 2 * TCK;
-            last_wr_end(b) := now + TCK;
+            burst_until := now + BEATS * TCK;
+            last_wr_end(b) := now + (BEATS - 1) * TCK;
             if ap then
-              pre_start := now + TCK + T_WR_PS * 1 ps;
+              pre_start := now + (BEATS - 1) * TCK + T_WR_PS * 1 ps;
               if act_time(b) + T_RAS_PS * 1 ps > pre_start then
                 pre_start := act_time(b) + T_RAS_PS * 1 ps;
               end if;

@@ -27,6 +27,10 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
 entity sdram_cpu_bridge is
+  generic (
+    -- Bits do endereço de palavra de 32 bits do chip (linha, banco e coluna da palavra; 24 no padrão da DE0-CV).
+    addr_bits : natural := 24
+  );
   port (
     -- Clock do lado do core.
     i_clk_cpu     : in  std_logic;
@@ -67,7 +71,7 @@ entity sdram_cpu_bridge is
     -- Porta do controlador SDRAM: escrita ('1') ou leitura ('0').
     o_c_we        : out std_logic;
     -- Porta do controlador SDRAM: endereço de palavra.
-    o_c_addr      : out std_logic_vector(23 downto 0);
+    o_c_addr      : out std_logic_vector(addr_bits - 1 downto 0);
     -- Porta do controlador SDRAM: dado de escrita.
     o_c_wdata     : out std_logic_vector(31 downto 0);
     -- Porta do controlador SDRAM: habilita de bytes da escrita.
@@ -149,7 +153,7 @@ begin
 
           when ST_IDLE =>
             if (i_rden = '1' or i_wren = '1') and init_sync(0) = '1' then
-              o_c_addr  <= i_addr(25 downto 2);
+              o_c_addr  <= i_addr(addr_bits + 1 downto 2);
               o_c_wdata <= i_wdata;
               o_c_be    <= i_byteena;
               line_l    <= i_line;
