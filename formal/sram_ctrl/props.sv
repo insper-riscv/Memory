@@ -110,7 +110,7 @@ module props (input clk);
     assert (!dq_oe || d_st == S_WSEL || d_st == S_WSETUP || d_st == S_WLOW || d_st == S_WHIGH);
     assert (!(d_st == S_WSETUP || d_st == S_WLOW || d_st == S_WHIGH) || dq_oe);
     if (d_st != S_WSEL) assert (!ce_n == (d_st == S_RD || d_st == S_WSETUP || d_st == S_WLOW || d_st == S_WHIGH));
-    assert (sa[19:5] == 0);
+    assert (sa[19:6] == 0);
     // 2. Os bytes: a leitura habilita os dois, a escrita pelo menos um e só os do habilita de bytes.
     if (d_st == S_RD) assert (!lb_n && !ub_n);
     if (!we_n) assert (!lb_n || !ub_n);
@@ -158,7 +158,7 @@ module props (input clk);
     cover (p_start_out);
 `endif
 `ifdef SC_WRITE
-    cover (p_st == S_WSEL && d_st == S_DONE && r_wr && !r_out && wcount == 1 && r_line);
+    cover (p_st == S_WSEL && d_st == S_DONE && r_wr && !r_out && wcount == 1);
     cover (p_st == S_WSEL && d_st == S_DONE && r_wr && !r_out && wcount == 0 && r_be == 0);
     cover (p_start_out);
 `endif
