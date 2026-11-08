@@ -33,7 +33,7 @@ start prove router_dbg.v cover 12 '-DCOVER' cover
 
 # Mutants of the VHDL: each defect must make the safety proof fail.
 export MUT_DEPTH=12
-start_mutant end_inclusive    "s/unsigned(i_addr) < shift_left(to_unsigned(rom_end_kib, 32), 10)/unsigned(i_addr) <= shift_left(to_unsigned(rom_end_kib, 32), 10)/"
+start_mutant end_inclusive    "s/is_flash <= in_window(i_addr, rom_base_kib, rom_end_kib);/is_flash <= in_window(i_addr, rom_base_kib, rom_end_kib + 1) when i_addr(9 downto 0) = \"0000000000\" else in_window(i_addr, rom_base_kib, rom_end_kib);/"
 start_mutant write_not_local  "s/is_local <= is_flash and (i_wren or (i_rden and beyond));/is_local <= is_flash and (i_rden and beyond);/"
 start_mutant slave_sees_flash "s/o_s_rden    <= i_rden and not is_flash;/o_s_rden    <= i_rden;/"
 start_mutant local_not_zero   "s/o_rdata <= (others => '0') when rd_local = '1' else/o_rdata <= i_f_rdata when rd_local = '1' else/"

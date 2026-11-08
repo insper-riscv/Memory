@@ -95,7 +95,7 @@ Todos os identificadores de código devem ser escritos em **inglês**, enquanto 
 
 ### 4.1. Cabeçalho Obrigatório de Arquivo
 
-Todo arquivo `.vhd` deve iniciar com um bloco de cabeçalho (`-- ====...====`) em português descrevendo a responsabilidade arquitetural do pacote ou da entidade. Nenhuma linha de VHDL passa de 100 caracteres:
+Todo arquivo `.vhd` deve iniciar com um bloco de cabeçalho (`-- ====...====`) em português descrevendo a responsabilidade arquitetural do pacote ou da entidade. Nenhuma linha de VHDL passa de 120 caracteres, o padrão do VSG, e nenhum arquivo passa de 2000 linhas nem processo de 500:
 
 ```vhdl
 -- ============================================================================

@@ -95,7 +95,7 @@ All code identifiers must be written in **English**, whereas all comments and fi
 
 ### 4.1. Mandatory File Header
 
-Every `.vhd` file must begin with a header block (`-- ====...====`) in Portuguese describing the architectural responsibility of the package or entity. No VHDL line is longer than 100 characters:
+Every `.vhd` file must begin with a header block (`-- ====...====`) in Portuguese describing the architectural responsibility of the package or entity. No VHDL line is longer than 120 characters (the VSG default), no file exceeds 2000 lines and no process exceeds 500:
 
 ```vhdl
 -- ============================================================================
