@@ -45,7 +45,7 @@ Os sinais do mestre A de linha (`i_a_line`, `i_a_wdata_x`, `i_a_be_x`) e todos o
 
 Um pedido é a inversão do toggle de pedido do mestre, com a palavra nos barramentos. A confirmação é a inversão do toggle de confirmação do mesmo mestre, e o mestre mantém os barramentos estáveis da inversão do pedido até a confirmação. Um pedido está pendente enquanto o toggle de pedido, já sincronizado, difere do toggle de confirmação.
 
-Os toggles dos mestres A e I vêm do clock do núcleo e passam por um sincronizador de dois flip-flops dentro do árbitro. O toggle do mestre B está no clock do árbitro e é lido direto. Os barramentos de dados não são sincronizados. O árbitro os lê só depois de ver a inversão, quando já estão estáveis.
+Os toggles dos mestres A e I vêm do clock do núcleo e passam, cada um, por uma instância do `synchronizer` de dois estágios dentro do árbitro. O toggle do mestre B está no clock do árbitro e é lido direto. Os barramentos de dados não são sincronizados. O árbitro os lê só depois de ver a inversão, quando já estão estáveis.
 
 ### 3.2. Estados
 

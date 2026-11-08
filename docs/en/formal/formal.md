@@ -12,7 +12,7 @@ Three masters send requests to one controller: A (the core's data bridge, on ano
 2. Yosys reads the netlist together with the properties, written in SystemVerilog around it.
 3. SymbiYosys runs an engine on the result: an SMT solver (`yices`, `bitwuzla` or `boolector`, through `smtbmc`) or the bounded model checker of ABC (`abc bmc3`). Section 9 says what each engine runs and how the CI decides across them.
 
-A copy of the netlist exposes nine internal registers (the state, the served master and the last served master, as two flags each, and the latched toggle and the synchronizer of A and of I) as outputs. The logic is the same; the registers let the proof state invariants of the arbiter, which the induction needs to rule out states that cannot occur.
+A copy of the netlist exposes nine internal registers (the state, the served master and the last served master, as two flags each, and the latched toggle and the chain of the synchronizer of A and of I, which the netlist exposes through the `synchronizer` module and the arbiter passes on) as outputs. The logic is the same; the registers let the proof state invariants of the arbiter, which the induction needs to rule out states that cannot occur.
 
 ## 3. Assumptions about the environment
 
@@ -21,7 +21,7 @@ A copy of the netlist exposes nine internal registers (the state, the served mas
 | reset | one reset clock at the start, with every toggle at its reset value |
 | a master | flips its toggle only after the previous request was answered, and holds the buses from the flip until the answer (A, I and B alike) |
 | the controller | answers only a pending request, with the toggle of that request, within 4 clocks |
-| clocks | one clock for all; the synchronizers of A and I are the arbiter's own two flops |
+| clocks | one clock for all; the synchronizers of A and I are the arbiter's own two instances of the two-stage `synchronizer` |
 
 ## 4. Properties
 

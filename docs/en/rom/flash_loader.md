@@ -118,7 +118,7 @@ A scan of $32N + 1$ bits writes $N$ consecutive words from the cursor, which adv
 
 ### 5.1. Synchronization
 
-The command crosses from `i_tck` to `i_clk` through the toggle of `i_cmd_tog`, synchronized by three register stages. `i_op`, `i_addr` and `i_data` stay stable from the toggle until the response, which is a toggle of `o_done_tog`. `o_rsp_*` stay stable from before that toggle until the next command is accepted.
+The command crosses from `i_tck` to `i_clk` through the toggle of `i_cmd_tog`, synchronized by an instance `u_sync_cmd` of the two-stage `synchronizer`, plus a register that holds the previous value and shows the flip (three registers in series in all). The synchronizer samples on every edge of `i_clk`, during reset too, and the reset expects the toggle to be still, which holds with a reset longer than three edges of `i_clk`. `i_op`, `i_addr` and `i_data` stay stable from the toggle until the response, which is a toggle of `o_done_tog`. `o_rsp_*` stay stable from before that toggle until the next command is accepted.
 
 ### 5.2. Port timing
 

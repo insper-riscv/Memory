@@ -101,8 +101,12 @@ architecture rtl of flash_loader is
 
   -- Estado corrente.
   signal st        : state_t := st_idle;
-  -- Sincronizador de três estágios de cmd_tog: os dois primeiros sincronizam, o terceiro lembra o anterior.
-  signal cmd_s     : std_logic_vector(2 downto 0) := "000";
+  -- cmd_tog como vetor de um bit, entrada do sincronizador.
+  signal cmd_tog_v : std_logic_vector(0 downto 0);
+  -- cmd_tog sincronizado em i_clk por dois estágios.
+  signal cmd_s     : std_logic_vector(0 downto 0);
+  -- Valor anterior de cmd_s, terceiro estágio da cadeia, que permite ver a inversão do toggle.
+  signal cmd_prev  : std_logic := '0';
   -- Alternância de resposta (registrada).
   signal done_i    : std_logic := '0';
   -- Núcleo parado.
@@ -130,7 +134,14 @@ architecture rtl of flash_loader is
 
 begin
 
-  new_cmd      <= '1' when cmd_s(2) /= cmd_s(1) else '0';
+  cmd_tog_v(0) <= i_cmd_tog;
+
+  -- Cruza o toggle de comando do domínio da JTAG para o clock da porta B.
+  u_sync_cmd : entity work.synchronizer
+    generic map (stages => 2, data_width => 1)
+    port map (i_clk => i_clk, i_d => cmd_tog_v, o_d => cmd_s);
+
+  new_cmd      <= '1' when cmd_prev /= cmd_s(0) else '0';
   o_done_tog   <= done_i;
   o_halt       <= halt;
   o_rsp_addr   <= rsp_addr;
@@ -146,9 +157,10 @@ begin
   process (i_clk)
   begin
     if rising_edge(i_clk) then
+      cmd_prev <= cmd_s(0);
+
       if i_rst = '1' then
         st      <= st_idle;
-        cmd_s   <= (others => i_cmd_tog);
         done_i  <= i_cmd_tog;
         halt    <= '0';
         refused <= '0';
@@ -157,7 +169,6 @@ begin
         sum     <= (others => '0');
         count   <= (others => '0');
       else
-        cmd_s  <= cmd_s(1 downto 0) & i_cmd_tog;
         wren_r <= '0';
 
         case st is

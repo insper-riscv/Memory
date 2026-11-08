@@ -12,7 +12,7 @@ Três mestres enviam pedidos a um controlador: A (a ponte de dados do core, em o
 2. O Yosys lê a netlist junto com as propriedades, escritas em SystemVerilog ao redor dela.
 3. O SymbiYosys roda um motor sobre o resultado, que é um solver SMT (`yices`, `bitwuzla` ou `boolector`, pelo `smtbmc`) ou o verificador de modelos limitado do ABC (`abc bmc3`). A seção 9 diz o que cada motor roda e como o CI decide entre eles.
 
-Uma cópia da netlist expõe como saídas nove registradores internos (o estado, o mestre atendido e o último mestre atendido, com dois flags cada, o toggle travado e o sincronizador de A e de I). A lógica é a mesma, e os registradores deixam a prova enunciar invariantes do árbitro, de que a indução precisa para descartar estados que não podem ocorrer.
+Uma cópia da netlist expõe como saídas nove registradores internos (o estado, o mestre atendido e o último mestre atendido, com dois flags cada, o toggle travado e a cadeia do sincronizador de A e de I, que a netlist expõe pelo módulo do `synchronizer` e o árbitro repassa). A lógica é a mesma, e os registradores deixam a prova enunciar invariantes do árbitro, de que a indução precisa para descartar estados que não podem ocorrer.
 
 ## 3. Suposições sobre o ambiente
 
@@ -21,7 +21,7 @@ Uma cópia da netlist expõe como saídas nove registradores internos (o estado,
 | Reset | Um clock de reset no início, com todo toggle no seu valor de reset |
 | Um mestre | Inverte o seu toggle só depois de o pedido anterior ser respondido, e segura os barramentos da inversão até a resposta (A, I e B igualmente) |
 | O controlador | Só responde um pedido pendente, com o toggle desse pedido, em até 4 clocks |
-| Clocks | Um clock para todos, e os sincronizadores de A e de I são os dois flip-flops do próprio árbitro |
+| Clocks | Um clock para todos, e os sincronizadores de A e de I são as duas instâncias do `synchronizer` de dois estágios do próprio árbitro |
 
 ## 4. Propriedades
 

@@ -82,7 +82,7 @@ A shift with `op` equal to 0 only reads the status and sends nothing. Reading th
 
 ### 3.4. Clock crossing and timing
 
-`i_done_tog` enters `i_tck` through a two-flip-flop synchronizer internal to the block, and it only advances on edges of `i_tck`. The status is captured at the start of the shift, one or two edges of `i_tck` after the command was sent, so the first shift after a command may still show `busy` and the next one does not, because the 64 shifted bits give the synchronizer time. `o_cmd_tog`, `o_op`, `o_be`, `o_addr` and `o_data` stay stable until the next accepted command, and the debug master reads them after synchronizing `o_cmd_tog` to its clock. `i_rsp_addr`, `i_rsp_data` and `i_rsp_status` are captured directly at Capture-DR, with no synchronizer, and are valid only when `busy` is 0, because the debug master keeps them stable from before the flip of `i_done_tog`.
+`i_done_tog` enters `i_tck` through an instance `u_sync_done` of the two-stage `synchronizer`, internal to the block, and it only advances on edges of `i_tck`. The status is captured at the start of the shift, one or two edges of `i_tck` after the command was sent, so the first shift after a command may still show `busy` and the next one does not, because the 64 shifted bits give the synchronizer time. `o_cmd_tog`, `o_op`, `o_be`, `o_addr` and `o_data` stay stable until the next accepted command, and the debug master reads them after synchronizing `o_cmd_tog` to its clock. `i_rsp_addr`, `i_rsp_data` and `i_rsp_status` are captured directly at Capture-DR, with no synchronizer, and are valid only when `busy` is 0, because the debug master keeps them stable from before the flip of `i_done_tog`.
 
 ## 4. Integration
 

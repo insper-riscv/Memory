@@ -82,7 +82,7 @@ Um deslocamento com `op` igual a 0 só lê o status e não envia nada. A leitura
 
 ### 3.4. Travessia de clock e temporização
 
-`i_done_tog` entra em `i_tck` por um sincronizador de dois flip-flops interno ao bloco, e só avança em bordas de `i_tck`. O status é capturado no início do deslocamento, uma ou duas bordas de `i_tck` depois do envio do comando, de modo que o primeiro deslocamento depois de um comando ainda pode mostrar `busy` e o seguinte não, porque os 64 deslocamentos dão tempo ao sincronizador. `o_cmd_tog`, `o_op`, `o_be`, `o_addr` e `o_data` ficam estáveis até o próximo comando aceito, e o mestre de depuração os lê depois de sincronizar `o_cmd_tog` ao seu clock. `i_rsp_addr`, `i_rsp_data` e `i_rsp_status` são capturados direto no Capture-DR, sem sincronizador, e só valem quando `busy` é 0, porque o mestre de depuração os mantém estáveis desde antes da inversão de `i_done_tog`.
+`i_done_tog` entra em `i_tck` por uma instância `u_sync_done` do `synchronizer` de dois estágios, interna ao bloco, e só avança em bordas de `i_tck`. O status é capturado no início do deslocamento, uma ou duas bordas de `i_tck` depois do envio do comando, de modo que o primeiro deslocamento depois de um comando ainda pode mostrar `busy` e o seguinte não, porque os 64 deslocamentos dão tempo ao sincronizador. `o_cmd_tog`, `o_op`, `o_be`, `o_addr` e `o_data` ficam estáveis até o próximo comando aceito, e o mestre de depuração os lê depois de sincronizar `o_cmd_tog` ao seu clock. `i_rsp_addr`, `i_rsp_data` e `i_rsp_status` são capturados direto no Capture-DR, sem sincronizador, e só valem quando `busy` é 0, porque o mestre de depuração os mantém estáveis desde antes da inversão de `i_done_tog`.
 
 ## 4. Integração
 

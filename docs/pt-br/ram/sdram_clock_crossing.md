@@ -27,7 +27,7 @@ Um sinal de 1 bit que muda de nível pode atravessar com segurança por uma cade
 
 O primeiro flip-flop pode entrar em metaestabilidade quando a entrada muda perto da borda do clock de destino. O segundo flip-flop amostra a saída do primeiro um período depois, e só ele alimenta a lógica. Com $N$ estágios, a lógica de destino enxerga o sinal depois de $N$ bordas do clock de destino, contadas da primeira borda que captura a inversão, e a probabilidade de falha cai de forma exponencial com o tempo disponível para resolver.
 
-A entidade `synchronizer` de Common-Components implementa a cadeia com $N$ estágios (mínimo 2) e marca os registradores para o Quartus, que os mantém sem fusão nem remoção e os inclui no relatório de MTBF. O árbitro implementa a mesma cadeia de dois flip-flops em um processo próprio (`a_s` para o mestre de dados e `ins_s` para o de instruções), sem esses atributos.
+A entidade `synchronizer` de Common-Components implementa a cadeia com $N$ estágios (mínimo 2) e marca os registradores para o Quartus, que os mantém sem fusão nem remoção e os inclui no relatório de MTBF. O árbitro instancia o `synchronizer` com dois estágios e um bit para cada toggle de pedido (`u_sync_a` para o mestre de dados e `u_sync_ins` para o de instruções), com o reset do árbitro ligado a `i_rst`. O `sdram_jtag_core` e o `flash_jtag_core` o instanciam, também com dois estágios, em `u_sync_done`, para a confirmação que chega a `i_tck`, e o `flash_loader` o instancia em `u_sync_cmd` para o comando que chega a `i_clk`.
 
 ### 2.2. Handshake por alternância
 
