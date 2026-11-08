@@ -22,6 +22,7 @@ from tests.python.unittests.dut import Dut
 from tests.python.unittests.jtag import load_ir, shift_dr
 from tests.python.unittests.ram.sdram_helpers import (
     access,
+    addr_bits,
     merge,
     model_word,
     start,
@@ -36,6 +37,7 @@ OP_NOP, OP_READ, OP_WRITE, OP_FILL, OP_COUNT, OP_READ_NEXT, OP_WRITE_NEXT = (
     range(7)
 )
 BUSY, ERROR, INIT, OVERRUN = 1, 2, 4, 8
+ADDR_BITS_128_MB = 25  # word address bits of the 32-bit chip pair of the DE2-115
 
 
 async def debug(
@@ -48,7 +50,7 @@ async def debug(
 
     """
     value = (
-        (op << 60)
+        ((op | (addr >> 24 & 1) << 3) << 60)
         | (be << 56)
         | ((addr & 0xFFFFFF) << 32)
         | (data & 0xFFFFFFFF)
@@ -85,7 +87,7 @@ async def read(dut: Dut, addr: int):
     _status, word, data = await settle(dut)
     check_equal(
         word,
-        addr,
+        addr & 0xFFFFFF,
         f"the word accessed last is 0x{word:06X}, expected 0x{addr:06X}",
     )
     return data
@@ -341,3 +343,32 @@ async def test_the_core_is_not_starved_by_a_long_fill(dut: Dut):
         f"core stall during a long fill: max {max(stalls)}, "
         f"mean {sum(stalls) / len(stalls):.1f} core cycles"
     )
+
+
+@cocotb.test()
+async def test_the_host_reaches_the_upper_half_of_a_128_mb_sdram(dut: Dut):
+    """Bit 3 of the op is bit 24 of the word address.
+
+    Only the 32-bit chip has the upper half; with the 16-bit chip the
+    test does nothing.
+
+    """
+    if addr_bits(dut) < ADDR_BITS_128_MB:
+        log_info("the chip has 2**24 words: nothing above to reach")
+        return
+    await start_debug(dut)
+    low, high = 0x000321, (1 << 24) | 0x000321
+    await write(dut, low, 0x11111111)
+    await write(dut, high, 0x22222222)
+    check_equal(await read(dut, low), 0x11111111, "the low half changed")
+    check_equal(await read(dut, high), 0x22222222, "the upper half")
+    check_equal(await model_word(dut, high), 0x22222222, "the chip")
+    check_equal(await model_word(dut, low), 0x11111111, "the chip, low")
+    last = (1 << 25) - 1
+    await write(dut, last, 0xA5A5A5A5)
+    check_equal(await read(dut, last), 0xA5A5A5A5, "the last word")
+    await debug(dut, OP_READ, high)
+    await settle(dut)
+    await debug(dut, OP_WRITE_NEXT, 0, 0x33333333)
+    await settle(dut)
+    check_equal(await read(dut, high + 1), 0x33333333, "write next")

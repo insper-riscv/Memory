@@ -21,8 +21,9 @@ The overview of the path from the core to the SDRAM, the cost measurements and t
 | Generic | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
 | `size_bits` | positive | 32768 | Cache size in bits, a power of two of at least 256 (two lines). 32768 is 4 KB and 4096 is 4 kbit |
-| `base_sdram` | 6-bit vector | `010000` | Bits 31 to 26 appended to SDRAM addresses on the memory side (0x40000000) |
-| `base_flash` | 6-bit vector | `001000` | Bits 31 to 26 appended to FLASH addresses on the memory side (0x20000000) |
+| `window_bits` | natural from 26 to 29 | 26 | Width of the address window of the cache: $2^{\texttt{window\_bits}}$ bytes (26 is 64 MiB, 27 is 128 MiB). The tag stores the bits below it |
+| `base_sdram` | 6-bit vector | `010000` | Bits 31 to 26 of the SDRAM addresses on the memory side (0x40000000); only bits 31 down to `window_bits` are used |
+| `base_flash` | 6-bit vector | `001000` | Bits 31 to 26 of the FLASH addresses on the memory side (0x20000000); only bits 31 down to `window_bits` are used |
 | `rom_base_kib` | natural | 524288 | Base of the ROM region in KiB; whatever falls in it is treated as FLASH (0x20000000) |
 | `rom_end_kib` | natural | 1048576 | Exclusive end of the ROM region in KiB (0x40000000) |
 | `write_through` | boolean | false | True makes every store also go to memory and a store miss not bring the line in |
@@ -55,7 +56,7 @@ The overview of the path from the core to the SDRAM, the cost measurements and t
 
 | Port | Direction | Width | Meaning |
 | :--- | :--- | ---: | :--- |
-| `o_d_addr` | output | 32 | Request address, with the region base in bits 31 to 26 |
+| `o_d_addr` | output | 32 | Request address, with the region base in bits 31 down to `window_bits` |
 | `o_d_wdata` | output | 32 | Write data (word 0 of a line write) |
 | `o_d_byteena` | output | 4 | Write byte enables |
 | `o_d_rden` | output | 1 | Read request |
@@ -77,14 +78,14 @@ With $I = \log_2(\texttt{size\_bits}) - 7$ index bits, the cache has $2^I$ lines
 | :--- | :--- | ---: |
 | Word in line | 3 to 2 | 2 |
 | Index | $I+3$ to 4 | $I$ |
-| Tag | 25 to $I+4$ | $22-I$ |
+| Tag | `window_bits`$-1$ to $I+4$ | $W-4-I$ |
 | Region | Computed from `rom_base_kib` and `rom_end_kib`; becomes the most significant tag bit | 1 |
 
 $$
-\text{TAG\_BITS} = 23 - I
+\text{TAG\_BITS} = W - 3 - I
 $$
 
-Bits 31 to 26 are not stored. In a memory-side request, the cache rebuilds them with `base_flash` (ROM region) or `base_sdram`. With the default size, $I = 8$ (256 lines) and the tag has 15 bits.
+Here $W$ is `window_bits`. Bits 31 to $W$ are not stored. In a memory-side request, the cache rebuilds them with bits 5 down to $W-26$ of `base_flash` (ROM region) or `base_sdram`. With the default size and `window_bits` equal to 26, $I = 8$ (256 lines) and the tag has 15 bits; with 27, the window covers the 128 MiB of the DE2-115 SDRAM and the tag has 16 bits. The width is fixed at generation by the memory map of the platform (`CACHE_WINDOW_BITS`).
 
 The choice of base in a fill reads bit 14 of the tag, not the most significant bit. The two coincide only when $\text{TAG\_BITS} = 15$, that is, with `size_bits` equal to 32768. The choice of base in the write-back uses the most significant tag bit, for any size.
 

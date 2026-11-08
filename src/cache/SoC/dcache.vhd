@@ -36,8 +36,8 @@
 -- ainda podem estar mais velhas que a memória quando o hospedeiro a escreve; um
 -- invalidate (veja flush) antes de o hospedeiro carregar algo novo as derruba.
 --
--- Divisão do endereço (64 MB por região): região (1 = ROM, pelos genéricos rom_base_kib e rom_end_kib), bits 25:12
--- tag, 11:4 linha, 3:2 palavra. Os demais bits acima de 25 não são guardados; o
+-- Divisão do endereço (janela de 2**window_bits bytes por região, 64 MiB por padrão): região (1 = ROM, pelos genéricos rom_base_kib e rom_end_kib), bits window_bits-1:12
+-- tag, 11:4 linha, 3:2 palavra. Os demais bits a partir de window_bits não são guardados; o
 -- lado da memória acrescenta a base da região neles (base_flash ou base_sdram).
 --
 -- i_inval_region: um pulso derruba as linhas limpas da região de i_inval_first a i_inval_last (endereços de byte, o último
@@ -63,7 +63,9 @@ entity dcache is
   generic (
     -- Tamanho da cache em bits, uma potência de dois de pelo menos 256 (duas linhas de 128 bits): 32768 é 4 KB e 4096 é 4 kbit.
     size_bits     : positive := 32768;
-    -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória.
+    -- Largura do endereço que a janela da cache cobre, de 2**window_bits bytes (26 é 64 MiB, 27 é 128 MiB): a tag guarda os bits abaixo dela e a base da região, do lado da memória, completa os de cima.
+    window_bits   : natural range 26 to 29 := 26;
+    -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória; só os bits de 31 até window_bits entram, os de baixo são da tag.
     base_sdram    : std_logic_vector(5 downto 0) := "010000";
     -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
     base_flash    : std_logic_vector(5 downto 0) := "001000";
@@ -167,8 +169,8 @@ architecture rtl of dcache is
   constant INDEX_BITS : natural := index_bits_of(size_bits);
   -- Linhas da cache.
   constant LINES    : natural := 2 ** INDEX_BITS;
-  -- Bits da tag: a região (ROM ou não) e os bits 25 até INDEX_BITS + 4.
-  constant TAG_BITS : natural := 23 - INDEX_BITS;
+  -- Bits da tag: a região (ROM ou não) e os bits window_bits-1 até INDEX_BITS + 4.
+  constant TAG_BITS : natural := window_bits - 3 - INDEX_BITS;
   -- Primeiro bit da tag no endereço, logo acima do índice e do deslocamento dentro da linha.
   constant TAG_LOW  : natural := INDEX_BITS + 4;
 
@@ -279,7 +281,7 @@ architecture rtl of dcache is
 
 begin
 
-  req_tag <= in_rom(i_addr) & i_addr(25 downto TAG_LOW);
+  req_tag <= in_rom(i_addr) & i_addr(window_bits - 1 downto TAG_LOW);
   req_idx <= i_addr(INDEX_BITS + 3 downto 4);
   cur_idx <= std_logic_vector(f_idx) when flushing = '1' else req_idx;
   hit     <= valid(to_integer(unsigned(cur_idx))) when tag_rd = req_tag else '0';
@@ -431,9 +433,9 @@ begin
           -- escrita direta: a palavra do store vai à memória
           when S_WT_REQ =>
             if in_rom(i_addr) = '1' then
-              d_addr_i <= base_flash & i_addr(25 downto 2) & "00";
+              d_addr_i <= base_flash(5 downto window_bits - 26) & i_addr(window_bits - 1 downto 2) & "00";
             else
-              d_addr_i <= base_sdram & i_addr(25 downto 2) & "00";
+              d_addr_i <= base_sdram(5 downto window_bits - 26) & i_addr(window_bits - 1 downto 2) & "00";
             end if;
             d_wdata_i <= i_wdata;
             d_be_i    <= i_byteena;
@@ -450,9 +452,9 @@ begin
           -- load sem cache: o pedido de uma palavra e a espera da resposta
           when S_BY_REQ =>
             if in_rom(i_addr) = '1' then
-              d_addr_i <= base_flash & i_addr(25 downto 2) & "00";
+              d_addr_i <= base_flash(5 downto window_bits - 26) & i_addr(window_bits - 1 downto 2) & "00";
             else
-              d_addr_i <= base_sdram & i_addr(25 downto 2) & "00";
+              d_addr_i <= base_sdram(5 downto window_bits - 26) & i_addr(window_bits - 1 downto 2) & "00";
             end if;
             d_rden_i <= '1';
             st       <= S_BY_WAIT;
@@ -483,9 +485,9 @@ begin
 
           when S_WB_REQ =>
             if tag_rd(TAG_BITS - 1) = '1' then
-              d_addr_i <= base_flash & tag_rd(TAG_BITS - 2 downto 0) & cur_idx & "0000";
+              d_addr_i <= base_flash(5 downto window_bits - 26) & tag_rd(TAG_BITS - 2 downto 0) & cur_idx & "0000";
             else
-              d_addr_i <= base_sdram & tag_rd(TAG_BITS - 2 downto 0) & cur_idx & "0000";
+              d_addr_i <= base_sdram(5 downto window_bits - 26) & tag_rd(TAG_BITS - 2 downto 0) & cur_idx & "0000";
             end if;
             d_wdata_i <= wb_q(31 downto 0);
             d_line_i  <= '1';
@@ -508,9 +510,9 @@ begin
           -- traz a linha: um pedido de linha e depois as palavras para a RAM
           when S_FILL_REQ =>
             if req_tag(TAG_BITS - 1) = '1' then
-              d_addr_i <= base_flash & req_tag(TAG_BITS - 2 downto 0) & req_idx & "0000";
+              d_addr_i <= base_flash(5 downto window_bits - 26) & req_tag(TAG_BITS - 2 downto 0) & req_idx & "0000";
             else
-              d_addr_i <= base_sdram & req_tag(TAG_BITS - 2 downto 0) & req_idx & "0000";
+              d_addr_i <= base_sdram(5 downto window_bits - 26) & req_tag(TAG_BITS - 2 downto 0) & req_idx & "0000";
             end if;
             d_line_i <= '1';
             d_rden_i <= '1';

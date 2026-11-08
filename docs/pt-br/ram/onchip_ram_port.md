@@ -14,6 +14,7 @@ O bloco de RAM tem uma única porta de palavra com leitura registrada. O adaptad
 | :--- | :--- | ---: | :--- |
 | `size_bytes` | positive | 1048576 | tamanho da janela da RAM em bytes, uma potência de dois de 16 bytes a 32 MB |
 | `base_kib` | natural | 0 | onde a RAM começa dentro dos 64 MB da região, em KiB; o endereço da RAM é o da região menos esta base |
+| `latency` | natural | 0 | latência emulada em bordas, a mesma do `ram_chip`; zero deixa só a latência estrutural da seção 3.3 |
 
 Com $S$ igual a `size_bytes`, o índice de palavra do bloco de RAM tem $\log_2 S - 2$ bits, a mesma largura da porta `i_address` do IP `ram`.
 
@@ -75,7 +76,8 @@ Fora desse intervalo a leitura devolve zero e a escrita é descartada, sem erro,
 | Estado | Ação | Próximo estado |
 | :--- | :--- | :--- |
 | `S_IDLE` | com `i_rden` ou `i_wren`, captura endereço, dados e máscaras e zera o passo | `S_ACCESS` |
-| `S_ACCESS` | o passo $k$ emite a palavra $k$ ao bloco, e o passo $k+1$ recolhe a palavra lida; ao fim do passo seguinte à última palavra, encerra | `S_DONE` |
+| `S_ACCESS` | o passo $k$ emite a palavra $k$ ao bloco, e o passo $k+1$ recolhe a palavra lida; ao fim do passo seguinte à última palavra, encerra | `S_DONE`, ou `S_HOLD` se a latência emulada ainda não acabou |
+| `S_HOLD` | espera o resto da latência emulada, sem tocar no bloco | `S_DONE` |
 | `S_DONE` | `o_ready` em `'1'`; com `i_mem_advance`, copia o dado recolhido para a saída de leitura | `S_IDLE` |
 
 A latência é baixa e constante. Seja $E_0$ a borda em que o pedido é visto. O acesso de palavra termina na borda $E_2$ e o de linha na borda $E_5$, e `o_ready` sobe logo depois. Leitura e escrita levam o mesmo tempo, em qualquer endereço e também fora da janela.
@@ -84,6 +86,8 @@ A latência é baixa e constante. Seja $E_0$ a borda em que o pedido é visto. O
 | :--- | ---: |
 | Palavra | 2 |
 | Linha | 5 |
+
+Com `latency` maior que zero o adaptador conta as mesmas bordas do `ram_chip`, com a mesma máquina [latency_counter](../latency/latency_counter.md), e o acesso termina na maior entre essa contagem e a estrutural da tabela. Com $L$ igual a `latency` e $L \geq 5$, palavra e linha terminam na borda $E_L$, igual ao `ram_chip` de mesma latência, e o programa leva o mesmo tempo na simulação e na placa. Com $L < 5$ vale o mínimo do bloco, porque quatro leituras de uma porta de palavra não cabem em menos de 5 bordas.
 
 ### 3.4. Porta de depuração
 
@@ -96,6 +100,7 @@ A depuração lê o bloco pela mesma porta, nos ciclos em que o adaptador está 
 | Acima dele | a cache de dados ([dcache](../cache/dcache.md)) e, quando há ROM também atrás de cache, o roteador [mem_region_router](../cache/mem_region_router.md); as portas de linha carregam as linhas da cache |
 | Abaixo dele | o IP [ram](ram.md) na placa, ou o [ram_simulation](ram_simulation.md) na simulação, ligados pelas portas `o_mem_*` e `i_mem_q` |
 | Lista de portas do requisitante | a porta de dados do [ram_chip](ram_chip.md), o que deixa o topo trocar um pelo outro |
+| Contagem da latência | o [latency_counter](../latency/latency_counter.md), que é também o do `ram_chip` e o do [flash_chip](../rom/flash_chip.md) |
 | Porta de instruções | o adaptador tem uma só porta de acesso, porque o bloco de RAM tem uma só porta |
 
 ## 5. Verificação
@@ -108,6 +113,9 @@ O topo de simulação `onchip_ram_system` liga o adaptador ao `ram_simulation`, 
 | `OnchipRamPortChip` | `onchip_ram_port` | `SIZE_BYTES` igual a 4096 e `USE_CHIP` verdadeiro |
 | `OnchipRamLatency` | `onchip_ram_latency` | `SIZE_BYTES` igual a 4096 |
 | `OnchipRamOffset` | `onchip_ram_offset` | `SIZE_BYTES` igual a 4096 e `BASE_KIB` igual a 8 |
+| `OnchipRamEmulated` | `onchip_ram_emulated_latency` | `SIZE_BYTES` igual a 4096 e `LATENCY` igual a 9 |
+| `OnchipRamEmulatedChip` | `onchip_ram_emulated_latency` | os mesmos e `USE_CHIP` verdadeiro |
+| `OnchipRamEmulatedShort` | `onchip_ram_emulated_short` | `SIZE_BYTES` igual a 4096 e `LATENCY` igual a 3 |
 | `OnchipRamDcache` | `onchip_ram_dcache` | `WITH_CACHE` verdadeiro |
 | `OnchipRamDcacheWriteThrough` | `onchip_ram_dcache` | `WITH_CACHE` e `WRITE_THROUGH` verdadeiros |
 | `OnchipRamDcacheChip` | `onchip_ram_dcache` | `WITH_CACHE` e `USE_CHIP` verdadeiros |
@@ -123,6 +131,8 @@ O topo de simulação `onchip_ram_system` liga o adaptador ao `ram_simulation`, 
 | `test_the_debug_port_ends_with_the_window` | a porta de depuração lê zero além da última palavra |
 | `test_the_latency_of_a_word_is_constant` e `test_the_latency_of_a_line_is_constant` | 3 e 6 bordas contando a borda $E_0$, iguais para leitura e escrita |
 | `test_the_outside_of_the_window_takes_the_same_time` | o acesso fora da janela não é mais rápido |
+| `onchip_ram_emulated_latency` | com `LATENCY` igual a 9, palavra e linha, leitura e escrita, dentro e fora da janela, levam 10 bordas contando a $E_0$, no adaptador e no `ram_chip` com o mesmo módulo de teste |
+| `onchip_ram_emulated_short` | com `LATENCY` igual a 3, a palavra leva 4 bordas e a linha 6, o mínimo do bloco |
 | `test_the_debug_port_reads_while_ready_waits` | a depuração lê com `o_ready` em espera e não o derruba |
 | `test_the_debug_port_does_not_disturb_an_access` | variar o índice de depuração a cada clock não altera os acessos |
 | `test_the_ram_starts_at_the_base` e `test_outside_the_ram_is_zero` | com `base_kib` igual a 8, a primeira palavra é a da base e os vizinhos fora da janela leem zero |

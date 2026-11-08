@@ -10,13 +10,17 @@ A FLASH interna tem uma só cópia, de duas portas. A porta B é do estágio MEM
 | :--- | :--- | :--- |
 | [flash_jtag_core](flash_jtag_core.md) | Clock da JTAG | Registradores de instrução e de dados e a passagem de um comando |
 | `flash_loader` | Clock da porta B da FLASH | Executa o comando, comuta a porta B e guarda o estado de parada |
-| `flash_jtag_shell` (`src/ROM/Cyclone-V/`) | | Instância do `sld_virtual_jtag` da Intel, só para a FPGA |
+| `flash_jtag_shell` (`src/ROM/Cyclone-V/`) | | Instância do `virtual_jtag` do Common-Components (o `sld_virtual_jtag` da Intel) mais o `flash_jtag_core`, só para a FPGA |
 
 ### 1.1. Garantia de que o núcleo não lê durante a escrita
 
 1. A habilitação de escrita da porta B é o pulso do carregador combinado com o estado de parada, então com o núcleo em execução ela vale `'0'` por construção, qualquer que seja o comando recebido.
 2. Uma escrita ou uma leitura pedida com o núcleo em execução é recusada, não altera a memória e acende o bit de recusa do status até a próxima parada.
 3. Com o núcleo parado o seletor da porta B escolhe o carregador, e o endereço do estágio MEM é ignorado.
+
+### 1.2. Porta de depuração da FLASH
+
+O carregador é a porta de depuração do backend de FLASH emulada, e a tabela da porta de depuração de cada backend está em [sdram_debug](../ram/sdram_debug.md), seção 7.
 
 ## 2. Interface
 

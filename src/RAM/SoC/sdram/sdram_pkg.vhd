@@ -60,6 +60,17 @@ package sdram_pkg is
   -- Ciclos de clock que cobrem um tempo (arredondado para cima).
   function cycles(ps : natural; tck_ps : natural) return natural;
 
+  -- Beats de dados que movem uma palavra de 32 bits no barramento DQ de dq_width bits (rajada programada no registrador de modo).
+  function dram_beats(dq_width : natural) return natural;
+  -- Bits do endereço de palavra de 32 bits: linha, banco e coluna da palavra (a coluna do chip menos os bits que a rajada percorre).
+  function dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width : natural) return natural;
+  -- Largura do barramento de endereço do chip: cabe a linha, e a coluna mais o bit A10 de auto-precharge.
+  function dram_a_bits(row_bits, col_bits : natural) return natural;
+  -- Valor do registrador de modo para a rajada da largura dq_width (latência CAS e modo sequencial de MODE_REG).
+  function dram_mode_register(dq_width : natural) return std_logic_vector;
+  -- Valor de 13 bits no barramento de endereço do chip de a_bits bits: zeros acima e corte do que não cabe.
+  function dram_fit_a(v : std_logic_vector(12 downto 0); a_bits : natural) return std_logic_vector;
+
 end package sdram_pkg;
 
 package body sdram_pkg is
@@ -67,6 +78,49 @@ package body sdram_pkg is
   function cycles(ps : natural; tck_ps : natural) return natural is
   begin
     return (ps + tck_ps - 1) / tck_ps;
+  end function;
+
+  function dram_beats(dq_width : natural) return natural is
+  begin
+    return 32 / dq_width;
+  end function;
+
+  function dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width : natural) return natural is
+  begin
+    if dram_beats(dq_width) = 2 then
+      return row_bits + bank_bits + col_bits - 1;
+    end if;
+    return row_bits + bank_bits + col_bits;
+  end function;
+
+  function dram_a_bits(row_bits, col_bits : natural) return natural is
+  begin
+    if row_bits > col_bits + 1 then
+      return row_bits;
+    end if;
+    return col_bits + 1;
+  end function;
+
+  function dram_mode_register(dq_width : natural) return std_logic_vector is
+    -- Registrador de modo montado.
+    variable mode : std_logic_vector(12 downto 0) := MODE_REG;
+  begin
+    if dram_beats(dq_width) = 1 then
+      mode(2 downto 0) := "000";
+    end if;
+    return mode;
+  end function;
+
+  function dram_fit_a(v : std_logic_vector(12 downto 0); a_bits : natural) return std_logic_vector is
+    -- Valor ajustado ao barramento.
+    variable r : std_logic_vector(a_bits - 1 downto 0) := (others => '0');
+  begin
+    for i in 0 to 12 loop
+      if i < a_bits then
+        r(i) := v(i);
+      end if;
+    end loop;
+    return r;
   end function;
 
 end package body sdram_pkg;

@@ -1,5 +1,5 @@
 -- =============================================================================
--- FLASH interna em uma só cópia (IP altsyncram de duas portas verdadeiras)
+-- FLASH interna em uma só cópia (instância de duas portas verdadeiras da block_ram)
 --
 -- Guarda o firmware do teste (trampolim .flash_entry e .text), inicializado pelo
 -- init_file "./init.mif". A porta A é lida pelo estágio de busca (IF) e a porta
@@ -22,9 +22,6 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
-
-library altera_mf;
-use altera_mf.altera_mf_components.all;
 
 library work;
 use work.utils_pkg.all;
@@ -65,48 +62,25 @@ architecture rtl of flash is
 
 begin
 
-	u_altsyncram : altsyncram
+	u_block_ram : entity work.block_ram
 	generic map (
-		address_reg_b => "CLOCK1",
-		clock_enable_input_a => "BYPASS",
-		clock_enable_input_b => "BYPASS",
-		clock_enable_output_a => "BYPASS",
-		clock_enable_output_b => "BYPASS",
-		init_file => "./init.mif",
-		intended_device_family => "Cyclone V",
-		lpm_type => "altsyncram",
-		maximum_depth => BLOCK_DEPTH,
-		numwords_a => size_bytes / 4,
-		numwords_b => size_bytes / 4,
 		operation_mode => "BIDIR_DUAL_PORT",
-		outdata_aclr_a => "NONE",
-		outdata_aclr_b => "NONE",
-		outdata_reg_a => "UNREGISTERED",
-		outdata_reg_b => "UNREGISTERED",
-		power_up_uninitialized => "FALSE",
-		read_during_write_mode_port_a => "NEW_DATA_NO_NBE_READ",
-		read_during_write_mode_port_b => "NEW_DATA_NO_NBE_READ",
-		widthad_a => log2_exact(size_bytes) - 2,
-		widthad_b => log2_exact(size_bytes) - 2,
-		width_a => 32,
-		width_b => 32,
-		width_byteena_a => 1,
-		width_byteena_b => 1,
-		wrcontrol_wraddress_reg_b => "CLOCK1"
+		word_count => size_bytes / 4,
+		address_width => log2_exact(size_bytes) - 2,
+		init_file => "./init.mif",
+		block_depth => BLOCK_DEPTH
 	)
 	port map (
-		address_a => i_address_a,
-		address_b => i_address_b,
-		clock0 => i_clk_a,
-		clock1 => i_clk_b,
-		data_a => (others => '0'),
-		data_b => i_data_b,
-		rden_a => i_rden_a,
-		rden_b => i_rden_b,
-		wren_a => '0',
-		wren_b => i_wren_b,
-		q_a => o_q_a,
-		q_b => o_q_b
+		i_clk_a => i_clk_a,
+		i_address_a => i_address_a,
+		i_rden_a => i_rden_a,
+		o_q_a => o_q_a,
+		i_clk_b => i_clk_b,
+		i_address_b => i_address_b,
+		i_data_b => i_data_b,
+		i_rden_b => i_rden_b,
+		i_wren_b => i_wren_b,
+		o_q_b => o_q_b
 	);
 
 end architecture rtl;

@@ -23,8 +23,9 @@ The core's stores are not observed by the cache. Only an invalidation (the progr
 | Generic | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
 | `size_bits` | positive | 32768 | Cache size in bits, a power of two of at least 256 (two lines). 32768 is 4 KB and 4096 is 4 kbit |
-| `base_sdram` | 6-bit vector | `010000` | Bits 31 to 26 appended to SDRAM addresses on the memory side (0x40000000) |
-| `base_flash` | 6-bit vector | `001000` | Bits 31 to 26 appended to FLASH addresses on the memory side (0x20000000) |
+| `window_bits` | natural from 26 to 29 | 26 | Width of the address window of the cache: $2^{\texttt{window\_bits}}$ bytes (26 is 64 MiB, 27 is 128 MiB). The tag stores the bits below it |
+| `base_sdram` | 6-bit vector | `010000` | Bits 31 to 26 of the SDRAM addresses on the memory side (0x40000000); only bits 31 down to `window_bits` are used |
+| `base_flash` | 6-bit vector | `001000` | Bits 31 to 26 of the FLASH addresses on the memory side (0x20000000); only bits 31 down to `window_bits` are used |
 | `rom_base_kib` | natural | 524288 | Base of the ROM region in KiB; whatever falls in it is treated as FLASH (0x20000000) |
 | `rom_end_kib` | natural | 1048576 | Exclusive end of the ROM region in KiB (0x40000000) |
 | `sel_from_kib` | integer | -1 | With a non-negative value, the select comes from the registered address (selected from this address, in KiB) and `i_sel` is ignored |
@@ -46,7 +47,7 @@ The core's stores are not observed by the cache. Only an invalidation (the progr
 | `i_inval_region` | input | 1 | Pulse that drops the lines of the region from `i_inval_first` to `i_inval_last` (default 0) |
 | `i_inval_first` | input | 32 | First byte address of the region to drop (default 0) |
 | `i_inval_last` | input | 32 | Last byte address of the region to drop, included (default 0) |
-| `o_d_addr` | output | 32 | Line request address, with the region base in bits 31 to 26 |
+| `o_d_addr` | output | 32 | Line request address, with the region base in bits 31 down to `window_bits` |
 | `o_d_rden` | output | 1 | Read request |
 | `o_d_line` | output | 1 | The request is for a line of four words |
 | `o_d_advance` | output | 1 | Equal to `i_d_ready` |
@@ -64,14 +65,14 @@ With $I = \log_2(\texttt{size\_bits}) - 7$ index bits, the cache has $2^I$ lines
 | :--- | :--- | ---: |
 | Word in line | 3 to 2 | 2 |
 | Index | $I+3$ to 4 | $I$ |
-| Tag | 25 to $I+4$ | $22-I$ |
+| Tag | `window_bits`$-1$ to $I+4$ | $W-4-I$ |
 | Region | Computed from `rom_base_kib` and `rom_end_kib`; becomes the most significant tag bit | 1 |
 
 $$
-\text{TAG\_BITS} = 23 - I
+\text{TAG\_BITS} = W - 3 - I
 $$
 
-The region bit in the tag keeps a FLASH line and an SDRAM line with the same bits 25 to $I+4$ from being confused. Bits 31 to 26 are not stored, and the memory-side request rebuilds them with `base_flash` or `base_sdram`, according to the region bit of the line being filled.
+Here $W$ is `window_bits`. The region bit in the tag keeps a FLASH line and an SDRAM line with the same bits $W-1$ to $I+4$ from being confused. Bits 31 to $W$ are not stored, and the memory-side request rebuilds them with bits 5 down to $W-26$ of `base_flash` or `base_sdram`, according to the region bit of the line being filled. With `window_bits` equal to 26 (the default) these are the six bits of the base; with 27 the window covers the 128 MiB of the DE2-115 SDRAM and the base loses bit 26, which becomes the top bit of the address tag. The width is fixed at generation by the memory map of the platform (`CACHE_WINDOW_BITS`), so the default leaves the generated hardware unchanged.
 
 ### 3.2. Lookup and core-side contract
 
@@ -89,8 +90,7 @@ The machine runs on `i_clk_cpu`.
 
 | State | Function | Output |
 | :--- | :--- | :--- |
-| `S_IDLE` | Waits for a miss. With `blocked` at 1 and a sweep pending, it starts `S_SWEEP`. Otherwise, if the registered `i_sel` is 1, there is no hit, the registered address equals `i_addr` and `i_invalidate` is 0, it copies the registered address and moves to `S_FILL_PRE` | |
-| `S_FILL_PRE` | Computes the tag and the index of the line from the address copied in `S_IDLE`, off the fetch path | |
+| `S_IDLE` | Waits for a miss. With `blocked` at 1 and a sweep pending, it starts `S_SWEEP`. Otherwise, if the miss registered in the previous cycle (`miss_q`, which is 1 when `S_IDLE` saw the registered `i_sel` at 1, no hit, the registered address equal to `i_addr` and `i_invalidate` at 0) still holds with `i_invalidate` at 0, it computes the tag and the index of the line from the address of the miss (`miss_a`, registered) and moves to `S_FILL_REQ`. Registering the decision takes the read of the tag out of the path to the state machine | |
 | `S_FILL_REQ` | Builds the line request with the address $\text{base} \,\Vert\, \text{tag} \,\Vert\, \text{index} \,\Vert\, 0000_2$ and raises `o_d_rden` and `o_d_line` | `o_miss` at 1 |
 | `S_FILL_WAIT` | Waits for `i_d_ready`, then lowers the request | |
 | `S_FILL_GET` | Stores one word per cycle in the data RAM (words 0 to 3); on word 3 it stores the tag and the valid bit | |
@@ -101,7 +101,7 @@ During the fill, `i_addr` may change (a branch moved the PC). The line keeps bei
 
 ### 3.4. Latency
 
-Let $k$ be the number of `S_FILL_WAIT` cycles ($k \ge 1$) and assume `i_clk` equal to `i_clk_cpu`. A miss is detected in `S_IDLE`, in the cycle after the edge that registered the address, and spends $1 + 1 + k + 4 + 2$ cycles from `S_FILL_PRE` to `S_SETTLE`. Counting the detection cycle, the miss costs $9 + k$ cycles more than a hit, and the next lookup hits.
+Let $k$ be the number of `S_FILL_WAIT` cycles ($k \ge 1$) and assume `i_clk` equal to `i_clk_cpu`. A miss is detected in `S_IDLE`, in the cycle after the edge that registered the address, and spends $1 + 1 + k + 4 + 2$ cycles from the second cycle of `S_IDLE` (the one that reads `miss_q`) to `S_SETTLE`. Counting the detection cycle, the miss costs $9 + k$ cycles more than a hit, and the next lookup hits.
 
 | Case | Cycles beyond a hit |
 | :--- | ---: |

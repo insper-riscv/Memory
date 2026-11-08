@@ -6,7 +6,12 @@
 // Modo REGION: a memória de baixo muda a palavra vigiada quando uma invalidação por região cobre a linha dela
 // (o que o controlador de FLASH faz depois de apagar ou gravar), e a prova exige que nenhum acerto devolva o dado
 // velho a partir do quarto ciclo depois do pulso e que um acerto não caia por uma região fora do índice dele.
+`ifndef WINDOW
+`define WINDOW 26
+`endif
 module props (input clk);
+  // Largura da janela da tag (window_bits do DUT): 26 é 64 MiB e 27 é 128 MiB.
+  localparam WIN = `WINDOW;
   localparam [5:0] BASE_SDRAM = 6'b010000, BASE_FLASH = 6'b001000;
   localparam [31:0] ROM_BASE = 32'h20000000, ROM_END = 32'h40000000;
   (* anyconst *) wire [31:0] wa;
@@ -33,7 +38,8 @@ module props (input clk);
   endfunction
 
   // A linha de wa como a memória de baixo a vê, e a posição da palavra de wa nela.
-  wire [31:0] wline = {in_rom(wa) ? BASE_FLASH : BASE_SDRAM, wa[25:4], 4'b0000};
+  wire [5:0] wbase = in_rom(wa) ? BASE_FLASH : BASE_SDRAM;
+  wire [31:0] wline = {wbase[5:WIN-26], wa[WIN-1:4], 4'b0000};
   wire [1:0] k = wa[3:2];
 
   // A palavra vigiada como a memória de baixo a tem: constante, ou trocada pela região no modo REGION.
@@ -74,8 +80,8 @@ module props (input clk);
   // ---- o ambiente ----
   always @* if (!f_past_valid) assume (rst);
   always @* if (f_past_valid) assume (!rst);
-  // os endereços do núcleo ficam na mesma janela de 64 MiB do endereço vigiado (a etiqueta guarda os bits 25 a 4)
-  always @* assume (addr[31:26] == wa[31:26]);
+  // os endereços do núcleo ficam na mesma janela (2**WIN bytes, 64 MiB por padrão) do endereço vigiado (a etiqueta guarda os bits WIN-1 a 4)
+  always @* assume (addr[31:WIN] == wa[31:WIN]);
   // o núcleo mantém o endereço do pedido até o cache responder: trocar o endereço no meio de um preenchimento
   // faria o cache ver as palavras novas da linha que chega com a etiqueta e o bit de validade da linha velha
   always @(posedge clk) if (f_past_valid && p_sel && !p_ready) assume (sel && addr == p_addr);

@@ -9,7 +9,12 @@
 //   REGION a memória de baixo muda a palavra vigiada quando uma invalidação por região cobre a linha dela (o que o
 //         controlador de FLASH faz depois de apagar ou gravar), e nenhum load devolve o dado velho a partir do
 //         quarto ciclo depois do pulso, nem o preenchimento que estava em andamento.
+`ifndef WINDOW
+`define WINDOW 26
+`endif
 module props (input clk);
+  // Largura da janela da tag (window_bits do DUT): 26 é 64 MiB e 27 é 128 MiB.
+  localparam WIN = `WINDOW;
   localparam [5:0] BASE_SDRAM = 6'b010000, BASE_FLASH = 6'b001000;
   localparam [31:0] ROM_BASE = 32'h20000000, ROM_END = 32'h40000000;
   (* anyconst *) wire [31:0] wa;
@@ -44,7 +49,8 @@ module props (input clk);
   endfunction
 
   // O endereço vigiado como a memória de baixo o vê: a palavra e a linha, e a posição da palavra na linha.
-  wire [31:0] wword = {in_rom(wa) ? BASE_FLASH : BASE_SDRAM, wa[25:2], 2'b00};
+  wire [5:0] wbase = in_rom(wa) ? BASE_FLASH : BASE_SDRAM;
+  wire [31:0] wword = {wbase[5:WIN-26], wa[WIN-1:2], 2'b00};
   wire [1:0] k = wa[3:2];
 
   wire covers_line = inval_region && ilast[31:4] >= ifirst[31:4] && wa[31:4] >= ifirst[31:4] && wa[31:4] <= ilast[31:4];
@@ -79,8 +85,8 @@ module props (input clk);
   always @* if (!f_past_valid) assume (rst);
   always @* if (f_past_valid) assume (!rst);
   initial assume (V == Mw);
-  // os endereços do núcleo ficam na mesma janela de 64 MiB do endereço vigiado
-  always @* assume (addr[31:26] == wa[31:26]);
+  // os endereços do núcleo ficam na mesma janela (2**WIN bytes, 64 MiB por padrão) do endereço vigiado
+  always @* assume (addr[31:WIN] == wa[31:WIN]);
   // fora da região da flash: um store na região da flash é um comando à flash, vai à memória de baixo e não ao cache
   always @* assume (!in_rom(wa));
   always @* assume (!(rden && wren));

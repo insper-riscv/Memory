@@ -1,0 +1,10 @@
+# FLASH serial QSPI da Arduino MKR Vidor 4000 (Winbond W25Q16DVSNIG, 16 Mbit, SPI). Confirmada pelo esquematico
+# (ABX00022, rede CFG_*), nao pelo datasheet: setor de 4 KiB e pagina de 256 bytes sao os da familia W25Q e precisam
+# ser conferidos.
+chip: W25Q16DV
+kind: serial_flash
+organization: {words: 2097152, width: 8}
+timing: {max_spi_mhz: 50}
+sector_bytes: 4096
+max_mhz: 50
+source: inferido

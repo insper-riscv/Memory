@@ -29,13 +29,15 @@ A mesma ponte serve ao caminho de dados e ao de instruções, em duas instância
 
 ### 2.2. Lado do controlador
 
+O generic `addr_bits` (natural, padrão 24) é a largura do endereço de palavra de 32 bits do chip, 25 com o chip de 32 bits da DE2-115.
+
 | Porta | Dir. | Largura | Significado |
 | :--- | :--- | ---: | :--- |
 | `o_req_tog` | saída | 1 | cada inversão é um pedido novo |
 | `i_ack_tog` | entrada | 1 | toggle de confirmação do controlador, sincronizado dentro da ponte |
 | `i_init_done` | entrada | 1 | a inicialização da SDRAM terminou, sincronizada dentro da ponte |
 | `o_c_we` | saída | 1 | escrita (`'1'`) ou leitura (`'0'`) |
-| `o_c_addr` | saída | 24 | endereço de palavra |
+| `o_c_addr` | saída | `addr_bits` | endereço de palavra, os bits `addr_bits` + 1 a 2 de `i_addr` |
 | `o_c_wdata` | saída | 32 | dado de escrita |
 | `o_c_be` | saída | 4 | habilita de bytes |
 | `i_c_rdata` | entrada | 32 | dado lido |
@@ -64,7 +66,7 @@ $$
 \text{o\_c\_addr} = \text{i\_addr}[25:2]
 $$
 
-Os dois bits baixos escolhem o byte dentro da palavra e não vão ao controlador. Os bits 31 a 26 não são usados, e 24 bits de endereço de palavra cobrem os 64 MB do chip. Num acesso de linha, o controlador ignora ainda os dois bits baixos do endereço de palavra e usa a linha de 16 bytes alinhada que contém o endereço.
+Os dois bits baixos escolhem o byte dentro da palavra e não vão ao controlador. Os bits acima de `addr_bits + 1` não são usados: com `addr_bits` igual a 24 (padrão), o endereço de palavra cobre os 64 MB do chip, e com 25 cobre os 128 MiB dos dois chips da DE2-115. Num acesso de linha, o controlador ignora ainda os dois bits baixos do endereço de palavra e usa a linha de 16 bytes alinhada que contém o endereço.
 
 ### 3.3. Cruzamento de clocks
 

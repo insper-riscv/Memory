@@ -31,21 +31,17 @@ The comparison table is in [flash](flash.md). Relative to the other two, this IP
 
 ## 3. Behavior
 
-### 3.1. Library configuration
+### 3.1. Block memory instance
 
-The read is done by the `altsyncram` instance of the `altera_mf` library, which belongs to Quartus and is not part of this repository. The parameters fixed in the VHDL are:
+The read is done by an instance of [block_ram](../block_ram/block_ram.md), which wraps the `altsyncram` of Quartus' `altera_mf` library, and the other megafunction parameters are fixed there. The generics passed to the instance are:
 
-| Parameter | Value |
+| Generic | Value |
 | :--- | :--- |
 | `operation_mode` | `SINGLE_PORT` |
-| `width_a` | 32 |
-| `numwords_a` | $\text{size\_bytes} / 4$ (65536 by default) |
-| `widthad_a` | $\log_2(\text{size\_bytes}) - 2$ (16 by default) |
+| `word_count` | $\text{size\_bytes} / 4$ (65536 by default) |
+| `address_width` | $\log_2(\text{size\_bytes}) - 2$ (16 by default) |
 | `init_file` | `./flash_init.mif` |
-| `outdata_reg_a` | `UNREGISTERED` |
-| `read_during_write_mode_port_a` | `NEW_DATA_NO_NBE_READ` |
-| `lpm_hint` | `ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME=FLASH` |
-| `intended_device_family` | `Cyclone V` |
+| `instance_name` | `FLASH` |
 
 ### 3.2. Read latency
 
@@ -53,7 +49,7 @@ The address is captured on the edge of `i_clk` and the output has no extra regis
 
 ## 4. Integration
 
-The file `src/ROM/Cyclone-V/flash_store.qip` registers the IP as "ROM: 1-PORT", version 20.1, family Cyclone V, and points to the VHDL.
+The file `src/ROM/Cyclone-V/flash_store.qip` lists `block_ram.vhd` and the IP's VHDL, with no family tag.
 
 | Top | Instance | Wiring |
 | :--- | :--- | :--- |

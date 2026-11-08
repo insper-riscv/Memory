@@ -86,3 +86,14 @@ The throughput is that of the JTAG cable: one word per command, a few millisecon
 so reading a kilobyte takes about a second. A fill is the exception because it runs in
 the board. A cache between the core and the SDRAM must write through (or be flushed) for
 the host to read what the core wrote.
+
+## 7. The debug port of each backend (contract K5)
+
+Every RAM and FLASH backend offers a debug port to the host, and the host uses the one of the region whatever its realization is.
+
+| Realization | Debug port | Note |
+| :--- | :--- | :--- |
+| Emulated RAM | `i_dbg_word_addr` and `o_dbg_word_data` of the model; in the FPGA, the memory loader over JTAG | Read without cache |
+| SDRAM and SRAM | A debug master that is the second master of the controller | The domain crossing is by signal inversion, as in the SDRAM bridge |
+| Emulated FLASH | Port B of the storage, owned by the loader with the core halted | Write only with the core in reset |
+| Device FLASH | FLASH controller using the commands of [flash_cmd_port](../rom/flash_cmd_port.md) | The JTAG loader uses the same commands |

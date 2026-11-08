@@ -11,7 +11,7 @@ The external RAM chip model plays, on the simulated platforms, the role of the b
 | Generic | Type | Default | Meaning |
 | :--- | :--- | ---: | :--- |
 | `init_file` | string | empty | file with the initial image, one 32-bit word per line in hexadecimal, from the first address of the window; empty leaves everything at zero |
-| `latency` | natural | 8 | edges of `i_clk` between the request and the completion of the access, minimum 2, maximum 255 |
+| `latency` | natural | 8 | edges of `i_clk` between the request and the completion of the access, minimum 2 |
 | `size_bytes` | positive | 1048576 | size of the chip window in bytes, a power of two from 16 bytes to 32 MB |
 | `base_kib` | natural | 0 | where the chip starts inside the 64 MB region, in KiB; the chip address is the region address minus this base |
 
@@ -76,8 +76,8 @@ The two ports have independent three-state machines over the same vector. A requ
 
 | State | Action | Next state |
 | :--- | :--- | :--- |
-| `S_IDLE` | with `i_rden` or `i_wren` (data port) or `i_ins_rden` (instruction port), captures address, data and masks and loads the counter with `latency` | `S_WAIT` |
-| `S_WAIT` | while the counter is greater than 1, decrements; on the edge where it is 1, accesses the vector (write, or read into a pending register) | `S_DONE` |
+| `S_IDLE` | with `i_rden` or `i_wren` (data port) or `i_ins_rden` (instruction port), captures address, data and masks and loads the port [latency_counter](../latency/latency_counter.md) with `latency` | `S_WAIT` |
+| `S_WAIT` | waits until the `latency_counter` signals the last edge; on that edge it accesses the vector (write, or read into a pending register) | `S_DONE` |
 | `S_DONE` | `o_ready` at `'1'`; when `i_mem_advance` (or `i_ins_advance`) is `'1'`, copies the pending data to the read output | `S_IDLE` |
 
 ### 3.4. Latency
@@ -96,6 +96,7 @@ At time zero, a process reads `init_file` line by line and writes each valid wor
 | :--- | :--- |
 | Instantiated in | `src/simulation/modular/modular_sim_top.vhd` of the Insper-RISC-V repository, when `ram_external` is true, with `init_file` equal to `ram_file`, `latency` equal to `ext_ram_latency`, `size_bytes` equal to `ram_size_bytes` and `base_kib` equal to `ram_base_kib` modulo 65536 |
 | Above it | the data cache (`src/cache/SoC/dcache.vhd`), the instruction cache (`src/cache/SoC/icache.vhd`) and, when the ROM is also external, the `mem_region_router` router; the line ports carry the cache lines |
+| Latency counting | one [latency_counter](../latency/latency_counter.md) instance per port, the same machine as in [onchip_ram_port](onchip_ram_port.md) and [flash_chip](../rom/flash_chip.md) |
 | Contract | the same as the SDRAM bridge (`sdram_cpu_bridge`) and the external port of the core, described in [ext_interconnect.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/en/interconnect/ext_interconnect.md) |
 | Port list | the same as `sdram_system`, which lets the top swap one for the other |
 | Debug port | in the modular top, the testbench reads the HTIF `tohost` through it when it is in the chip, without going through the caches |

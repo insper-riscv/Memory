@@ -23,8 +23,9 @@ Os stores do core não são observados pela cache. Só uma invalidação (o `fen
 | Generic | Tipo | Padrão | Significado |
 | :--- | :--- | :--- | :--- |
 | `size_bits` | positive | 32768 | Tamanho da cache em bits, potência de dois de pelo menos 256 (duas linhas). 32768 é 4 KB e 4096 é 4 kbit |
-| `base_sdram` | vetor de 6 bits | `010000` | Bits 31 a 26 acrescentados aos endereços da SDRAM no lado da memória (0x40000000) |
-| `base_flash` | vetor de 6 bits | `001000` | Bits 31 a 26 acrescentados aos endereços da FLASH no lado da memória (0x20000000) |
+| `window_bits` | natural de 26 a 29 | 26 | Largura da janela de endereços da cache: $2^{\texttt{window\_bits}}$ bytes (26 é 64 MiB, 27 é 128 MiB). A tag guarda os bits abaixo dela |
+| `base_sdram` | vetor de 6 bits | `010000` | Bits 31 a 26 dos endereços da SDRAM no lado da memória (0x40000000); entram só os bits de 31 até `window_bits` |
+| `base_flash` | vetor de 6 bits | `001000` | Bits 31 a 26 dos endereços da FLASH no lado da memória (0x20000000); entram só os bits de 31 até `window_bits` |
 | `rom_base_kib` | natural | 524288 | Base da região da ROM em KiB; o que cai nela é tratado como FLASH (0x20000000) |
 | `rom_end_kib` | natural | 1048576 | Fim exclusivo da região da ROM em KiB (0x40000000) |
 | `sel_from_kib` | integer | -1 | Com valor não negativo, a seleção sai do endereço registrado (selecionado a partir deste endereço, em KiB) e `i_sel` é ignorado |
@@ -46,7 +47,7 @@ Os stores do core não são observados pela cache. Só uma invalidação (o `fen
 | `i_inval_region` | entrada | 1 | Pulso que derruba as linhas da região de `i_inval_first` a `i_inval_last` (padrão 0) |
 | `i_inval_first` | entrada | 32 | Primeiro endereço de byte da região a derrubar (padrão 0) |
 | `i_inval_last` | entrada | 32 | Último endereço de byte da região a derrubar, incluído (padrão 0) |
-| `o_d_addr` | saída | 32 | Endereço do pedido de linha, com a base da região nos bits 31 a 26 |
+| `o_d_addr` | saída | 32 | Endereço do pedido de linha, com a base da região nos bits 31 a `window_bits` |
 | `o_d_rden` | saída | 1 | Pedido de leitura |
 | `o_d_line` | saída | 1 | O pedido é de uma linha de quatro palavras |
 | `o_d_advance` | saída | 1 | Igual a `i_d_ready` |
@@ -64,14 +65,14 @@ Com $I = \log_2(\texttt{size\_bits}) - 7$ bits de índice, a cache tem $2^I$ lin
 | :--- | :--- | ---: |
 | Palavra na linha | 3 a 2 | 2 |
 | Índice | $I+3$ a 4 | $I$ |
-| Tag | 25 a $I+4$ | $22-I$ |
+| Tag | `window_bits`$-1$ a $I+4$ | $W-4-I$ |
 | Região | Calculada a partir de `rom_base_kib` e `rom_end_kib`; vira o bit mais significativo da tag | 1 |
 
 $$
-\text{TAG\_BITS} = 23 - I
+\text{TAG\_BITS} = W - 3 - I
 $$
 
-O bit de região na tag impede que uma linha da FLASH e uma da SDRAM com os mesmos bits 25 a $I+4$ se confundam. Os bits 31 a 26 não são guardados e o pedido ao lado da memória os reconstrói com `base_flash` ou `base_sdram`, conforme o bit de região da linha em preenchimento.
+Aqui $W$ é `window_bits`. O bit de região na tag impede que uma linha da FLASH e uma da SDRAM com os mesmos bits de $W-1$ a $I+4$ se confundam. Os bits de 31 a $W$ não são guardados e o pedido ao lado da memória os reconstrói com os bits de 5 a $W-26$ de `base_flash` ou `base_sdram`, conforme o bit de região da linha em preenchimento. Com `window_bits` igual a 26 (padrão) são os seis bits da base; com 27, a janela cobre os 128 MiB da SDRAM da DE2-115 e a base perde o bit 26, que passa a ser o bit mais alto da tag de endereço. A largura é fixada em geração pelo mapa da plataforma (`CACHE_WINDOW_BITS`), de modo que o padrão não altera o hardware gerado.
 
 ### 3.2. Consulta e contrato do lado do core
 
@@ -89,8 +90,7 @@ A máquina roda em `i_clk_cpu`.
 
 | Estado | Função | Saída |
 | :--- | :--- | :--- |
-| `S_IDLE` | Espera uma falha. Com `blocked` em 1 e uma varredura pendente, inicia `S_SWEEP`. Senão, se `i_sel` registrado está em 1, não há acerto, o endereço registrado é igual a `i_addr` e `i_invalidate` está em 0, copia o endereço registrado e passa a `S_FILL_PRE` | |
-| `S_FILL_PRE` | Calcula a tag e o índice da linha a partir do endereço copiado em `S_IDLE`, fora do caminho da busca | |
+| `S_IDLE` | Espera uma falha. Com `blocked` em 1 e uma varredura pendente, inicia `S_SWEEP`. Senão, se a falha registrada no ciclo anterior (`miss_q`, que vale 1 quando `S_IDLE` viu `i_sel` registrado em 1, nenhum acerto, o endereço registrado igual a `i_addr` e `i_invalidate` em 0) continua valendo com `i_invalidate` em 0, calcula a tag e o índice da linha a partir do endereço da falha (`miss_a`, registrado) e passa a `S_FILL_REQ`. Registrar a decisão tira a leitura da tag do caminho até a máquina de estados | |
 | `S_FILL_REQ` | Monta o pedido de linha com o endereço $\text{base} \,\Vert\, \text{tag} \,\Vert\, \text{índice} \,\Vert\, 0000_2$ e levanta `o_d_rden` e `o_d_line` | `o_miss` em 1 |
 | `S_FILL_WAIT` | Espera `i_d_ready`, então baixa o pedido | |
 | `S_FILL_GET` | Grava uma palavra por ciclo nas RAMs de dados (palavras 0 a 3); na palavra 3 grava a tag e o bit de validade | |
@@ -101,7 +101,7 @@ Durante o preenchimento, `i_addr` pode mudar (um desvio moveu o PC). A linha con
 
 ### 3.4. Latência
 
-Seja $k$ o número de ciclos de `S_FILL_WAIT` ($k \ge 1$) e supondo `i_clk` igual a `i_clk_cpu`. Uma falha é detectada em `S_IDLE`, no ciclo seguinte à borda que registrou o endereço, e gasta $1 + 1 + k + 4 + 2$ ciclos de `S_FILL_PRE` a `S_SETTLE`. Com o ciclo de detecção, a falha custa $9 + k$ ciclos a mais que um acerto, e a consulta seguinte acerta.
+Seja $k$ o número de ciclos de `S_FILL_WAIT` ($k \ge 1$) e supondo `i_clk` igual a `i_clk_cpu`. Uma falha é detectada em `S_IDLE`, no ciclo seguinte à borda que registrou o endereço, e gasta $1 + 1 + k + 4 + 2$ ciclos do segundo ciclo de `S_IDLE` (o que lê `miss_q`) a `S_SETTLE`. Com o ciclo de detecção, a falha custa $9 + k$ ciclos a mais que um acerto, e a consulta seguinte acerta.
 
 | Caso | Ciclos além do acerto |
 | :--- | ---: |

@@ -27,25 +27,20 @@ A BOOT_MEMORY ocupa o início do espaço de endereços (`0x00000000` até `0x000
 
 ## 3. Comportamento
 
-### 3.1. Configuração da biblioteca
+### 3.1. Instância da memória em bloco
 
-A leitura é feita pela instância `altsyncram` da biblioteca `altera_mf`, que é do Quartus e não faz parte deste repositório. Os parâmetros fixados no VHDL são:
+A leitura é feita por uma instância de [block_ram](../block_ram/block_ram.md), que encapsula o `altsyncram` da biblioteca `altera_mf` do Quartus, e os demais parâmetros do megafunção ficam fixos nela. Os generics passados à instância são:
 
-| Parâmetro | Valor |
+| Generic | Valor |
 | :--- | :--- |
 | `operation_mode` | `SINGLE_PORT` |
-| `width_a` | 32 |
-| `numwords_a` | $\text{size\_bytes} / 4$ (1024 com o padrão) |
-| `widthad_a` | $\log_2(\text{size\_bytes}) - 2$ (10 com o padrão) |
+| `word_count` | $\text{size\_bytes} / 4$ (1024 com o padrão) |
+| `address_width` | $\log_2(\text{size\_bytes}) - 2$ (10 com o padrão) |
 | `init_file` | `./boot_memory_init.mif` |
-| `outdata_reg_a` | `UNREGISTERED` |
-| `read_during_write_mode_port_a` | `NEW_DATA_NO_NBE_READ` |
-| `lpm_hint` | `ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME=BOOT_MEMORY` |
-| `intended_device_family` | `Cyclone V` |
 
 ### 3.2. Latência de leitura
 
-O endereço é capturado na borda de `i_clk` e a saída não tem registrador adicional, então a palavra do endereço aplicado numa borda aparece em `o_q` depois dela, com um ciclo de latência síncrona. A dica de edição em tempo de execução (`ENABLE_RUNTIME_MOD`) mantém a memória visível ao editor de conteúdo em sistema do Quartus, e a instância aparece com o nome `BOOT_MEMORY`.
+O endereço é capturado na borda de `i_clk` e a saída não tem registrador adicional, então a palavra do endereço aplicado numa borda aparece em `o_q` depois dela, com um ciclo de latência síncrona. A instância não recebe `instance_name`, então a memória não tem a dica `ENABLE_RUNTIME_MOD` e o editor de conteúdo em sistema do Quartus não a enxerga.
 
 ### 3.3. Arquivo de inicialização
 
@@ -53,7 +48,7 @@ O `.mif` é gerado pelo fluxo de compilação da placa a partir do código de bo
 
 ## 4. Integração
 
-O arquivo `.qip` (`src/ROM/Cyclone-V/boot_memory.qip`) registra o IP como "ROM: 1-PORT", versão 20.1, família Cyclone V, e aponta para o VHDL.
+O arquivo `.qip` (`src/ROM/Cyclone-V/boot_memory.qip`) lista o `block_ram.vhd` e o VHDL do IP, sem marca de família.
 
 | Topo | Instância | Ligação |
 | :--- | :--- | :--- |

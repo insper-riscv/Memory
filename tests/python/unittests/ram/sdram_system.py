@@ -22,8 +22,9 @@ from tests.python.unittests.checks import (
 from tests.python.unittests.dut import Dut
 from tests.python.unittests.ram.sdram_helpers import (
     CPU_NS,
-    LAST_WORD,
     access,
+    addr_bits,
+    last_word,
     line_access,
     merge,
     model_word,
@@ -95,9 +96,9 @@ async def test_address_decode(dut: Dut):
         0x7FFFF,
         0x800000,
         0xFFFFFE,
-        LAST_WORD,
+        last_word(dut),
     ]
-    words += [rng.randrange(1 << 24) for _ in range(40)]
+    words += [rng.randrange(1 << addr_bits(dut)) for _ in range(40)]
     words = sorted(set(words))
     want = {
         w: (0x9E3779B1 * (i + 1)) & 0xFFFFFFFF for i, w in enumerate(words)
@@ -125,7 +126,7 @@ async def test_random_traffic(dut: Dut):
     """
     await start(dut)
     rng = Prng(7)
-    pool = [rng.randrange(1 << 24) for _ in range(48)]
+    pool = [rng.randrange(1 << addr_bits(dut)) for _ in range(48)]
     ref: dict[int, int] = {}
     for _ in range(500):
         w = rng.choice(pool)
@@ -200,7 +201,7 @@ async def _ratio(dut: Dut, cpu_ns: int, offset: int):
     rng = Prng(cpu_ns)
     ref: dict[int, int] = {}
     for _ in range(60):
-        w = rng.randrange(1 << 24)
+        w = rng.randrange(1 << addr_bits(dut))
         v = rng.getrandbits(32)
         await access(dut, True, w, v)
         ref[w] = v
@@ -394,9 +395,9 @@ async def test_lines_and_words_mixed(dut: Dut):
         0x1000,
         0x7FFFC,
         0x800000,
-        LAST_WORD & ~3,
+        last_word(dut) & ~3,
     ]
-    lines += [rng.randrange(1 << 22) << 2 for _ in range(12)]
+    lines += [rng.randrange(1 << (addr_bits(dut) - 2)) << 2 for _ in range(12)]
     mem: dict[int, int] = {}
     for _ in range(80):
         base = rng.choice(lines)

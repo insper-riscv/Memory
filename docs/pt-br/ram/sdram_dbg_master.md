@@ -11,6 +11,7 @@ O mestre de depuração da SDRAM executa, no clock do controlador, os comandos d
 | Generic | Tipo | Padrão | Significado |
 | :--- | :--- | ---: | :--- |
 | `timeout_cycles` | natural | $2^{16}$ | ciclos de espera pela resposta do árbitro antes de o comando ser descartado |
+| `addr_bits` | natural de 23 a 25 | 24 | bits do endereço de palavra (23 é a SDRAM de 32 MB da DE0-Nano); com 25 (a SDRAM de 128 MB da DE2-115), o bit 3 de `i_op` é o bit 24 do endereço |
 
 ### 2.2. Portas
 
@@ -20,7 +21,7 @@ O mestre de depuração da SDRAM executa, no clock do controlador, os comandos d
 | `i_rst` | entrada | 1 | reset síncrono, ativo em `'1'` |
 | `i_cmd_tog` | entrada | 1 | alternância de comando vinda do hospedeiro (de qualquer clock), cada inversão é um comando novo |
 | `o_done_tog` | saída | 1 | alternância que confirma o comando concluído |
-| `i_op` | entrada | 4 | código do comando, de 0 a 6 |
+| `i_op` | entrada | 4 | código do comando, de 0 a 6 nos bits 2 a 0, e o bit 24 do endereço no bit 3 quando `addr_bits` vale 25 |
 | `i_be` | entrada | 4 | habilita de bytes das escritas |
 | `i_addr` | entrada | 24 | endereço de palavra do comando |
 | `i_data` | entrada | 32 | dado de escrita ou, no comando 4, a quantidade de palavras do preenchimento |
@@ -31,7 +32,7 @@ O mestre de depuração da SDRAM executa, no clock do controlador, os comandos d
 | `o_b_req_tog` | saída | 1 | alternância de pedido ao árbitro |
 | `i_b_ack_tog` | entrada | 1 | alternância de confirmação, igual a `o_b_req_tog` quando o pedido foi atendido |
 | `o_b_we` | saída | 1 | escrita (`'1'`) ou leitura (`'0'`) |
-| `o_b_addr` | saída | 24 | endereço de palavra |
+| `o_b_addr` | saída | `addr_bits` | endereço de palavra |
 | `o_b_wdata` | saída | 32 | dado de escrita |
 | `o_b_be` | saída | 4 | habilita de bytes da escrita |
 | `i_b_rdata` | entrada | 32 | dado lido |
@@ -78,7 +79,7 @@ O comando é visto 2 bordas de `i_clk` depois de a inversão de `i_cmd_tog` ser 
 | Item | Descrição |
 | :--- | :--- |
 | Instanciado em | `src/cyclone-v/de0-cv/de0-cv_top.vhd` do repositório Insper-RISC-V (instância `SDRAM_DEBUG`, no clock do controlador) e `src/RAM/SoC/sim/sdram_system.vhd` (instância `u_dbg`) |
-| Recebe comandos de | `sdram_jtag_core`, direto na simulação e pelo invólucro `Insper-RISC-V/src/cyclone-v/de0-cv/sdram_jtag_shell.vhd` (que contém o Virtual JTAG) na placa |
+| Recebe comandos de | `sdram_jtag_core`, direto na simulação e pelo invólucro `src/RAM/FPGA/Cyclone-V/sdram_jtag_shell.vhd` (que contém o Virtual JTAG) na placa |
 | Entrega pedidos a | a porta do mestre B de `sdram_arbiter`, que os leva ao controlador |
 | Usa | o sincronizador `synchronizer` da biblioteca Common-Components, duas instâncias, uma para `i_cmd_tog` e uma para `i_init_done` |
 
@@ -93,6 +94,7 @@ Os testes cocotb de `tests/python/unittests/ram/sdram_debug_port.py` rodam o sis
 | `test_write_and_read_back` | uma escrita lê de volta e chega ao chip, incluindo o endereço de palavra mais alto e as máscaras de bytes |
 | `test_the_core_and_the_host_see_the_same_memory` | o que o core escreve o hospedeiro lê, e o contrário |
 | `test_fill` | o preenchimento escreve exatamente `count` palavras a partir do endereço e não altera as vizinhas |
+| `test_the_host_reaches_the_upper_half_of_a_128_mb_sdram` | com o chip de 32 bits (entrada `SdramDebugPort32`), o bit 3 de `op` alcança a metade alta das $2^{25}$ palavras |
 | `test_the_fill_count_reaches_the_whole_sdram` | o registrador `count` guarda $2^{24}$ e $2^{24} - 1$ |
 | `test_next_word_commands` | os comandos 5 e 6 seguem a última palavra acessada |
 | `test_traffic_from_the_core_and_the_host_together` | acessos simultâneos do core e do hospedeiro não se corrompem |

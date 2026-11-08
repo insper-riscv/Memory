@@ -2,7 +2,7 @@
 
 ## 1. Função do componente no SoC
 
-O IP interno da RAM é a memória de dados do core quando a RAM fica dentro da FPGA. É uma memória de uma porta, com leitura e escrita síncronas e habilita de bytes, implementada em blocos de memória do dispositivo pela megafunção `altsyncram`. O arquivo foi gerado pelo assistente de megafunções do Quartus (RAM de 1 porta, versão 20.1, família Cyclone V), com o tamanho tornado um generic. A biblioteca `altsyncram` pertence ao Quartus (biblioteca `altera_mf`) e não está neste repositório. Segundo o README do repositório, os IPs também simulam no GHDL pelos modelos `altera_mf` da Intel, e o modelo de simulação de uso geral da RAM é o descrito em [ram_simulation.md](ram_simulation.md).
+O IP interno da RAM é a memória de dados do core quando a RAM fica dentro da FPGA. É uma memória de uma porta, com leitura e escrita síncronas e habilita de bytes, implementada em blocos de memória do dispositivo por uma instância de [block_ram](../block_ram/block_ram.md), que encapsula a megafunção `altsyncram` da biblioteca `altera_mf` do Quartus (fora deste repositório). Segundo o README do repositório, os IPs também simulam no GHDL pelos modelos `altera_mf` da Intel, e o modelo de simulação de uso geral da RAM é o descrito em [ram_simulation.md](ram_simulation.md).
 
 ## 2. Interface
 
@@ -31,22 +31,17 @@ Com o padrão de 256 KB, o endereço tem 16 bits.
 
 ## 3. Comportamento
 
-### 3.1. Configuração da `altsyncram`
+### 3.1. Instância da `block_ram`
 
-| Parâmetro | Valor | Efeito |
+| Generic | Valor | Efeito |
 | :--- | :--- | :--- |
 | `operation_mode` | `SINGLE_PORT` | uma porta de leitura e escrita |
-| `width_a` | 32 | largura do dado |
-| `numwords_a` | `word_count` | quantidade de palavras fisicamente implementadas |
-| `widthad_a` | $\log_2$ `size_bytes` $- 2$ | largura do endereço |
-| `width_byteena_a` e `byte_size` | 4 e 8 | quatro faixas de byte de 8 bits |
-| `outdata_reg_a` | `UNREGISTERED` | a saída não tem registrador adicional |
-| `clock_enable_input_a` e `clock_enable_output_a` | `BYPASS` | sem habilita de clock |
-| `outdata_aclr_a` | `NONE` | sem reset assíncrono da saída |
-| `read_during_write_mode_port_a` | `NEW_DATA_NO_NBE_READ` | modo de leitura no mesmo endereço de uma escrita, definido pela biblioteca do Quartus |
-| `power_up_uninitialized` | `FALSE` | a memória inicia zerada |
-| `lpm_hint` | `ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME=RAM` | o conteúdo pode ser lido e reescrito por JTAG com o editor de conteúdo de memória do Quartus, pela instância de nome `RAM` |
-| `intended_device_family` | `Cyclone V` | família alvo |
+| `word_count` | `word_count` | quantidade de palavras fisicamente implementadas |
+| `address_width` | $\log_2$ `size_bytes` $- 2$ | largura do endereço |
+| `byte_lanes` | 4 | quatro faixas de byte de 8 bits |
+| `instance_name` | `RAM` | o conteúdo pode ser lido e reescrito por JTAG com o editor de conteúdo de memória do Quartus, pela instância de nome `RAM` |
+
+A `block_ram` fixa o restante: saída sem registrador (`UNREGISTERED`), sem habilita de clock (`BYPASS`), sem reset assíncrono da saída, leitura no mesmo endereço de uma escrita devolvendo o dado novo (`NEW_DATA_NO_NBE_READ`) e memória iniciada em zero (`power_up_uninitialized` em `FALSE`).
 
 ### 3.2. Latência
 
@@ -54,16 +49,14 @@ O endereço, o dado e os habilitas são capturados na borda de subida de `i_clk`
 
 ### 3.3. Inicialização
 
-O gerador não referencia nenhum arquivo de inicialização (`MIFfilename` vazio no cabeçalho do IP) e o `.qip` não lista nenhum. A pasta contém um `init.mif` de 4096 palavras de 32 bits cujo conteúdo declarado é zero nos endereços `00A` a `FFF`, que não é usado pelo IP. Com `power_up_uninitialized` em `FALSE`, a RAM inicia com zeros, e o `ENABLE_RUNTIME_MOD` permite reescrever o conteúdo por JTAG depois da configuração da FPGA.
-
-Os parâmetros `NUMWORDS_A` igual a 4096 e `WidthAddr` igual a 12 que o cabeçalho do IP ainda registra são da configuração do assistente. A instância usa `word_count` para a profundidade física e `size_bytes` para a largura do endereço.
+A instância não recebe arquivo de inicialização (`init_file` em `UNUSED`) e o `.qip` não lista nenhum. A pasta contém um `init.mif` de 4096 palavras de 32 bits cujo conteúdo declarado é zero nos endereços `00A` a `FFF`, que não é usado pelo IP. Com `power_up_uninitialized` em `FALSE`, a RAM inicia com zeros, e o `instance_name` permite reescrever o conteúdo por JTAG depois da configuração da FPGA. A instância usa `word_count` para a profundidade física e `size_bytes` para a largura do endereço.
 
 ### 3.4. Arquivos do IP
 
 | Arquivo | Conteúdo |
 | :--- | :--- |
-| `ram.vhd` | a entidade e a instância da `altsyncram` |
-| `ram.qip` | lista o `ram.vhd` e o `ram.cmp` para o Quartus, com o nome de ferramenta `RAM: 1-PORT` |
+| `ram.vhd` | a entidade e a instância da `block_ram` |
+| `ram.qip` | lista o `block_ram.vhd` e o `ram.vhd` para o Quartus, sem marca de família |
 | `init.mif` | imagem de zeros, sem referência no `.qip` nem no `.vhd` |
 
 ## 4. Integração

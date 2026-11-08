@@ -1,0 +1,8 @@
+# FLASH paralela NOR da DE2-115 (Spansion S29GL064N90, 64 Mbit, ligada em 8 bits). Sufixo da peça não verificado.
+chip: S29GL064N90
+kind: nor
+organization: {words: 8388608, width: 8}
+timing: {access_ns: 90, page_access_ns: 25, oe_ns: 35, write_cycle_ns: 90, write_pulse_ns: 35, write_high_ns: 30, data_setup_ns: 45, addr_hold_ns: 45, busy_ns: 90, reset_pulse_ns: 500, reset_ready_ns: 50, program_ns: 60000, sector_erase_ns: 500000000}
+sector_bytes: 65536
+boot_sector_bytes: 8192
+source: inferido

@@ -3,7 +3,8 @@
 # Needs ghdl, yosys, sby and the solver of the engine (FORMAL_ENGINE), all in insper-riscv/Infra's toolchain
 # image. Run from the root of the repository:  bash formal/dcache/run.sh
 # The proofs are bounded and run side by side (see formal/common.sh). The cache is two lines of 128 bits
-# (size_bits = 256): the logic does not depend on the size.
+# (size_bits = 256): the logic does not depend on the size. The proofs run for each width of the tag window in
+# FORMAL_WINDOWS (default "26 27": 64 MiB and 128 MiB); the mutants run on the default width.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
@@ -17,24 +18,26 @@ fail=0
 # shellcheck source=formal/common.sh
 source "$root/formal/common.sh"
 
-netlist() {  # <vhdl> <name>: the netlist and a copy that exposes the valid bits and the invalidation flag
+netlist() {  # <vhdl> <name> [window_bits]: the netlist and a copy that exposes the valid bits and the invalidation flag
   local work="$out/work_$2"; mkdir -p "$work"
   ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$1"
-  ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gsize_bits=256 -gwrite_through=true dcache > "$2.v"
+  ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gsize_bits=256 -gwrite_through=true "-gwindow_bits=${3:-26}" dcache > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v" valid:1 inv_run
   grep -q dbg_valid "$2_dbg.v" || { echo "the netlist has no register named valid: the exposure did not apply"; exit 1; }
 }
 
 echo "dcache"
-netlist "$src" dc
-
-start prove dc_dbg.v bmc   24 '-DDATA'        stores
-start prove dc_dbg.v bmc   40 '-DINV'         invalidate
-start prove dc_dbg.v cover 24 '-DDATA -DCOVER' cover
-start prove dc_dbg.v cover 40 '-DINV -DCOVER'  cover_inv
-start prove dc_dbg.v bmc   22 '-DREGION'       region
-start prove dc_dbg.v cover 40 '-DREGION -DCOVER' cover_region
+windows="${FORMAL_WINDOWS:-26 27}"
+for w in $windows; do
+  netlist "$src" "dc_w$w" "$w"
+  start prove "dc_w${w}_dbg.v" bmc   24 "-DWINDOW=$w -DDATA"           "stores_w$w"
+  start prove "dc_w${w}_dbg.v" bmc   40 "-DWINDOW=$w -DINV"            "invalidate_w$w"
+  start prove "dc_w${w}_dbg.v" cover 24 "-DWINDOW=$w -DDATA -DCOVER"   "cover_w$w"
+  start prove "dc_w${w}_dbg.v" cover 40 "-DWINDOW=$w -DINV -DCOVER"    "cover_inv_w$w"
+  start prove "dc_w${w}_dbg.v" bmc   22 "-DWINDOW=$w -DREGION"         "region_w$w"
+  start prove "dc_w${w}_dbg.v" cover 40 "-DWINDOW=$w -DREGION -DCOVER" "cover_region_w$w"
+done
 
 # Mutants of the VHDL: each defect must make a proof fail.
 export MUT_DEPTH=24 MUT_DEFS='-DDATA'
@@ -57,12 +60,14 @@ start_mutant fill_not_marked  "s/if (st = S_FILL_REQ or st = S_FILL_WAIT or st =
 start_mutant region_one_short "s/return all_lines = '1' or (to_unsigned(i, first'length) - first) <= off;/return all_lines = '1' or (to_unsigned(i, first'length) - first) < off;/"
 wait
 
-expect "store order and data of every hit and fill (bounded, 24 clocks)" PASS stores
-expect "a flush with invalidation leaves every line invalid (bounded, 40 clocks)" PASS invalidate
-expect "cover: a store, a load after a fill and a load hit are reachable" PASS cover
-expect "cover: a flush with invalidation is reachable" PASS cover_inv
-expect "after a region, a load is the current data of the lower memory (bounded, 22 clocks)" PASS region
-expect "cover: a region that changes the word and loads before and after it are reachable" PASS cover_region
+for w in $windows; do
+  expect "store order and data of every hit and fill (bounded, 24 clocks, window $w)" PASS "stores_w$w"
+  expect "a flush with invalidation leaves every line invalid (bounded, 40 clocks, window $w)" PASS "invalidate_w$w"
+  expect "cover: a store, a load after a fill and a load hit are reachable (window $w)" PASS "cover_w$w"
+  expect "cover: a flush with invalidation is reachable (window $w)" PASS "cover_inv_w$w"
+  expect "after a region, a load is the current data of the lower memory (bounded, 22 clocks, window $w)" PASS "region_w$w"
+  expect "cover: a region that changes the word and loads before and after it are reachable (window $w)" PASS "cover_region_w$w"
+done
 for m in region_ignored fill_stays_valid fill_not_marked region_one_short; do
   expect "mutant $m is caught" FAIL "mut_$m"
 done
