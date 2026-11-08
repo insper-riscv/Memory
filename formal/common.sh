@@ -69,11 +69,16 @@ warnings_in() {
 # prove <netlist> <mode: prove|bmc|cover> <depth> <defines> <tag>: runs sby and writes the verdict to <tag>.res,
 # PASS (exit code 0), FAIL (2, a counterexample or a goal that cannot be covered), ERROR (any other code, such
 # as 4 unknown, 8 timeout and 16 error: the tool did not reach a verdict) or SKIP (the engine cannot run that
-# kind of proof: abc-bmc3 only does bounded checks; or it did not finish within FORMAL_TIMEOUT seconds, 600 by
-# default, which leaves the proof to the other engines), and the exit code and the seconds it took to <tag>.info.
+# kind of proof: abc-bmc3 only does bounded checks; the bitwuzla engine on a tag that the script lists in bitwuzla_slow;
+# or it did not finish within FORMAL_TIMEOUT seconds, 600 by default, which leaves the proof to the other engines), and the exit code and the seconds it took to <tag>.info.
 prove() {
   if [ "$engine" = abc-bmc3 ] && [ "$2" != bmc ]; then
     echo "SKIP abc-bmc3 runs only bounded checks, not mode $2" > "$5.res"
+    echo "- 0.0" > "$5.info"
+    return
+  fi
+  if [ "$engine" = bitwuzla ] && [[ "${bitwuzla_slow:-}" == *" $5 "* ]]; then
+    echo "SKIP bitwuzla does not close this proof within FORMAL_TIMEOUT" > "$5.res"
     echo "- 0.0" > "$5.info"
     return
   fi

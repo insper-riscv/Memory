@@ -96,7 +96,25 @@ Each run writes one line per check to `build/formal-results/result-<engine>.json
 
 Every proof must be ok, so a broken engine does not stop the others from deciding, and a counterexample found by one engine is never hidden by the pass of another. The table of proofs by engine goes to the summary of the job. In the CI, the jobs `formal - <engine>` run the engines and the job `formal` aggregates their results; only `formal` is a required check, because a required check needs every one of its jobs to pass, which would make a single broken engine block the pull requests. On a push to `main` whose result is reused from the pull request (the job `reuse`), the engines and the aggregation are skipped, like the other jobs.
 
-## 10. Warnings are errors
+## 10. Proofs that an engine skips
+
+To see what an engine skips, read the list in the engine's variable in the `run.sh` of the block (`bitwuzla_slow` in `formal/nor_flash_ctrl/run.sh`). The `prove` function of `formal/common.sh` ends at once, with a skip verdict, the proof whose name is in the list of the running engine, and the other engines run the proof normally.
+
+| Block | Engine | Skipped proof | Depth | Answered by |
+| :--- | :--- | :--- | :--- | :--- |
+| `nor_flash_ctrl` | `bitwuzla` | `safety_a_program`, configuration A, scenario `program` | 80 | `yices` |
+| `nor_flash_ctrl` | `bitwuzla` | `safety_b_read`, configuration B, scenario `read` | 60 | `yices` |
+
+Follow this procedure when changing a list.
+
+1. Confirm that the engine does not close the proof within the `FORMAL_TIMEOUT` of the block (1500 s in `nor_flash_ctrl`), with the same `FORMAL_JOBS` as the CI.
+2. Confirm that at least one other engine closes the proof. The `formal/aggregate.sh` aggregator still demands a verdict from at least one engine for every proof, so the skip never hides a proof.
+3. Skip only the engine that does not close it, and only the exact names. The mutants and the covers of the same block keep running in every engine.
+4. Update the table above when the list changes.
+
+In `nor_flash_ctrl`, `yices` closes both proofs (773 s and 62 s), `boolector` closes the second and `bitwuzla` finishes neither within 1500 s.
+
+## 11. Warnings are errors
 
 A warning from GHDL, Yosys or SymbiYosys points to code outside the standard or at its limit, so it makes the run fail. The fix is in the code, the proof or the netlist, and neither a `-Wno-*` option nor a list of ignored warnings is allowed.
 
