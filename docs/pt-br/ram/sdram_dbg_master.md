@@ -11,7 +11,7 @@ O mestre de depuração da SDRAM executa, no clock do controlador, os comandos d
 | Generic | Tipo | Padrão | Significado |
 | :--- | :--- | ---: | :--- |
 | `timeout_cycles` | natural | $2^{16}$ | ciclos de espera pela resposta do árbitro antes de o comando ser descartado |
-| `addr_bits` | natural de 24 a 25 | 24 | bits do endereço de palavra; com 25 (a SDRAM de 128 MB da DE2-115), o bit 3 de `i_op` é o bit 24 do endereço |
+| `addr_bits` | natural de 23 a 25 | 24 | bits do endereço de palavra (23 é a SDRAM de 32 MB da DE0-Nano); com 25 (a SDRAM de 128 MB da DE2-115), o bit 3 de `i_op` é o bit 24 do endereço |
 
 ### 2.2. Portas
 

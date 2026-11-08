@@ -35,8 +35,8 @@ entity sdram_dbg_master is
   generic (
     -- Ciclos de espera pela resposta do controlador antes de descartar o comando.
     timeout_cycles : natural := 1 * 2**16;
-    -- Bits do endereço de palavra da SDRAM (24 ou 25); com 25, o bit 3 de i_op é o bit 24 do endereço.
-    addr_bits      : natural range 24 to 25 := 24
+    -- Bits do endereço de palavra da SDRAM (23, 24 ou 25: 32 MB, 64 MB ou 128 MB); com 25, o bit 3 de i_op é o bit 24 do endereço.
+    addr_bits      : natural range 23 to 25 := 24
   );
   port (
     -- Clock do módulo.
@@ -145,8 +145,8 @@ begin
 
   o_done_tog   <= done_i;
   o_b_req_tog  <= req_i;
-  o_rsp_addr   <= std_logic_vector(last(23 downto 0));
-  cmd_addr     <= unsigned(i_op(3 downto 3) & i_addr) when addr_bits = 25 else unsigned(i_addr);
+  o_rsp_addr   <= std_logic_vector(resize(last, 24));
+  cmd_addr     <= unsigned(i_op(3 downto 3) & i_addr) when addr_bits = 25 else resize(unsigned(i_addr), addr_bits);
   o_rsp_data   <= rdata_i;
   o_rsp_status <= "00000" & init_sync(0) & err & '0';
   pending    <= '1' when cmd_sync(0) /= done_i else '0';

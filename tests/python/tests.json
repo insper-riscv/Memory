@@ -272,6 +272,24 @@
             "--std=08"
         ]
     },
+    "SdramDbgMaster23": {
+        "toplevel": "sdram_dbg_master",
+        "sources": [
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_dbg_master",
+        "parameters": {
+            "TIMEOUT_CYCLES": 200,
+            "addr_bits": 23
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
     "SdramJtagCore": {
         "toplevel": "sdram_jtag_core",
         "sources": [
