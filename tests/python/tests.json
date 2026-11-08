@@ -39,6 +39,7 @@
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
             "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
             "src/RAM/SoC/sdram/sdram_arbiter.vhd",
@@ -60,6 +61,7 @@
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
             "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
             "src/RAM/SoC/sdram/sdram_arbiter.vhd",
@@ -84,6 +86,7 @@
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
             "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
             "src/RAM/SoC/sdram/sdram_arbiter.vhd",
@@ -106,14 +109,15 @@
         }
     },
     "SdramBist": {
-        "toplevel": "teste_sdram_system",
+        "toplevel": "sdram_bist_system",
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
-            "src/tests/teste_sdram.vhd",
+            "src/tests/sdram_bist.vhd",
             "src/RAM/SoC/sim/sdram_model.vhd",
-            "src/tests/teste_sdram_system.vhd"
+            "src/tests/sdram_bist_system.vhd"
         ],
         "test_module": "tests.python.unittests.ram.sdram_bist",
         "parameters": {
@@ -127,14 +131,15 @@
         ]
     },
     "SdramBistRegisteredPins": {
-        "toplevel": "teste_sdram_system",
+        "toplevel": "sdram_bist_system",
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
-            "src/tests/teste_sdram.vhd",
+            "src/tests/sdram_bist.vhd",
             "src/RAM/SoC/sim/sdram_model.vhd",
-            "src/tests/teste_sdram_system.vhd"
+            "src/tests/sdram_bist_system.vhd"
         ],
         "test_module": "tests.python.unittests.ram.sdram_bist",
         "parameters": {
@@ -152,6 +157,7 @@
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
             "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
             "src/RAM/SoC/sdram/sdram_arbiter.vhd",
@@ -173,6 +179,7 @@
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
             "src/RAM/SoC/sim/sdram_model.vhd",
             "tests/vhdl/sdram_ctrl_tb.vhd"
@@ -190,6 +197,7 @@
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
             "src/RAM/SoC/sim/sdram_model.vhd",
             "tests/vhdl/sdram_ctrl_tb.vhd"
@@ -210,6 +218,7 @@
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
             "src/RAM/SoC/sim/sdram_model.vhd",
             "tests/vhdl/sdram_ctrl_tb.vhd"
@@ -231,6 +240,7 @@
         "toplevel": "sdram_arbiter",
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
             "src/RAM/SoC/sdram/sdram_arbiter.vhd"
         ],
         "test_module": "tests.python.unittests.ram.sdram_arbiter",
@@ -293,6 +303,7 @@
     "SdramJtagCore": {
         "toplevel": "sdram_jtag_core",
         "sources": [
+            "src/common/src/synchronizer.vhd",
             "src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd"
         ],
         "test_module": "tests.python.unittests.ram.sdram_jtag_core",
@@ -309,6 +320,7 @@
             "src/common/src/utils_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
             "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
             "src/RAM/SoC/sdram/sdram_arbiter.vhd",
@@ -318,6 +330,7 @@
             "src/RAM/SoC/sim/sdram_system.vhd",
             "src/barramento/SoC/axi_master_bridge.vhd",
             "src/barramento/SoC/axi_slave_word_bridge.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd",
             "src/cache/SoC/sim/sdram_dcache_system.vhd"
         ],
@@ -335,6 +348,7 @@
             "src/common/src/utils_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
             "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
             "src/RAM/SoC/sdram/sdram_arbiter.vhd",
@@ -344,6 +358,7 @@
             "src/RAM/SoC/sim/sdram_system.vhd",
             "src/barramento/SoC/axi_master_bridge.vhd",
             "src/barramento/SoC/axi_slave_word_bridge.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd",
             "src/cache/SoC/sim/sdram_dcache_system.vhd"
         ],
@@ -363,6 +378,7 @@
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
             "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
             "src/RAM/SoC/sdram/sdram_arbiter.vhd",
@@ -385,6 +401,7 @@
         "toplevel": "icache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/icache.vhd"
         ],
         "test_module": "tests.python.unittests.cache.instruction_cache",
@@ -414,6 +431,7 @@
         "toplevel": "flash_cmd_port",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/cache/SoC/flash_cmd_port.vhd"
         ],
         "test_module": "tests.python.unittests.cache.flash_cmd_port",
@@ -437,6 +455,7 @@
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/cache/SoC/flash_chip.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/cache/SoC/flash_cmd_port.vhd",
             "src/ROM/SoC/flash_simulation.vhd",
             "src/cache/SoC/sim/flash_dual_system.vhd"
@@ -452,6 +471,8 @@
     "MemRegionRouter": {
         "toplevel": "mem_region_router",
         "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/mem_region_router.vhd"
         ],
         "test_module": "tests.python.unittests.cache.mem_region_router",
@@ -465,6 +486,8 @@
     "MemRegionRouterLow": {
         "toplevel": "mem_region_router",
         "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/mem_region_router.vhd"
         ],
         "test_module": "tests.python.unittests.cache.mem_region_router_low",
@@ -483,6 +506,8 @@
     "MemRegionRouterHold": {
         "toplevel": "mem_region_router",
         "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/mem_region_router.vhd"
         ],
         "test_module": "tests.python.unittests.cache.mem_region_router_hold",
@@ -513,11 +538,14 @@
         "toplevel": "flash_path_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/icache.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/cache/SoC/flash_chip.vhd",
             "src/cache/SoC/mem_region_router.vhd",
             "src/cache/SoC/flash_arbiter.vhd",
+            "src/cache/SoC/ifetch_bridge.vhd",
+            "src/sim/SoC/sim_util_pkg.vhd",
             "src/cache/SoC/sim/flash_path_system.vhd"
         ],
         "test_module": "tests.python.unittests.cache.flash_path",
@@ -532,6 +560,7 @@
         "toplevel": "dcache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd"
         ],
         "test_module": "tests.python.unittests.cache.data_cache_flash",
@@ -549,6 +578,7 @@
         "toplevel": "dcache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd"
         ],
         "test_module": "tests.python.unittests.cache.data_cache_region",
@@ -566,6 +596,7 @@
         "toplevel": "icache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/icache.vhd"
         ],
         "test_module": "tests.python.unittests.cache.instruction_cache_small",
@@ -583,6 +614,7 @@
         "toplevel": "dcache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd"
         ],
         "test_module": "tests.python.unittests.cache.data_cache_small",
@@ -602,6 +634,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd"
         ],
         "test_module": "tests.python.unittests.ram.ram_chip",
@@ -617,6 +650,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd"
         ],
         "test_module": "tests.python.unittests.ram.ram_chip_small",
@@ -635,6 +669,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd"
         ],
         "test_module": "tests.python.unittests.ram.ram_chip_offset",
@@ -654,9 +689,11 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd",
             "src/RAM/SoC/sim/onchip_ram_system.vhd"
         ],
@@ -678,9 +715,11 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd",
             "src/RAM/SoC/sim/onchip_ram_system.vhd"
         ],
@@ -703,9 +742,11 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd",
             "src/RAM/SoC/sim/onchip_ram_system.vhd"
         ],
@@ -727,9 +768,11 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd",
             "src/RAM/SoC/sim/onchip_ram_system.vhd"
         ],
@@ -752,9 +795,11 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd",
             "src/RAM/SoC/sim/onchip_ram_system.vhd"
         ],
@@ -777,9 +822,11 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd",
             "src/RAM/SoC/sim/onchip_ram_system.vhd"
         ],
@@ -803,9 +850,11 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd",
             "src/RAM/SoC/sim/onchip_ram_system.vhd"
         ],
@@ -828,6 +877,7 @@
         "toplevel": "ifetch_bridge",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/ifetch_bridge.vhd"
         ],
         "test_module": "tests.python.unittests.cache.ifetch_bridge",
@@ -842,6 +892,7 @@
         "toplevel": "ifetch_bridge",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/ifetch_bridge.vhd"
         ],
         "test_module": "tests.python.unittests.cache.ifetch_bridge_word",
@@ -856,15 +907,18 @@
         }
     },
     "IfetchPath": {
-        "toplevel": "ifetch_path_system",
+        "toplevel": "flash_path_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/ifetch_bridge.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/cache/SoC/flash_chip.vhd",
             "src/cache/SoC/mem_region_router.vhd",
             "src/cache/SoC/flash_arbiter.vhd",
-            "src/cache/SoC/sim/ifetch_path_system.vhd"
+            "src/cache/SoC/icache.vhd",
+            "src/sim/SoC/sim_util_pkg.vhd",
+            "src/cache/SoC/sim/flash_path_system.vhd"
         ],
         "test_module": "tests.python.unittests.cache.ifetch_path",
         "build_args": [
@@ -872,18 +926,26 @@
         ],
         "test_args": [
             "--std=08"
-        ]
+        ],
+        "parameters": {
+            "USE_BRIDGE": true,
+            "FIRST_LATENCY": 24,
+            "NEXT_LATENCY": 4
+        }
     },
     "IfetchPathWord": {
-        "toplevel": "ifetch_path_system",
+        "toplevel": "flash_path_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/ifetch_bridge.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/cache/SoC/flash_chip.vhd",
             "src/cache/SoC/mem_region_router.vhd",
             "src/cache/SoC/flash_arbiter.vhd",
-            "src/cache/SoC/sim/ifetch_path_system.vhd"
+            "src/cache/SoC/icache.vhd",
+            "src/sim/SoC/sim_util_pkg.vhd",
+            "src/cache/SoC/sim/flash_path_system.vhd"
         ],
         "test_module": "tests.python.unittests.cache.ifetch_path_word",
         "build_args": [
@@ -893,6 +955,9 @@
             "--std=08"
         ],
         "parameters": {
+            "USE_BRIDGE": true,
+            "FIRST_LATENCY": 24,
+            "NEXT_LATENCY": 4,
             "FETCH_LINE": false
         }
     },
@@ -901,6 +966,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/ROM/SoC/flash_simulation.vhd",
+            "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/flash_jtag_core.vhd",
             "src/ROM/SoC/flash_loader.vhd",
             "src/ROM/SoC/sim/flash_system.vhd"
@@ -924,6 +990,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/ROM/SoC/flash_simulation.vhd",
+            "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/flash_jtag_core.vhd",
             "src/ROM/SoC/flash_loader.vhd",
             "src/ROM/SoC/sim/flash_system.vhd"
@@ -965,6 +1032,7 @@
     "FlashLoaderUnit": {
         "toplevel": "flash_loader",
         "sources": [
+            "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/flash_loader.vhd"
         ],
         "test_module": "tests.python.unittests.rom.flash_loader_unit",
@@ -983,6 +1051,7 @@
     "FlashJtagCore": {
         "toplevel": "flash_jtag_core",
         "sources": [
+            "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/flash_jtag_core.vhd"
         ],
         "test_module": "tests.python.unittests.rom.flash_jtag_core",
@@ -1000,6 +1069,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd"
         ],
         "test_module": "tests.python.unittests.ram.onchip_ram_port_block",
@@ -1018,6 +1088,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd"
         ],
         "test_module": "tests.python.unittests.ram.onchip_ram_port_block_offset",
@@ -1077,9 +1148,11 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd",
             "src/RAM/SoC/sim/onchip_ram_system.vhd"
         ],
@@ -1102,9 +1175,11 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd",
             "src/RAM/SoC/sim/onchip_ram_system.vhd"
         ],
@@ -1128,9 +1203,11 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd",
             "src/RAM/SoC/ram_simulation.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd",
             "src/RAM/SoC/sim/onchip_ram_system.vhd"
         ],
@@ -1156,6 +1233,7 @@
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/ROM/SoC/nor_flash_ctrl.vhd",
+            "src/sim/SoC/sim_util_pkg.vhd",
             "src/ROM/SoC/sim/nor_flash_model.vhd",
             "src/ROM/SoC/sim/nor_flash_ctrl_tb.vhd"
         ],
@@ -1175,6 +1253,7 @@
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/ROM/SoC/nor_flash_ctrl.vhd",
+            "src/sim/SoC/sim_util_pkg.vhd",
             "src/ROM/SoC/sim/nor_flash_model.vhd",
             "src/ROM/SoC/sim/nor_flash_ctrl_tb.vhd"
         ],
@@ -1198,6 +1277,7 @@
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/ROM/SoC/nor_flash_ctrl.vhd",
+            "src/sim/SoC/sim_util_pkg.vhd",
             "src/ROM/SoC/sim/nor_flash_model.vhd",
             "src/ROM/SoC/sim/nor_flash_ctrl_tb.vhd"
         ],
@@ -1219,6 +1299,7 @@
             "src/common/src/utils_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/sim/SoC/sim_util_pkg.vhd",
             "src/ROM/SoC/sim/nor_flash_model.vhd"
         ],
         "test_module": "tests.python.unittests.rom.nor_flash_model",
@@ -1242,7 +1323,9 @@
             "src/common/src/utils_pkg.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/sram_ctrl.vhd",
+            "src/sim/SoC/sim_util_pkg.vhd",
             "src/RAM/SoC/sim/sram_model.vhd",
             "src/RAM/SoC/sim/sram_ctrl_tb.vhd"
         ],
@@ -1260,7 +1343,9 @@
             "src/common/src/utils_pkg.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/sram_ctrl.vhd",
+            "src/sim/SoC/sim_util_pkg.vhd",
             "src/RAM/SoC/sim/sram_model.vhd",
             "src/RAM/SoC/sim/sram_ctrl_tb.vhd"
         ],
@@ -1283,7 +1368,9 @@
             "src/common/src/utils_pkg.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
+            "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/sram_ctrl.vhd",
+            "src/sim/SoC/sim_util_pkg.vhd",
             "src/RAM/SoC/sim/sram_model.vhd",
             "src/RAM/SoC/sim/sram_ctrl_tb.vhd"
         ],
@@ -1304,6 +1391,7 @@
         "sources": [
             "src/common/src/utils_pkg.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/sim/SoC/sim_util_pkg.vhd",
             "src/RAM/SoC/sim/sram_model.vhd"
         ],
         "test_module": "tests.python.unittests.ram.sram_model",
@@ -1323,6 +1411,7 @@
         "sources": [
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_ctrl.vhd",
             "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
             "src/RAM/SoC/sdram/sdram_arbiter.vhd",
@@ -1346,6 +1435,7 @@
         "toplevel": "icache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/icache.vhd"
         ],
         "test_module": "tests.python.unittests.cache.instruction_cache_window",
@@ -1363,6 +1453,7 @@
         "toplevel": "dcache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd"
         ],
         "test_module": "tests.python.unittests.cache.data_cache_window",
@@ -1376,5 +1467,48 @@
             "WRITE_THROUGH": false,
             "WINDOW_BITS": 27
         }
+    },
+    "CachePkg": {
+        "toplevel": "cache_pkg_tb",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
+            "tests/vhdl/cache_pkg_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.cache_pkg",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "RamPkg": {
+        "toplevel": "ram_pkg_tb",
+        "sources": [
+            "src/RAM/SoC/ram_pkg.vhd",
+            "tests/vhdl/ram_pkg_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.ram_pkg",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SimUtilPkg": {
+        "toplevel": "sim_util_pkg_tb",
+        "sources": [
+            "src/sim/SoC/sim_util_pkg.vhd",
+            "tests/vhdl/sim_util_pkg_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.sim.sim_util_pkg",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }

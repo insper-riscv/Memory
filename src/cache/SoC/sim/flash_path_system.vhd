@@ -1,9 +1,10 @@
 -- =============================================================================
 -- Caminho da FLASH de ponta a ponta, para o teste de conjunto
 --
--- Liga a cache de instruções, dois roteadores de região, o árbitro de FLASH e o
--- chip de FLASH a um armazenamento de leitura registrada cujo conteúdo é uma
--- função do endereço (o produto do endereço por uma constante, com um xor).
+-- Liga o lado da busca (a cache de instruções, ou a ponte de busca no lugar
+-- dela quando use_bridge pede), dois roteadores de região, o árbitro de FLASH e
+-- o chip de FLASH a um armazenamento de leitura registrada cujo conteúdo é uma
+-- função do endereço (o padrão de pattern_word, do sim_util_pkg).
 -- O mestre B é uma porta direta que faz o papel do lado da memória da cache de
 -- dados. Os lados da SDRAM dos dois roteadores ficam sem escravo: a saída
 -- o_si_rden / o_sd_rden / o_sd_wren mostra se algum pedido chegou até lá.
@@ -12,13 +13,18 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.sim_util_pkg.all;
 
 entity flash_path_system is
   generic (
     -- Bordas até a primeira palavra do chip.
     first_latency : natural := 12;
     -- Bordas entre as palavras de uma linha do chip.
-    next_latency  : natural := 3
+    next_latency  : natural := 3;
+    -- Verdadeiro: a ponte de busca (ifetch_bridge) faz o lado da busca, no lugar da cache de instruções.
+    use_bridge    : boolean := false;
+    -- Só com use_bridge: a ponte pede a linha de quatro palavras (true) ou só a palavra (false).
+    fetch_line    : boolean := true
   );
   port (
     -- Clock do sistema.
@@ -26,16 +32,18 @@ entity flash_path_system is
     -- Reset, ativo em '1'.
     i_rst        : in  std_logic;
 
-    -- Busca da cache de instruções: endereço do PC.
+    -- Busca da cache de instruções ou da ponte: endereço do PC.
     i_addr       : in  std_logic_vector(31 downto 0);
-    -- Busca da cache de instruções: o endereço pertence a uma região com cache.
+    -- Busca da cache de instruções ou da ponte: o endereço pertence a uma região com cache (ou à FLASH ou à SDRAM, na ponte).
     i_sel        : in  std_logic;
-    -- Busca da cache de instruções: pulso que derruba as linhas.
+    -- Busca da cache de instruções ou da ponte: pulso que derruba as linhas (na ponte, descarta o registrador de busca, o fence.i).
     i_invalidate : in  std_logic;
-    -- Busca da cache de instruções: a instrução em o_data é a do endereço.
+    -- Busca da cache de instruções ou da ponte: a instrução em o_data é a do endereço.
     o_ready      : out std_logic;
-    -- Busca da cache de instruções: instrução buscada.
+    -- Busca da cache de instruções ou da ponte: instrução buscada.
     o_data       : out std_logic_vector(31 downto 0);
+    -- Busca da ponte: pulso de um ciclo depois do início de cada pedido à memória; sempre '0' com a cache de instruções.
+    o_miss       : out std_logic;
 
     -- Mestre B (papel da cache de dados): endereço do pedido.
     i_b_addr     : in  std_logic_vector(31 downto 0);
@@ -165,14 +173,31 @@ architecture rtl of flash_path_system is
 
 begin
 
-  u_icache : entity work.icache
-    port map (
-      i_clk => i_clk, i_clk_cpu => i_clk, i_rst => i_rst,
-      i_addr => i_addr, i_sel => i_sel, o_ready => o_ready, o_data => o_data,
-      i_invalidate => i_invalidate,
-      o_d_addr => ic_addr, o_d_rden => ic_rden, o_d_advance => ic_adv, i_d_ready => ic_ready,
-      i_d_rdata => ic_rdata, o_d_line => ic_line, i_d_rdata_x => ic_rdata_x
-    );
+  -- Lado da busca com a cache de instruções.
+  g_icache : if not use_bridge generate
+    u_icache : entity work.icache
+      port map (
+        i_clk => i_clk, i_clk_cpu => i_clk, i_rst => i_rst,
+        i_addr => i_addr, i_sel => i_sel, o_ready => o_ready, o_data => o_data,
+        i_invalidate => i_invalidate,
+        o_d_addr => ic_addr, o_d_rden => ic_rden, o_d_advance => ic_adv, i_d_ready => ic_ready,
+        i_d_rdata => ic_rdata, o_d_line => ic_line, i_d_rdata_x => ic_rdata_x
+      );
+    o_miss <= '0';
+  end generate g_icache;
+
+  -- Lado da busca com a ponte de busca, sem cache.
+  g_bridge : if use_bridge generate
+    u_bridge : entity work.ifetch_bridge
+      generic map (fetch_line => fetch_line)
+      port map (
+        i_clk => i_clk, i_rst => i_rst,
+        i_addr => i_addr, i_sel => i_sel, o_ready => o_ready, o_data => o_data,
+        i_invalidate => i_invalidate, o_miss => o_miss,
+        o_d_addr => ic_addr, o_d_rden => ic_rden, o_d_advance => ic_adv, i_d_ready => ic_ready,
+        i_d_rdata => ic_rdata, o_d_line => ic_line, i_d_rdata_x => ic_rdata_x
+      );
+  end generate g_bridge;
 
   u_router_i : entity work.mem_region_router
     port map (
@@ -222,12 +247,9 @@ begin
 
   -- Armazenamento de leitura registrada: a palavra do endereço da borda anterior.
   process (i_clk)
-    -- Produto do endereço pela constante de mistura, para formar o dado.
-    variable prod : unsigned(63 downto 0);
   begin
     if rising_edge(i_clk) then
-      prod := unsigned(mem_addr(31 downto 2) & "00") * unsigned'(x"9E3779B1");
-      mem_data <= std_logic_vector(prod(31 downto 0) xor unsigned'(x"5A5A1234"));
+      mem_data <= pattern_word(mem_addr(31 downto 2) & "00");
     end if;
   end process;
 

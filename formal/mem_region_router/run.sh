@@ -18,7 +18,7 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name>: the netlist and a copy that exposes the register of the local answer
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/cache/SoC/cache_pkg.vhd" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog mem_region_router > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v" local_ready

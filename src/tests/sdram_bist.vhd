@@ -25,7 +25,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 
-entity teste_sdram is
+entity sdram_bist is
   generic (
     -- Log2 do número de palavras da janela dos modos 0 e 1.
     window_log2    : natural := 16;
@@ -85,9 +85,9 @@ entity teste_sdram is
     -- Porta do controlador SDRAM: dado lido.
     i_c_rdata    : in  std_logic_vector(31 downto 0)
   );
-end entity teste_sdram;
+end entity sdram_bist;
 
-architecture rtl of teste_sdram is
+architecture rtl of sdram_bist is
 
   -- Tipo de uma fase: escrita, leitura ou fim da lista.
   type kind_t is (K_WRITE, K_READ, K_END);

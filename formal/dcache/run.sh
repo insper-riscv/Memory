@@ -20,7 +20,7 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name> [window_bits]: the netlist and a copy that exposes the valid bits and the invalidation flag
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/cache/SoC/cache_pkg.vhd" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gsize_bits=256 -gwrite_through=true "-gwindow_bits=${3:-26}" dcache > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v" valid:1 inv_run
@@ -41,8 +41,8 @@ done
 
 # Mutants of the VHDL: each defect must make a proof fail.
 export MUT_DEPTH=24 MUT_DEFS='-DDATA'
-start_mutant hit_store_not_cached "s/ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1' and in_rom(i_addr) = '0' and i_bypass = '0') or st = S_FILL_GET else '0';/ram_we <= '1' when st = S_FILL_GET else '0';/"
-start_mutant write_back_on_hit    "s/elsif (write_through or in_rom(i_addr) = '1' or i_bypass = '1') and i_wren = '1' then/elsif (in_rom(i_addr) = '1' or i_bypass = '1') and i_wren = '1' then/"
+start_mutant hit_store_not_cached "s/ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1' and in_window(i_addr, rom_base_kib, rom_end_kib) = '0' and i_bypass = '0') or st = S_FILL_GET else '0';/ram_we <= '1' when st = S_FILL_GET else '0';/"
+start_mutant write_back_on_hit    "s/elsif (write_through or in_window(i_addr, rom_base_kib, rom_end_kib) = '1' or i_bypass = '1') and i_wren = '1' then/elsif (in_window(i_addr, rom_base_kib, rom_end_kib) = '1' or i_bypass = '1') and i_wren = '1' then/"
 start_mutant byteena_lost         "s/d_be_i    <= i_byteena;/d_be_i    <= \"1111\";/"
 start_mutant fill_word_swapped    "s/i_d_rdata_x(31 downto 0)  when cnt = \"01\" else/i_d_rdata_x(63 downto 32) when cnt = \"01\" else/"
 start_mutant hit_ignores_tag      "s/hit     <= valid(to_integer(unsigned(cur_idx))) when tag_rd = req_tag else '0';/hit     <= valid(to_integer(unsigned(cur_idx)));/"

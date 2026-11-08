@@ -33,6 +33,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use std.textio.all;
 use work.utils_pkg.all;
+use work.ram_pkg.all;
 
 entity ram_chip is
   generic (
@@ -42,7 +43,7 @@ entity ram_chip is
     latency     : natural := 8;
     -- Tamanho do chip em bytes, uma potência de dois de 16 bytes a 32 MB (1048576 é 1 MB).
     size_bytes  : positive := 1048576;
-    -- Onde o chip começa dentro dos 64 MB da região, em KiB: o endereço do chip é o da região menos esta base.
+    -- Onde o chip começa dentro dos 64 MB da região, em KiB: o endereço do chip é o da região menos esta base. Origem: o espaço de endereços da região da memória que o Memory enxerga (26 bits baixos), não o mapa do Core.
     base_kib    : natural := 0
   );
   port (
@@ -235,7 +236,7 @@ architecture rtl of ram_chip is
     if unsigned(addr(25 downto 0)) < base_kib * 1024 then
       return WORDS;
     end if;
-    offset := unsigned(addr(25 downto 0)) - to_unsigned(base_kib * 1024, 26);
+    offset := window_offset(addr, base_kib);
     if offset(25 downto WINDOW_BITS) /= 0 then
       return WORDS;
     end if;

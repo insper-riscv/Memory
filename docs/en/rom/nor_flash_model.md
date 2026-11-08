@@ -76,7 +76,7 @@ Each line below makes `o_violation` pulse and, with `abort_on_violation` true, f
 
 ### 3.4. Initial content
 
-The byte at address $a$ starts at $\left\lfloor ((a \cdot \texttt{0x9E3779B1}) \bmod 2^{32}) \oplus \texttt{0x5A5A1234} \right\rfloor \gg 24$, which the tests reproduce, or at `0xFF` with `erased_init`.
+The byte at address $a$ starts as byte 3 of the `pattern_word` of [sim_util_pkg](../sim/sim_util_pkg.md), $\left\lfloor ((a \cdot \texttt{0x9E3779B1}) \bmod 2^{32}) \oplus \texttt{0x5A5A1234} \right\rfloor \gg 24$, which the tests reproduce, or at `0xFF` with `erased_init`.
 
 ## 4. Verification
 

@@ -108,7 +108,7 @@ No modo 3 o endereço é formado pelos 24 bits baixos de um gerador de 32 bits d
 
 | Item | Descrição |
 | :--- | :--- |
-| Instanciado em | `src/tests/teste_sdram_system.vhd`, que liga o autoteste ao controlador da SDRAM e ao modelo do chip em um único clock (a configuração de bring-up) |
+| Instanciado em | `src/tests/sdram_bist_system.vhd`, que liga o autoteste ao controlador da SDRAM e ao modelo do chip em um único clock (a configuração de bring-up) |
 | Fala com | o controlador da SDRAM (`sdram_ctrl`) pelo protocolo de alternâncias de pedido e confirmação, a mesma porta que a ponte do core usa através do árbitro |
 | Não passa por | árbitro, ponte do core, mestre de depuração |
 

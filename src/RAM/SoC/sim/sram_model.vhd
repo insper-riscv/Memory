@@ -29,6 +29,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.utils_pkg.all;
 use work.chip_timing_pkg.all;
+use work.sim_util_pkg.all;
 
 entity sram_model is
   generic (
@@ -78,6 +79,9 @@ entity sram_model is
 end entity sram_model;
 
 architecture sim of sram_model is
+
+  -- Nome do modelo, prefixo das mensagens de violação.
+  constant MODEL_NAME : string := "sram_model";
 
   -- Palavras de 16 bits do chip.
   constant HALVES : natural := size_bytes / 2;
@@ -130,24 +134,6 @@ begin
     -- Endereço atual como natural, dentro da janela.
     variable a_now      : natural;
 
-    -- Registra uma violação: pulsa o_violation e falha ou avisa conforme abort_on_violation.
-    procedure violate (msg : in string) is
-    begin
-      o_violation <= '1';
-      o_violation <= transport '0' after 1 ns;
-      if abort_on_violation then
-        report "sram_model: " & msg severity failure;
-      else
-        report "sram_model: " & msg severity warning;
-      end if;
-    end procedure violate;
-
-    -- Tempo em ns.
-    function tns (n : natural) return time is
-    begin
-      return n * 1 ns;
-    end function tns;
-
   begin
     loop
       wait on i_sram_addr, i_sram_dq, i_sram_ce_n, i_sram_oe_n, i_sram_we_n, i_sram_lb_n, i_sram_ub_n;
@@ -164,19 +150,19 @@ begin
           avail := t_oe + tns(t_aa_ns);
         end if;
         if now < avail then
-          violate("leitura encerrada antes do tempo de acesso");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "leitura encerrada antes do tempo de acesso");
         end if;
       end if;
 
       if i_sram_addr'event then
         if i_sram_ce_n = '0' and now - t_addr < tns(t_rc_ns) and (was_active or i_sram_we_n = '0') then
-          violate("endereco mudou em menos que o ciclo minimo");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "endereco mudou em menos que o ciclo minimo");
         end if;
         if i_sram_ce_n = '0' and i_sram_we_n = '0' then
-          violate("endereco mudou com WE# baixo");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "endereco mudou com WE# baixo");
         end if;
         if seen_we and now - t_we_rise < tns(t_ha_ns) then
-          violate("endereco mudou antes de t_ha depois da subida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "endereco mudou antes de t_ha depois da subida de WE#");
         end if;
         t_addr := now;
       end if;
@@ -188,23 +174,23 @@ begin
       end if;
       if i_sram_dq'event then
         if seen_we and now - t_we_rise < tns(t_hd_ns) and now /= t_we_rise then
-          violate("dado mudou antes de t_hd depois da subida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "dado mudou antes de t_hd depois da subida de WE#");
         end if;
         t_dq := now;
       end if;
 
       -- Contenção: o controlador dirige o dado enquanto o chip dirige a leitura.
       if cur_active and not (i_sram_dq = "ZZZZZZZZZZZZZZZZ") and i_sram_dq'event then
-        violate("controlador dirigindo o dado durante a leitura");
+        violate(o_violation, MODEL_NAME, abort_on_violation, "controlador dirigindo o dado durante a leitura");
       end if;
 
       -- Escrita: descida de WE#.
       if i_sram_we_n'event and i_sram_we_n = '0' then
         if i_sram_ce_n /= '0' then
-          violate("WE# baixo sem CE# baixo");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "WE# baixo sem CE# baixo");
         end if;
         if seen_we and now - t_we_fall < tns(t_wc_ns) then
-          violate("ciclo de escrita menor que t_wc");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "ciclo de escrita menor que t_wc");
         end if;
         t_we_fall := now;
         seen_we   := true;
@@ -216,23 +202,23 @@ begin
       elsif i_sram_we_n'event and i_sram_we_n = '1' and seen_we and now > t_we_fall then
         t_we_rise := now;
         if now - t_we_fall < tns(t_pwe_ns) then
-          violate("pulso de WE# menor que t_pwe");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "pulso de WE# menor que t_pwe");
         end if;
         if now - t_addr < tns(t_aw_ns) then
-          violate("endereco estavel por menos de t_aw antes da subida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "endereco estavel por menos de t_aw antes da subida de WE#");
         end if;
         if now - t_ce < tns(t_sce_ns) then
-          violate("CE# baixo por menos de t_sce antes da subida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "CE# baixo por menos de t_sce antes da subida de WE#");
         end if;
         if now - t_dq < tns(t_sd_ns) then
-          violate("dado estavel por menos de t_sd antes da subida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "dado estavel por menos de t_sd antes da subida de WE#");
         end if;
         if wr_lb /= i_sram_lb_n or wr_ub /= i_sram_ub_n then
-          violate("LB# ou UB# mudou durante o pulso de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "LB# ou UB# mudou durante o pulso de WE#");
         end if;
         if is_x(i_sram_dq) then
           if wr_lb = '0' or wr_ub = '0' then
-            violate("dado indefinido na subida de WE#");
+            violate(o_violation, MODEL_NAME, abort_on_violation, "dado indefinido na subida de WE#");
           end if;
         elsif i_sram_ce_n = '0' then
           old   := mem(wr_addr);

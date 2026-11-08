@@ -152,7 +152,7 @@ With the default values the period is 1006 clocks, about 7.04 µs, and the chip 
 | Instance | Where | How it connects the controller |
 | :--- | :--- | :--- |
 | `u_ctrl` in `sdram_system` | simulation top of the subsystem | behind [sdram_arbiter](sdram_arbiter.md), with `sync_req` false and `tck_ps`, `init_cycles` and `refresh_cycles` passed from the top generics |
-| `u_ctrl` in `teste_sdram_system` | simulation top of the self test | connected directly to the self test, with default `sync_req` and `capture_extra` from the top generic |
+| `u_ctrl` in `sdram_bist_system` | simulation top of the self test | connected directly to the self test, with default `sync_req` and `capture_extra` from the top generic |
 
 With `capture_extra` equal to 1, the top of the self test registers the data pins once before they enter the controller. The DQ pins are resolved outside the controller. The top places `o_dram_dq_out` on the pins when `o_dram_dq_oe` is `'1'`, and the chip model ([sdram_model](sdram_model.md)) drives the pins otherwise. The synchronizer instantiated comes from Common-Components (`src/common/src/synchronizer.vhd`), which the tests compile before the controller.
 

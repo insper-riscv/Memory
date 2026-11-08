@@ -105,7 +105,7 @@ A depuração lê o bloco pela mesma porta, nos ciclos em que o adaptador está 
 
 ## 5. Verificação
 
-O topo de simulação `onchip_ram_system` liga o adaptador ao `ram_simulation`, com a `dcache` na frente ou não. Com o genérico `use_chip`, o `ram_chip` ocupa o lugar do adaptador e do modelo, e o mesmo teste roda nos dois, de modo que o `ram_chip` serve de referência do contrato.
+O topo de simulação `onchip_ram_system` liga o adaptador ao `ram_simulation`, com a `dcache` na frente ou não. Com o genérico `use_chip`, o `ram_chip` ocupa o lugar do adaptador e do modelo, e o mesmo teste roda nos dois, de modo que o `ram_chip` serve de referência do contrato. O genérico `cache_size_bits` (4096 por padrão) dá o tamanho da `dcache` do topo.
 
 | Entrada de `tests/python/tests.json` | Módulo de teste | Parâmetros |
 | :--- | :--- | :--- |
