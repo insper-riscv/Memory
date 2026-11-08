@@ -1,9 +1,10 @@
 """Emulated latency of the on-chip RAM, equal to the ram_chip one.
 
-The entry LATENCY of 9 runs on the adapter over the block (OnchipRamEmulated) and on the ram_chip
-(OnchipRamEmulatedChip), with the same module: a word and a line both take
-LATENCY clocks after the one that sees the request, for a read and a
-write, at any address and outside the window.
+The entry LATENCY of 9 runs on the adapter over the block
+(OnchipRamEmulated) and on the ram_chip (OnchipRamEmulatedChip), with
+the same module: a word and a line both take LATENCY clocks after the
+one that sees the request, for a read and a write, at any address and
+outside the window.
 
 """
 

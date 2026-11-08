@@ -44,24 +44,45 @@ MAP = {
 }
 
 
+def read_constants() -> dict[str, int]:
+    """Return the natural constants of the timing package."""
+    package = (ROOT / "src/ROM/SoC/chip_timing_pkg.vhd").read_text()
+    return {
+        m.group(1): int(m.group(2))
+        for m in re.finditer(
+            r"constant\s+(\w+)\s*:\s*natural\s*:=\s*(\d+);", package
+        )
+    }
+
+
+def read_timing(chip: str) -> dict[str, int]:
+    """Return the timing fields of a chip of the catalog."""
+    text = (ROOT / "chips" / f"{chip}.yaml").read_text()
+    timing = re.search(r"^timing:\s*\{(.*)\}", text, re.MULTILINE)
+    if timing is None:
+        return {}
+    return {
+        k.strip(): int(v)
+        for k, v in re.findall(r"(\w+):\s*(\d+)", timing.group(1))
+    }
+
+
+def count_differences(chip: str, constants: dict[str, int]) -> int:
+    """Count the fields of a chip that differ from the package."""
+    values = read_timing(chip)
+    bad = 0
+    for field, name in MAP[chip].items():
+        if values.get(field) != constants.get(name):
+            got = values.get(field)
+            print(f"{chip}.{field}={got} but {name}={constants.get(name)}")
+            bad += 1
+    return bad
+
+
 def main() -> int:
     """Compare the catalog with the package and return the exit code."""
-    package = (ROOT / "src/ROM/SoC/chip_timing_pkg.vhd").read_text()
-    constants = {
-        m.group(1): int(m.group(2))
-        for m in re.finditer(r"constant\s+(\w+)\s*:\s*natural\s*:=\s*(\d+);", package)
-    }
-    bad = 0
-    for chip, fields in MAP.items():
-        text = (ROOT / "chips" / f"{chip}.yaml").read_text()
-        timing = re.search(r"^timing:\s*\{(.*)\}", text, re.MULTILINE)
-        values = dict(
-            (k.strip(), int(v)) for k, v in re.findall(r"(\w+):\s*(\d+)", timing.group(1))
-        ) if timing else {}
-        for field, name in fields.items():
-            if values.get(field) != constants.get(name):
-                print(f"{chip}.{field}={values.get(field)} but {name}={constants.get(name)}")
-                bad += 1
+    constants = read_constants()
+    bad = sum(count_differences(chip, constants) for chip in MAP)
     print("chip timing OK" if not bad else f"{bad} difference(s)")
     return 1 if bad else 0
 

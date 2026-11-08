@@ -39,7 +39,7 @@ async def test_addresses_64_mib_apart_are_not_confused(dut: Dut):
 
 @cocotb.test()
 async def test_the_last_line_of_the_window_is_cached(dut: Dut):
-    """Check the request of the last line of the 128 MiB and its hits."""
+    """Check the last line of the 128 MiB and its hits."""
     mem = await start(dut)
     top = SDRAM + WINDOW - 16
     v, waited = await access(dut, top)

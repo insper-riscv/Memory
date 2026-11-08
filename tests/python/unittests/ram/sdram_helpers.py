@@ -22,28 +22,28 @@ PS_PER_NS = 1000
 def mem_ns(dut: Dut) -> int:
     """Return the period of the memory clock, in ns.
 
-    The design takes it from its `tck_ps` generic (7000 for the 142.857 MHz
-    controller, 10000 for the controller on a 100 MHz core clock); a design
-    that does not expose the generic runs at `MEM_NS`.
+    The design takes it from its `tck_ps` generic (7000 for the 142.857
+    MHz controller, 10000 for the controller on a 100 MHz core clock); a
+    design that does not expose the generic runs at `MEM_NS`.
 
     """
     try:
         return int(dut.tck_ps.value) // PS_PER_NS
-    except (AttributeError, ValueError):
+    except AttributeError, ValueError:
         return MEM_NS
 
 
 def addr_bits(dut: Dut) -> int:
     """Return the bits of the word address of the chip under test.
 
-    The design takes it from its `dq_width` generic (24 for the 16-bit chip,
-    25 for the 32-bit chip with the same rows, banks and columns); a design
-    that does not expose the generic uses the 16-bit chip.
+    The design takes it from its `dq_width` generic (24 for the 16-bit
+    chip, 25 for the 32-bit chip with the same rows, banks and columns);
+    a design that does not expose the generic uses the 16-bit chip.
 
     """
     try:
         return ADDR_BITS + int(dut.dq_width.value) // 32
-    except (AttributeError, ValueError):
+    except AttributeError, ValueError:
         return ADDR_BITS
 
 

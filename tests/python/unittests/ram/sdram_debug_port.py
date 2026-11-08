@@ -37,7 +37,9 @@ OP_NOP, OP_READ, OP_WRITE, OP_FILL, OP_COUNT, OP_READ_NEXT, OP_WRITE_NEXT = (
     range(7)
 )
 BUSY, ERROR, INIT, OVERRUN = 1, 2, 4, 8
-ADDR_BITS_128_MB = 25  # word address bits of the 32-bit chip pair of the DE2-115
+ADDR_BITS_128_MB = (
+    25  # word address bits of the 32-bit chip pair of the DE2-115
+)
 
 
 async def debug(

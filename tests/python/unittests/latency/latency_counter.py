@@ -76,7 +76,7 @@ async def test_idle_is_quiet(dut: Dut):
 
 @cocotb.test()
 async def test_a_load_on_the_last_edge_restarts(dut: Dut):
-    """Check the chained counts of a line: the load wins over the end."""
+    """Check the chained counts of a line; the load wins."""
     await start(dut)
     await load(dut, 6)
     for _ in range(5):
@@ -89,7 +89,7 @@ async def test_a_load_on_the_last_edge_restarts(dut: Dut):
 
 @cocotb.test()
 async def test_a_load_in_the_middle_replaces_the_count(dut: Dut):
-    """Check that a load before the end starts over from the new value."""
+    """Check that a load before the end restarts the count."""
     await start(dut)
     await load(dut, 10)
     for _ in range(3):

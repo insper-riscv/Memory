@@ -1,11 +1,11 @@
 """sram_ctrl.
 
 The asynchronous SRAM controller against the chip model: the contract of
-the RAM chip (word and line accesses, byte enables, the window, ready held
-until advance and the data changing on advance) and the clocks per access
-that follow from the timing generics. The chip model fails the simulation
-when the controller breaks a chip timing, so a test that finishes also
-proved the timing.
+the RAM chip (word and line accesses, byte enables, the window, ready
+held until advance and the data changing on advance) and the clocks per
+access that follow from the timing generics. The chip model fails the
+simulation when the controller breaks a chip timing, so a test that
+finishes also proved the timing.
 
 """
 
@@ -31,14 +31,15 @@ class Chip:
         self.mem = bytearray(SIZE)
 
     def write(self, off: int, value: int, be: int) -> None:
-        """Write the enabled bytes of a word at a word-aligned offset."""
+        """Write the enabled bytes of a word at an aligned offset."""
         for b in range(4):
             if (be >> b) & 1:
                 self.mem[off + b] = (value >> (8 * b)) & 0xFF
 
     def word(self, off: int) -> int:
         """Return the word at a word-aligned offset."""
-        return int.from_bytes(self.mem[off : off + 4], "little")
+        end = off + 4
+        return int.from_bytes(self.mem[off:end], "little")
 
     def line(self, off: int) -> list[int]:
         """Return the four words of the line that holds the offset."""
@@ -46,7 +47,8 @@ class Chip:
         return [self.word(base + 4 * i) for i in range(4)]
 
 
-# The chip keeps its content from one test to the next, so the reference does too.
+# The chip keeps its content from one test to the next, so the reference
+# does too.
 CHIP = Chip()
 
 
@@ -62,7 +64,9 @@ def window_base(dut: Dut) -> int:
 
 async def start(dut: Dut):
     """Start the clock and reset the DUT."""
-    cocotb.start_soon(Clock(dut.i_clk, generic(dut, "clk_period_ns"), unit="ns").start())
+    cocotb.start_soon(
+        Clock(dut.i_clk, generic(dut, "clk_period_ns"), unit="ns").start()
+    )
     dut.i_rst.value = 1
     for name in ("i_rden", "i_wren", "i_advance", "i_line"):
         getattr(dut, name).value = 0
@@ -79,18 +83,26 @@ async def start(dut: Dut):
 
 
 async def access(dut: Dut, addr: int, timeout: int = 400):
-    """Hold the access until ready, then advance. Return (word 0, words 1 to 3, clocks until ready)."""
+    """Hold the access until ready, then advance.
+
+    Return word 0, words 1 to 3 and the clocks until ready.
+    """
     dut.i_addr.value = addr
     for n in range(1, timeout):
         await RisingEdge(dut.i_clk)
         await Timer(1, unit="ns")
         if int(dut.o_ready.value) == 1:
             before = (int(dut.o_rdata.value), int(dut.o_rdata_x.value))
-            # Ready holds, and the data stays until the pipeline advances.
+            # Ready holds, and the data stays until the pipeline
+            # advances.
             await RisingEdge(dut.i_clk)
             await Timer(1, unit="ns")
             check_equal(int(dut.o_ready.value), 1, "ready has to hold")
-            check_equal((int(dut.o_rdata.value), int(dut.o_rdata_x.value)), before, "data holds until advance")
+            check_equal(
+                (int(dut.o_rdata.value), int(dut.o_rdata_x.value)),
+                before,
+                "data holds until advance",
+            )
             dut.i_advance.value = 1
             await RisingEdge(dut.i_clk)
             await Timer(1, unit="ns")
@@ -111,7 +123,14 @@ async def load(dut: Dut, addr: int, line: bool = False):
     return await access(dut, addr)
 
 
-async def store(dut: Dut, addr: int, value: int, be: int = 0xF, words_x: int | None = None, be_x: int = 0xFFF):
+async def store(  # noqa: PLR0913, PLR0917
+    dut: Dut,
+    addr: int,
+    value: int,
+    be: int = 0xF,
+    words_x: int | None = None,
+    be_x: int = 0xFFF,
+):
     """Write a word, or a line when words_x holds words 1 to 3."""
     dut.i_line.value = int(words_x is not None)
     dut.i_wdata.value = value
@@ -129,11 +148,17 @@ def split_x(x: int) -> list[int]:
 
 @cocotb.test()
 async def test_read_clocks_follow_the_timing_generics(dut: Dut):
-    """Check the clocks until ready of a word and of a line against the formula."""
+    """Check the clocks until ready against the formula."""
     await start(dut)
     period = generic(dut, "clk_period_ns")
     margin = generic(dut, "margin_ns")
-    n_rd = max(1, math.ceil((max(generic(dut, "t_aa_ns"), generic(dut, "t_rc_ns")) + margin) / period))
+    n_rd = max(
+        1,
+        math.ceil(
+            (max(generic(dut, "t_aa_ns"), generic(dut, "t_rc_ns")) + margin)
+            / period
+        ),
+    )
     base = window_base(dut)
     _, _, clocks = await load(dut, base + 0x100)
     check_equal(clocks, 1 + 2 * n_rd, "word")
@@ -143,7 +168,7 @@ async def test_read_clocks_follow_the_timing_generics(dut: Dut):
 
 @cocotb.test()
 async def test_words_with_byte_enables(dut: Dut):
-    """Check word stores with every byte-enable mask and the loads that follow."""
+    """Check word stores with every byte mask and the loads."""
     await start(dut)
     base = window_base(dut)
     prng = Prng(0x5352)
@@ -162,29 +187,48 @@ async def test_words_with_byte_enables(dut: Dut):
     check_equal(hex(word), "0x11223344", "bytes accumulate")
 
 
+async def store_line(
+    dut: Dut, addr: int, words: list[int], be0: int, be_x: int
+):
+    """Store a line on the DUT and on the reference."""
+    off = addr - window_base(dut)
+    await store(
+        dut,
+        addr,
+        words[0],
+        be=be0,
+        words_x=words[1] | (words[2] << 32) | (words[3] << 64),
+        be_x=be_x,
+    )
+    CHIP.write(off, words[0], be0)
+    for i in range(3):
+        CHIP.write(off + 4 * (i + 1), words[i + 1], (be_x >> (4 * i)) & 0xF)
+
+
 @cocotb.test()
 async def test_lines(dut: Dut):
-    """Check line stores with byte masks and line loads against the reference."""
+    """Check line stores and line loads against the reference."""
     await start(dut)
     base = window_base(dut)
     prng = Prng(0x4C494E45)
     for n in range(10):
-        off = (prng.randrange(SIZE) & ~15)
+        off = prng.randrange(SIZE) & ~15
         words = [prng.getrandbits(32) for _ in range(4)]
         be_x = prng.getrandbits(12) if n % 2 else 0xFFF
         be0 = prng.getrandbits(4) if n % 2 else 0xF
-        await store(dut, base + off, words[0], be=be0, words_x=words[1] | (words[2] << 32) | (words[3] << 64), be_x=be_x)
-        CHIP.write(off, words[0], be0)
-        for i in range(3):
-            CHIP.write(off + 4 * (i + 1), words[i + 1], (be_x >> (4 * i)) & 0xF)
+        await store_line(dut, base + off, words, be0, be_x)
         w0, x, _ = await load(dut, base + off + 4 * (n % 4), line=True)
         want = CHIP.line(off)
-        check_equal([hex(w0)] + [hex(w) for w in split_x(x)], [hex(w) for w in want], f"line {off:#x}")
+        check_equal(
+            [hex(w0)] + [hex(w) for w in split_x(x)],
+            [hex(w) for w in want],
+            f"line {off:#x}",
+        )
 
 
 @cocotb.test()
 async def test_random_accesses_match_the_reference(dut: Dut):
-    """Check a random mix of word and line accesses against the reference."""
+    """Check a random mix of accesses against the reference."""
     await start(dut)
     base = window_base(dut)
     prng = Prng(0x52414E44)
@@ -197,7 +241,11 @@ async def test_random_accesses_match_the_reference(dut: Dut):
             CHIP.write(off, value, be)
         elif kind == 1:
             w0, x, _ = await load(dut, base + off, line=True)
-            check_equal([hex(w0)] + [hex(w) for w in split_x(x)], [hex(w) for w in CHIP.line(off)], f"line {off:#x}")
+            check_equal(
+                [hex(w0)] + [hex(w) for w in split_x(x)],
+                [hex(w) for w in CHIP.line(off)],
+                f"line {off:#x}",
+            )
         else:
             word, _, _ = await load(dut, base + off)
             check_equal(hex(word), hex(CHIP.word(off)), f"word {off:#x}")
@@ -205,7 +253,7 @@ async def test_random_accesses_match_the_reference(dut: Dut):
 
 @cocotb.test()
 async def test_the_window(dut: Dut):
-    """Check that accesses outside the chip read zero and write nothing."""
+    """Check that accesses outside the chip read zero."""
     await start(dut)
     base = window_base(dut)
     await store(dut, base + 0x40, 0xCAFEF00D)

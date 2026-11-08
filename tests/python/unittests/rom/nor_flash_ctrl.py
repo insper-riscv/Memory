@@ -1,10 +1,10 @@
 """nor_flash_ctrl.
 
-The parallel NOR FLASH controller against the chip model: the contract of
-the flash chip (word and line reads), the K4 commands (erase a sector,
-program a page, protect) and the cycle counts of the timing generics. The
-chip model fails the simulation when the controller breaks a chip timing,
-so a test that finishes also proved the timing.
+The parallel NOR FLASH controller against the chip model: the contract
+of the flash chip (word and line reads), the K4 commands (erase a
+sector, program a page, protect) and the cycle counts of the timing
+generics. The chip model fails the simulation when the controller breaks
+a chip timing, so a test that finishes also proved the timing.
 
 """
 
@@ -14,7 +14,7 @@ import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
-from tests.python.unittests.checks import Prng, check_equal, check_true
+from tests.python.unittests.checks import Prng, check_equal
 from tests.python.unittests.dut import Dut
 
 WREN, ERASE, PROGRAM, PROTECT, UNPROTECT = 1, 2, 3, 4, 5
@@ -39,19 +39,21 @@ class Chip:
 
     def erase(self, addr: int) -> None:
         """Set the sector of the address to ones."""
-        start = addr & (SIZE - 1) & ~(SECTOR - 1)
-        self.mem[start : start + SECTOR] = b"\xff" * SECTOR
+        first = addr & (SIZE - 1) & ~(SECTOR - 1)
+        end = first + SECTOR
+        self.mem[first:end] = b"\xff" * SECTOR
 
     def program(self, addr: int, words: list[int]) -> None:
         """AND the words of the buffer into the page of the address."""
-        start = addr & (SIZE - 1) & ~(PAGE - 1)
+        first = addr & (SIZE - 1) & ~(PAGE - 1)
         for i, word in enumerate(words):
             for b in range(4):
-                self.mem[start + 4 * i + b] &= (word >> (8 * b)) & 0xFF
+                self.mem[first + 4 * i + b] &= (word >> (8 * b)) & 0xFF
 
     def word(self, addr: int) -> int:
         """Return the word at a byte address."""
-        return int.from_bytes(self.mem[addr : addr + 4], "little")
+        end = addr + 4
+        return int.from_bytes(self.mem[addr:end], "little")
 
     def line(self, addr: int) -> list[int]:
         """Return the four words of the line that holds the address."""
@@ -59,7 +61,8 @@ class Chip:
         return [self.word(base + 4 * i) for i in range(4)]
 
 
-# The chip keeps its content from one test to the next, so the reference does too.
+# The chip keeps its content from one test to the next, so the reference
+# does too.
 CHIP = Chip()
 
 
@@ -103,7 +106,10 @@ async def wait_idle(dut: Dut, limit: int = 40000):
 
 
 async def read(dut: Dut, addr: int, line: int, timeout: int = 400):
-    """Hold a request until ready, then advance. Return (words, busy clocks)."""
+    """Hold a request until ready, then advance.
+
+    Return the words read and the busy clocks.
+    """
     dut.i_addr.value = addr
     dut.i_line.value = line
     dut.i_rden.value = 1
@@ -155,14 +161,14 @@ async def fill_buffer(dut: Dut, words: list[int]):
 
 
 async def erase(dut: Dut, chip: Chip, addr: int) -> list[tuple[int, int, int]]:
-    """Run WREN and erase on the chip and the reference; return the pulses."""
+    """Run WREN and erase on the chip and the reference."""
     pulses = await run_op(dut, ERASE, addr)
     chip.erase(addr)
     return pulses
 
 
 async def program(dut: Dut, chip: Chip, addr: int, words: list[int]):
-    """Fill the buffer, run WREN and program on the chip and the reference."""
+    """Fill the buffer, run WREN and program on both models."""
     await fill_buffer(dut, words)
     pulses = await run_op(dut, PROGRAM, addr)
     chip.program(addr, words)
@@ -170,23 +176,29 @@ async def program(dut: Dut, chip: Chip, addr: int, words: list[int]):
 
 
 async def run_op(dut: Dut, op: int, addr: int) -> list[tuple[int, int, int]]:
-    """Arm the latch, send the command, wait for the end; return invalidations.
+    """Arm the latch, send the command and wait for the end.
 
-    Each pulse is (cycles busy, first, last).
+    Return the invalidations; each pulse is (cycles busy, first, last).
     """
     await command(dut, WREN)
     check_equal(int(dut.o_wel.value), 1, "latch armed")
     await command(dut, op, addr)
-    pulses = []
-    busy = 0
-    for _ in range(2_000_000):
+    pulses: list[tuple[int, int, int]] = []
+    for busy in range(2_000_000):
         await Timer(1, unit="ns")
         if int(dut.o_inval_valid.value) == 1:
-            pulses.append((busy, int(dut.o_inval_first.value), int(dut.o_inval_last.value)))
-            check_equal(int(dut.o_cmd_busy.value), 0, "busy drops with the pulse")
+            pulses.append(
+                (
+                    busy,
+                    int(dut.o_inval_first.value),
+                    int(dut.o_inval_last.value),
+                )
+            )
+            check_equal(
+                int(dut.o_cmd_busy.value), 0, "busy drops with the pulse"
+            )
             check_equal(int(dut.o_wel.value), 0, "latch drops with the pulse")
             return pulses
-        busy += 1
         await RisingEdge(dut.i_clk)
     raise AssertionError("the operation never ended")
 
@@ -194,12 +206,16 @@ async def run_op(dut: Dut, op: int, addr: int) -> list[tuple[int, int, int]]:
 async def check_line(dut: Dut, chip: Chip, addr: int):
     """Read a line and compare with the reference."""
     words, _ = await read(dut, addr, 1)
-    check_equal([hex(w) for w in words], [hex(w) for w in chip.line(addr)], f"line {addr:#x}")
+    check_equal(
+        [hex(w) for w in words],
+        [hex(w) for w in chip.line(addr)],
+        f"line {addr:#x}",
+    )
 
 
 @cocotb.test()
 async def test_read_latency_follows_the_timing_generics(dut: Dut):
-    """Check the busy clocks of a word and of a line against the formula."""
+    """Check the busy clocks of a word and a line by the formula."""
     await start(dut)
     period = generic(dut, "clk_period_ns")
     margin = generic(dut, "margin_ns")
@@ -243,20 +259,22 @@ async def test_out_of_window_reads_zero(dut: Dut):
 
 @cocotb.test()
 async def test_erase_a_sector(dut: Dut):
-    """Check that an erase sets only its sector to ones and pulses its region."""
+    """Check that an erase sets only its sector to ones."""
     await start(dut)
     chip = CHIP
     pulses = await erase(dut, chip, BASE + 2 * SECTOR + 0x10)
     check_equal(len(pulses), 1, "one pulse")
     _, first, last = pulses[0]
-    check_equal((first, last), (BASE + 2 * SECTOR, BASE + 3 * SECTOR - 1), "region")
+    check_equal(
+        (first, last), (BASE + 2 * SECTOR, BASE + 3 * SECTOR - 1), "region"
+    )
     for addr in (2 * SECTOR - 16, 2 * SECTOR, 3 * SECTOR - 16, 3 * SECTOR):
         await check_line(dut, chip, addr)
 
 
 @cocotb.test()
 async def test_program_a_page_and_not_to_ones_without_erase(dut: Dut):
-    """Check the AND of the buffer with the content, and the skip of 0xFF bytes."""
+    """Check the AND of the buffer with the content."""
     await start(dut)
     chip = CHIP
     await erase(dut, chip, 5 * SECTOR)
@@ -265,37 +283,53 @@ async def test_program_a_page_and_not_to_ones_without_erase(dut: Dut):
     words[4] = 0xFF00FF00
     pulses = await program(dut, chip, BASE + 5 * SECTOR + 2 * PAGE, words)
     _, first, last = pulses[0]
-    check_equal((first, last), (BASE + 5 * SECTOR + 2 * PAGE, BASE + 5 * SECTOR + 3 * PAGE - 1), "region")
+    check_equal(
+        (first, last),
+        (BASE + 5 * SECTOR + 2 * PAGE, BASE + 5 * SECTOR + 3 * PAGE - 1),
+        "region",
+    )
     for off in range(0, 4 * PAGE, 16):
         await check_line(dut, chip, 5 * SECTOR + off)
     # A second program over the same page only clears more bits.
-    await program(dut, chip, BASE + 5 * SECTOR + 2 * PAGE, [0x0F0F0F0F] * (PAGE // 4))
+    await program(
+        dut, chip, BASE + 5 * SECTOR + 2 * PAGE, [0x0F0F0F0F] * (PAGE // 4)
+    )
     for off in range(2 * PAGE, 3 * PAGE, 16):
         await check_line(dut, chip, 5 * SECTOR + off)
 
 
 @cocotb.test()
 async def test_command_rules(dut: Dut):
-    """Check the latch, the refusals and the protection of the K4 face."""
+    """Check the latch, the refusals and the K4 protection."""
     await start(dut)
     chip = CHIP
     # Without the latch the erase is ignored by the whole.
     await command(dut, ERASE, 7 * SECTOR)
     await Timer(5, unit="ns")
-    check_equal(int(dut.o_cmd_busy.value), 0, "ignored erase does not busy the chip")
+    check_equal(
+        int(dut.o_cmd_busy.value), 0, "ignored erase does not busy the chip"
+    )
     check_equal(int(dut.o_refused.value), 0, "ignored erase does not refuse")
     await check_line(dut, chip, 7 * SECTOR)
     # A protected sector is refused and drops the latch.
     await command(dut, PROTECT, 7 * SECTOR)
     await command(dut, WREN)
     await command(dut, ERASE, 7 * SECTOR + 0x20)
-    check_equal((int(dut.o_refused.value), int(dut.o_wel.value)), (1, 0), "protected refused")
+    check_equal(
+        (int(dut.o_refused.value), int(dut.o_wel.value)),
+        (1, 0),
+        "protected refused",
+    )
     await check_line(dut, chip, 7 * SECTOR)
     # An address outside the window is refused.
     await command(dut, WREN)
     check_equal(int(dut.o_refused.value), 0, "wren clears the refusal")
     await command(dut, ERASE, BASE + 0x40000)
-    check_equal((int(dut.o_refused.value), int(dut.o_wel.value)), (1, 0), "window refused")
+    check_equal(
+        (int(dut.o_refused.value), int(dut.o_wel.value)),
+        (1, 0),
+        "window refused",
+    )
     # Unprotect releases the sector.
     await command(dut, UNPROTECT, 7 * SECTOR)
     await erase(dut, chip, 7 * SECTOR)
@@ -312,8 +346,10 @@ async def test_command_rules(dut: Dut):
 
 
 @cocotb.test()
-async def test_read_waits_for_an_operation_and_commands_wait_for_a_read(dut: Dut):
-    """Check that a read requested during an erase is served after it."""
+async def test_read_waits_for_an_operation_and_commands_wait_for_a_read(
+    dut: Dut,
+):
+    """Check that a read during an erase is served after it."""
     await start(dut)
     chip = CHIP
     await command(dut, WREN)
@@ -327,7 +363,7 @@ async def test_read_waits_for_an_operation_and_commands_wait_for_a_read(dut: Dut
 
 @cocotb.test()
 async def test_random_operations_match_the_reference(dut: Dut):
-    """Check a random mix of reads, erases and programs against the reference."""
+    """Check a random mix of operations against the reference."""
     await start(dut)
     chip = CHIP
     prng = Prng(0x4B34)
@@ -339,7 +375,11 @@ async def test_random_operations_match_the_reference(dut: Dut):
             await erase(dut, chip, sector * SECTOR)
         elif kind == 1:
             page = prng.randrange(SECTOR // PAGE) * PAGE
-            words = [prng.getrandbits(32) | (0xFF000000 if prng.randrange(4) == 0 else 0) for _ in range(PAGE // 4)]
+            words = [
+                prng.getrandbits(32)
+                | (0xFF000000 if prng.randrange(4) == 0 else 0)
+                for _ in range(PAGE // 4)
+            ]
             await program(dut, chip, sector * SECTOR + page, words)
         addr = sector * SECTOR + prng.randrange(SECTOR)
         await check_line(dut, chip, addr)
