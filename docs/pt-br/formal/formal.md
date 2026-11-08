@@ -96,7 +96,25 @@ Cada execução escreve uma linha por verificação em `build/formal-results/res
 
 Toda prova precisa estar ok, então um motor quebrado não impede os outros de decidir, e um contraexemplo achado por um motor nunca é escondido pelo pass de outro. A tabela de provas por motor vai para o resumo do job. No CI, os jobs `formal - <motor>` rodam os motores e o job `formal` agrega os seus resultados. Só o `formal` é um check obrigatório, porque um check obrigatório exige que todos os seus jobs passem, o que faria um único motor quebrado bloquear os pull requests. Num push na `main` cujo resultado é reaproveitado do pull request (o job `reuse`), os motores e a agregação são pulados, como os outros jobs.
 
-## 10. Avisos são erros
+## 10. Provas que um motor pula
+
+Para saber o que um motor pula, leia a lista da variável do motor no `run.sh` do bloco (`bitwuzla_slow` em `formal/nor_flash_ctrl/run.sh`). O `prove` de `formal/common.sh` encerra na hora, com veredito skip, a prova cujo nome está na lista do motor em execução, e os outros motores rodam a prova normalmente.
+
+| Bloco | Motor | Prova pulada | Profundidade | Quem responde |
+| :--- | :--- | :--- | :--- | :--- |
+| `nor_flash_ctrl` | `bitwuzla` | `safety_a_program`, configuração A, cenário `program` | 80 | `yices` |
+| `nor_flash_ctrl` | `bitwuzla` | `safety_b_read`, configuração B, cenário `read` | 60 | `yices` |
+
+Siga este procedimento ao mexer em uma lista.
+
+1. Confirme que a prova não fecha no motor dentro do `FORMAL_TIMEOUT` do bloco (1500 s no `nor_flash_ctrl`), com `FORMAL_JOBS` igual ao da CI.
+2. Confirme que pelo menos um outro motor fecha a prova. O agregador `formal/aggregate.sh` continua exigindo veredito de pelo menos um motor para cada prova, então o pulo nunca esconde uma prova.
+3. Pule só o motor que não fecha, e só os nomes exatos. Os mutantes e as coberturas do mesmo bloco continuam rodando em todos os motores.
+4. Atualize a tabela acima quando a lista mudar.
+
+No `nor_flash_ctrl`, o `yices` fecha as duas provas (773 s e 62 s), o `boolector` fecha a segunda e o `bitwuzla` não termina nenhuma das duas em 1500 s.
+
+## 11. Avisos são erros
 
 Um aviso do GHDL, do Yosys ou do SymbiYosys indica código fora da norma ou no limite dela, e por isso faz a execução falhar. A correção é no código, na prova ou na netlist, e nenhuma opção `-Wno-*` nem lista de avisos ignorados é permitida.
 

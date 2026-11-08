@@ -43,6 +43,11 @@ netlist "$src" b B
 # One proof per scenario (see props.sv): the reads, the erase, the program of one byte and the commands, each deep enough
 # to reach the end of its operation. Configuration B has no program scenario (too deep).
 export FORMAL_TIMEOUT="${FORMAL_TIMEOUT:-1500}"
+# The bitwuzla engine does not close two of the bounded proofs within FORMAL_TIMEOUT (the program scenario of
+# configuration A, depth 80, and the read scenario of configuration B, depth 60), so it skips exactly these tags, as
+# abc-bmc3 skips what it does not do. yices closes both (773 s and 62 s), and formal/aggregate.sh still demands an
+# answer from some engine for each of them.
+bitwuzla_slow=" safety_a_program safety_b_read "
 start prove a_dbg.v bmc   80 '-DSC_PROGRAM'                  safety_a_program
 start prove a_dbg.v cover 80 '-DSC_PROGRAM -DCOVER'          cover_a_program
 start prove a_dbg.v bmc   50 '-DSC_ERASE'                    safety_a_erase
