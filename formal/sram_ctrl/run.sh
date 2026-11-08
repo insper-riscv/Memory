@@ -28,7 +28,7 @@ netlist() {  # <vhdl> <name> [A|B]: the netlist and a copy that exposes the stat
     times="-gt_aa_ns=10 -gt_rc_ns=10 -gt_wc_ns=10 -gt_sce_ns=10 -gt_aw_ns=10 -gt_pwe_ns=10 -gt_sd_ns=10 -gt_ha_ns=10 -gt_hd_ns=0"
   fi
   ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/latency/SoC/latency_counter.vhd" \
-    "$root/src/ROM/SoC/chip_timing_pkg.vhd" "$1"
+    "$root/src/ROM/SoC/chip_timing_pkg.vhd" "$root/src/RAM/SoC/ram_pkg.vhd" "$1"
   # shellcheck disable=SC2086
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gclk_period_ns=10 -gsize_bytes=64 $times sram_ctrl > "$2.v"
   cp "$2.v" "$2_dbg.v"
