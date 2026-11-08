@@ -234,7 +234,7 @@ make paths     # Confere os caminhos de paths.yaml e a árvore do repositório (
 make formal    # Executa as provas formais (SymbiYosys) com o engine de FORMAL_ENGINE (bitwuzla por padrão)
 ```
 
-O job `formal` do CI roda as provas uma vez por engine (`formal - yices`, `formal - bitwuzla`, `formal - boolector` e `formal - abc-bmc3`) e o job agregador `formal` decide a partir dos resultados: cada prova precisa ter uma resposta e os engines que responderam precisam concordar entre si e com o esperado. O nome `formal` é o check que o ruleset da branch padrão exige, então não o renomeie; os jobs `formal - <engine>` não são exigidos.
+O job `formal` do CI roda as provas uma vez por engine (`formal - yices`, `formal - bitwuzla`, `formal - boolector` e `formal - abc-bmc3`) e o job agregador `formal` decide a partir dos resultados: cada prova precisa ter uma resposta e os engines que responderam precisam concordar entre si e com o esperado. O nome `formal` é o check que o ruleset da branch padrão exige, então não o renomeie; os jobs `formal - <engine>` não são exigidos. Cada job `formal - <engine>` tem limite de 120 minutos no CI, porque as provas completas levam mais de uma hora em uma máquina local.
 
 Warning no formal é erro. O fluxo de verificação formal varre a saída do GHDL e os logs do Yosys e do SymbiYosys depois de cada passo, inclusive nos mutantes, e falha apontando o arquivo e a linha do aviso. A correção é sempre no código ou nas propriedades, nunca em uma opção que esconda o aviso (`-Wno-*`). Os detalhes estão em [docs/pt-br/formal/formal.md](docs/pt-br/formal/formal.md).
 

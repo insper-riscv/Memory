@@ -234,7 +234,7 @@ make paths     # Verify the paths of paths.yaml and the repository tree (riscv-t
 make formal    # Run the formal proofs (SymbiYosys) with the engine of FORMAL_ENGINE (bitwuzla by default)
 ```
 
-The `formal` CI job runs the proofs once per engine (`formal - yices`, `formal - bitwuzla`, `formal - boolector`, and `formal - abc-bmc3`) and the aggregator job `formal` decides from the results: every proof must have an answer, and the engines that answered must agree with each other and with the expected result. The name `formal` is the check the default-branch ruleset requires, so do not rename it; the `formal - <engine>` jobs are not required.
+The `formal` CI job runs the proofs once per engine (`formal - yices`, `formal - bitwuzla`, `formal - boolector`, and `formal - abc-bmc3`) and the aggregator job `formal` decides from the results: every proof must have an answer, and the engines that answered must agree with each other and with the expected result. The name `formal` is the check the default-branch ruleset requires, so do not rename it; the `formal - <engine>` jobs are not required. Each `formal - <engine>` job has a limit of 120 minutes in CI, because the full proofs take more than an hour on a local machine.
 
 A warning in the formal run is an error. The formal flow scans the GHDL output and the Yosys and SymbiYosys logs after every step, including on the mutants, and fails pointing at the file and line of the warning. The fix is always in the code or in the properties, never in an option that hides the warning (`-Wno-*`). The details are in [docs/en/formal/formal.md](docs/en/formal/formal.md).
 
