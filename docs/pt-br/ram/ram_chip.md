@@ -11,7 +11,7 @@ O modelo de chip de RAM externa faz, nas plataformas simuladas, o papel da SDRAM
 | Generic | Tipo | Padrão | Significado |
 | :--- | :--- | ---: | :--- |
 | `init_file` | string | vazio | arquivo com a imagem inicial, uma palavra de 32 bits por linha em hexadecimal, a partir do primeiro endereço da janela; vazio deixa tudo em zero |
-| `latency` | natural | 8 | bordas de `i_clk` entre o pedido e a conclusão do acesso, mínimo 2, máximo 255 |
+| `latency` | natural | 8 | bordas de `i_clk` entre o pedido e a conclusão do acesso, mínimo 2 |
 | `size_bytes` | positive | 1048576 | tamanho da janela do chip em bytes, uma potência de dois de 16 bytes a 32 MB |
 | `base_kib` | natural | 0 | onde o chip começa dentro dos 64 MB da região, em KiB; o endereço do chip é o da região menos esta base |
 
@@ -76,8 +76,8 @@ As duas portas têm máquinas independentes de três estados sobre o mesmo vetor
 
 | Estado | Ação | Próximo estado |
 | :--- | :--- | :--- |
-| `S_IDLE` | com `i_rden` ou `i_wren` (porta de dados) ou `i_ins_rden` (porta de instruções), captura endereço, dados e máscaras e carrega o contador com `latency` | `S_WAIT` |
-| `S_WAIT` | enquanto o contador é maior que 1, decrementa; na borda em que vale 1, faz o acesso ao vetor (escrita, ou leitura para um registrador pendente) | `S_DONE` |
+| `S_IDLE` | com `i_rden` ou `i_wren` (porta de dados) ou `i_ins_rden` (porta de instruções), captura endereço, dados e máscaras e carrega o [latency_counter](../latency/latency_counter.md) da porta com `latency` | `S_WAIT` |
+| `S_WAIT` | espera até o `latency_counter` sinalizar a última borda; nessa borda faz o acesso ao vetor (escrita, ou leitura para um registrador pendente) | `S_DONE` |
 | `S_DONE` | `o_ready` em `'1'`; quando `i_mem_advance` (ou `i_ins_advance`) vale `'1'`, copia o dado pendente para a saída de leitura | `S_IDLE` |
 
 ### 3.4. Latência
@@ -96,6 +96,7 @@ No instante zero, um processo lê `init_file` linha a linha e grava cada palavra
 | :--- | :--- |
 | Instanciado em | `src/simulation/modular/modular_sim_top.vhd` do repositório Insper-RISC-V, quando `ram_external` é verdadeiro, com `init_file` igual a `ram_file`, `latency` igual a `ext_ram_latency`, `size_bytes` igual a `ram_size_bytes` e `base_kib` igual ao módulo 65536 de `ram_base_kib` |
 | Acima dele | a cache de dados (`src/cache/SoC/dcache.vhd`), a cache de instruções (`src/cache/SoC/icache.vhd`) e, quando a ROM também é externa, o roteador `mem_region_router`; as portas de linha carregam as linhas das caches |
+| Contagem da latência | uma instância de [latency_counter](../latency/latency_counter.md) por porta, a mesma máquina do [onchip_ram_port](onchip_ram_port.md) e do [flash_chip](../rom/flash_chip.md) |
 | Contrato | o mesmo da ponte da SDRAM (`sdram_cpu_bridge`) e da porta externa do core, descrito em [ext_interconnect.md](https://github.com/insper-riscv/Insper-RISC-V/blob/main/docs/pt-br/interconnect/ext_interconnect.md) |
 | Lista de portas | a mesma de `sdram_system`, o que deixa o topo trocar um pelo outro |
 | Porta de depuração | no topo modular, o testbench lê por ela o `tohost` do HTIF quando ele está no chip, sem passar pelas caches |

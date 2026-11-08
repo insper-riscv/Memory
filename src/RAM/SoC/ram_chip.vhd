@@ -178,8 +178,10 @@ architecture rtl of ram_chip is
 
   -- Estado da porta de dados.
   signal d_st      : state_t := S_IDLE;
-  -- Bordas que faltam na porta de dados.
-  signal d_cnt     : natural range 0 to 255 := 0;
+  -- Início da contagem de latência da porta de dados ('1' carrega).
+  signal d_load    : std_logic;
+  -- A contagem de latência da porta de dados termina nesta borda.
+  signal d_last    : std_logic;
   -- O acesso da porta de dados é uma escrita.
   signal d_we      : std_logic := '0';
   -- O acesso da porta de dados é de linha.
@@ -205,8 +207,10 @@ architecture rtl of ram_chip is
 
   -- Estado da porta de instruções.
   signal i_st      : state_t := S_IDLE;
-  -- Bordas que faltam na porta de instruções.
-  signal i_cnt     : natural range 0 to 255 := 0;
+  -- Início da contagem de latência da porta de instruções ('1' carrega).
+  signal i_load    : std_logic;
+  -- A contagem de latência da porta de instruções termina nesta borda.
+  signal i_last    : std_logic;
   -- O acesso da porta de instruções é de linha.
   signal i_line_q  : std_logic := '0';
   -- Endereço de byte do acesso da porta de instruções.
@@ -260,6 +264,18 @@ begin
   o_ins_rdata   <= i_rdata;
   o_ins_rdata_x <= i_rdx;
   o_init_done   <= init_done;
+
+  -- Um acesso aceito em repouso inicia a contagem da latência, uma por porta.
+  d_load <= '1' when d_st = S_IDLE and (i_rden = '1' or i_wren = '1') and init_done = '1' else '0';
+  i_load <= '1' when i_st = S_IDLE and i_ins_rden = '1' and init_done = '1' else '0';
+
+  u_data_latency : entity work.latency_counter
+    generic map (max_count => latency + 1)
+    port map (i_clk => i_clk, i_rst => i_rst, i_load => d_load, i_count => latency, o_last => d_last, o_wait => open);
+
+  u_instruction_latency : entity work.latency_counter
+    generic map (max_count => latency + 1)
+    port map (i_clk => i_clk, i_rst => i_rst, i_load => i_load, i_count => latency, o_last => i_last, o_wait => open);
 
   -- Grava a imagem inicial no instante zero.
   load : process
@@ -315,13 +331,10 @@ begin
               d_be    <= i_byteena;
               d_wdx   <= i_wdata_x;
               d_bex   <= i_byteena_x;
-              d_cnt   <= latency;
               d_st    <= S_WAIT;
             end if;
           when S_WAIT =>
-            if d_cnt > 1 then
-              d_cnt <= d_cnt - 1;
-            else
+            if d_last = '1' then
               base := word_index(d_addr);
               if d_we = '1' then
                 if base < WORDS then
@@ -367,13 +380,10 @@ begin
             if i_ins_rden = '1' and init_done = '1' then
               i_addr_q <= start_addr(i_ins_addr, i_ins_line);
               i_line_q <= i_ins_line;
-              i_cnt    <= latency;
               i_st     <= S_WAIT;
             end if;
           when S_WAIT =>
-            if i_cnt > 1 then
-              i_cnt <= i_cnt - 1;
-            else
+            if i_last = '1' then
               base := word_index(i_addr_q);
               i_pending <= store.read_word(base);
               if i_line_q = '1' then

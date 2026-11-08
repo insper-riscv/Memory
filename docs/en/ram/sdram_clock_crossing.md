@@ -105,7 +105,7 @@ The handshake keeps one access in progress per bridge. The bridge accepts no new
 
 ## 8. Verification
 
-The `SdramSystem` test ([sdram_system.py](../../../tests/python/unittests/ram/sdram_system.py)) runs writes, reads and line accesses with the core clock at 14 ns, at 53 ns with an offset and at 100 ns with an offset, against the 7 ns memory clock. This covers different phase and frequency relations in both directions of the crossing.
+The `SdramSystem` test ([sdram_system.py](../../../tests/python/unittests/ram/sdram_system.py)) runs writes, reads and line accesses with the core clock at 14 ns, at 53 ns with an offset and at 100 ns with an offset, against the 7 ns memory clock, and the `SdramSystem100MHz` variant repeats the test with the controller and the chip model at 10 ns (`tck_ps` = 10000). This covers different phase and frequency relations in both directions of the crossing, including the 1 to 1 ratio between the 100 MHz core clock and the controller clock.
 
 ---
 

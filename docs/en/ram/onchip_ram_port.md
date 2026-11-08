@@ -14,6 +14,7 @@ The RAM block has a single word port with a registered read. The adapter moves a
 | :--- | :--- | ---: | :--- |
 | `size_bytes` | positive | 1048576 | size of the RAM window in bytes, a power of two from 16 bytes to 32 MB |
 | `base_kib` | natural | 0 | where the RAM starts inside the 64 MB region, in KiB; the RAM address is the region address minus this base |
+| `latency` | natural | 0 | emulated latency in edges, the same as the `ram_chip` one; zero leaves only the structural latency of section 3.3 |
 
 With $S$ equal to `size_bytes`, the word index of the RAM block has $\log_2 S - 2$ bits, the same width as the `i_address` port of the `ram` IP.
 
@@ -75,7 +76,8 @@ Outside this interval the read returns zero and the write is dropped, without an
 | State | Action | Next state |
 | :--- | :--- | :--- |
 | `S_IDLE` | with `i_rden` or `i_wren`, captures address, data and masks and clears the step | `S_ACCESS` |
-| `S_ACCESS` | step $k$ issues word $k$ to the block, and step $k+1$ collects the word read; at the end of the step after the last word, it finishes | `S_DONE` |
+| `S_ACCESS` | step $k$ issues word $k$ to the block, and step $k+1$ collects the word read; at the end of the step after the last word, it finishes | `S_DONE`, or `S_HOLD` if the emulated latency has not ended |
+| `S_HOLD` | waits for the rest of the emulated latency, without touching the block | `S_DONE` |
 | `S_DONE` | `o_ready` at `'1'`; with `i_mem_advance`, copies the collected data to the read output | `S_IDLE` |
 
 The latency is low and constant. Let $E_0$ be the edge on which the request is seen. A word access ends on edge $E_2$ and a line access on edge $E_5$, and `o_ready` rises right after. Reads and writes take the same time, at any address and also outside the window.
@@ -84,6 +86,8 @@ The latency is low and constant. Let $E_0$ be the edge on which the request is s
 | :--- | ---: |
 | Word | 2 |
 | Line | 5 |
+
+With `latency` greater than zero the adapter counts the same edges as the `ram_chip`, with the same [latency_counter](../latency/latency_counter.md) machine, and the access ends at the longer of that count and the structural one in the table. With $L$ equal to `latency` and $L \geq 5$, a word and a line both end on edge $E_L$, equal to the `ram_chip` of the same latency, so a program takes the same time in simulation and on the board. With $L < 5$ the block minimum applies, because four reads of a word port do not fit in fewer than 5 edges.
 
 ### 3.4. Debug port
 
@@ -96,6 +100,7 @@ Debug reads the block through the same port, in the cycles when the adapter is f
 | Above it | the data cache ([dcache](../cache/dcache.md)) and, when the ROM is also behind a cache, the router [mem_region_router](../cache/mem_region_router.md); the line ports carry the lines of the cache |
 | Below it | the [ram](ram.md) IP on the board, or the [ram_simulation](ram_simulation.md) in simulation, wired through the `o_mem_*` ports and `i_mem_q` |
 | Requester port list | the data port of the [ram_chip](ram_chip.md), which lets the top swap one for the other |
+| Latency counting | the [latency_counter](../latency/latency_counter.md), which is also the one of the `ram_chip` and of the [flash_chip](../rom/flash_chip.md) |
 | Instruction port | the adapter has a single access port, because the RAM block has a single port |
 
 ## 5. Verification
@@ -108,6 +113,9 @@ The simulation top `onchip_ram_system` wires the adapter to `ram_simulation`, wi
 | `OnchipRamPortChip` | `onchip_ram_port` | `SIZE_BYTES` equal to 4096 and `USE_CHIP` true |
 | `OnchipRamLatency` | `onchip_ram_latency` | `SIZE_BYTES` equal to 4096 |
 | `OnchipRamOffset` | `onchip_ram_offset` | `SIZE_BYTES` equal to 4096 and `BASE_KIB` equal to 8 |
+| `OnchipRamEmulated` | `onchip_ram_emulated_latency` | `SIZE_BYTES` equal to 4096 and `LATENCY` equal to 9 |
+| `OnchipRamEmulatedChip` | `onchip_ram_emulated_latency` | the same and `USE_CHIP` true |
+| `OnchipRamEmulatedShort` | `onchip_ram_emulated_short` | `SIZE_BYTES` equal to 4096 and `LATENCY` equal to 3 |
 | `OnchipRamDcache` | `onchip_ram_dcache` | `WITH_CACHE` true |
 | `OnchipRamDcacheWriteThrough` | `onchip_ram_dcache` | `WITH_CACHE` and `WRITE_THROUGH` true |
 | `OnchipRamDcacheChip` | `onchip_ram_dcache` | `WITH_CACHE` and `USE_CHIP` true |
@@ -123,6 +131,8 @@ The simulation top `onchip_ram_system` wires the adapter to `ram_simulation`, wi
 | `test_the_debug_port_ends_with_the_window` | the debug port reads zero beyond the last word |
 | `test_the_latency_of_a_word_is_constant` and `test_the_latency_of_a_line_is_constant` | 3 and 6 edges counting edge $E_0$, equal for read and write |
 | `test_the_outside_of_the_window_takes_the_same_time` | an access outside the window is not faster |
+| `onchip_ram_emulated_latency` | with `LATENCY` equal to 9, a word and a line, read and write, inside and outside the window, take 10 edges counting $E_0$, on the adapter and on the `ram_chip` with the same test module |
+| `onchip_ram_emulated_short` | with `LATENCY` equal to 3, a word takes 4 edges and a line 6, the block minimum |
 | `test_the_debug_port_reads_while_ready_waits` | debug reads while `o_ready` waits and does not drop it |
 | `test_the_debug_port_does_not_disturb_an_access` | changing the debug index at every clock does not alter the accesses |
 | `test_the_ram_starts_at_the_base` and `test_outside_the_ram_is_zero` | with `base_kib` equal to 8, the first word is the one at the base and the neighbors outside the window read zero |

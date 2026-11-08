@@ -20,6 +20,10 @@ library ieee;
 use ieee.std_logic_1164.all;
 
 entity sdram_arbiter is
+  generic (
+    -- Bits do endereço de palavra de 32 bits do chip (linha, banco e coluna da palavra; 24 no padrão da DE0-CV).
+    addr_bits : natural := 24
+  );
   port (
     -- Clock do módulo.
     i_clk       : in  std_logic;
@@ -33,7 +37,7 @@ entity sdram_arbiter is
     -- Porta do mestre A (ponte de dados do core): escrita ('1') ou leitura ('0').
     i_a_we      : in  std_logic;
     -- Porta do mestre A (ponte de dados do core): endereço de palavra.
-    i_a_addr    : in  std_logic_vector(23 downto 0);
+    i_a_addr    : in  std_logic_vector(addr_bits - 1 downto 0);
     -- Porta do mestre A (ponte de dados do core): dado de escrita.
     i_a_wdata   : in  std_logic_vector(31 downto 0);
     -- Porta do mestre A (ponte de dados do core): habilita de bytes da escrita.
@@ -56,7 +60,7 @@ entity sdram_arbiter is
     -- Porta do mestre I (ponte de instruções do core): escrita ('1') ou leitura ('0').
     i_ins_we      : in  std_logic := '0';
     -- Porta do mestre I (ponte de instruções do core): endereço de palavra.
-    i_ins_addr    : in  std_logic_vector(23 downto 0) := (others => '0');
+    i_ins_addr    : in  std_logic_vector(addr_bits - 1 downto 0) := (others => '0');
     -- Porta do mestre I (ponte de instruções do core): dado de escrita.
     i_ins_wdata   : in  std_logic_vector(31 downto 0) := (others => '0');
     -- Porta do mestre I (ponte de instruções do core): habilita de bytes da escrita.
@@ -79,7 +83,7 @@ entity sdram_arbiter is
     -- Porta do mestre B (porta de debug): escrita ('1') ou leitura ('0').
     i_b_we      : in  std_logic;
     -- Porta do mestre B (porta de debug): endereço de palavra.
-    i_b_addr    : in  std_logic_vector(23 downto 0);
+    i_b_addr    : in  std_logic_vector(addr_bits - 1 downto 0);
     -- Porta do mestre B (porta de debug): dado de escrita.
     i_b_wdata   : in  std_logic_vector(31 downto 0);
     -- Porta do mestre B (porta de debug): habilita de bytes da escrita.
@@ -94,7 +98,7 @@ entity sdram_arbiter is
     -- Porta do controlador SDRAM: escrita ('1') ou leitura ('0').
     o_c_we      : out std_logic;
     -- Porta do controlador SDRAM: endereço de palavra.
-    o_c_addr    : out std_logic_vector(23 downto 0);
+    o_c_addr    : out std_logic_vector(addr_bits - 1 downto 0);
     -- Porta do controlador SDRAM: dado de escrita.
     o_c_wdata   : out std_logic_vector(31 downto 0);
     -- Porta do controlador SDRAM: habilita de bytes da escrita.

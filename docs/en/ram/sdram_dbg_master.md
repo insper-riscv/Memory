@@ -10,6 +10,7 @@ The SDRAM debug master runs, on the controller clock, the read, write and fill c
 
 | Generic | Type | Default | Meaning |
 | :--- | :--- | ---: | :--- |
+| `addr_bits` | natural from 23 to 25 | 24 | bits of the word address (23 is the 32 MB SDRAM of the DE0-Nano); with 25 (the 128 MB SDRAM of the DE2-115), bit 3 of `i_op` is bit 24 of the address |
 | `timeout_cycles` | natural | $2^{16}$ | cycles of waiting for the arbiter answer before the command is dropped |
 
 ### 2.2. Ports
@@ -20,7 +21,7 @@ The SDRAM debug master runs, on the controller clock, the read, write and fill c
 | `i_rst` | input | 1 | synchronous reset, active at `'1'` |
 | `i_cmd_tog` | input | 1 | command toggle from the host (any clock), each flip is a new command |
 | `o_done_tog` | output | 1 | toggle that acknowledges the finished command |
-| `i_op` | input | 4 | debug command code, 0 to 6 |
+| `i_op` | input | 4 | debug command code, 0 to 6 in bits 2 to 0, and bit 24 of the address in bit 3 when `addr_bits` is 25 |
 | `i_be` | input | 4 | byte enables of the writes |
 | `i_addr` | input | 24 | word address of the command |
 | `i_data` | input | 32 | write data or, in command 4, the number of words of the fill |
@@ -31,7 +32,7 @@ The SDRAM debug master runs, on the controller clock, the read, write and fill c
 | `o_b_req_tog` | output | 1 | request toggle to the arbiter |
 | `i_b_ack_tog` | input | 1 | acknowledge toggle, equal to `o_b_req_tog` when the request has been served |
 | `o_b_we` | output | 1 | write (`'1'`) or read (`'0'`) |
-| `o_b_addr` | output | 24 | word address |
+| `o_b_addr` | output | `addr_bits` | word address |
 | `o_b_wdata` | output | 32 | write data |
 | `o_b_be` | output | 4 | byte enables of the write |
 | `i_b_rdata` | input | 32 | read data |
@@ -54,6 +55,8 @@ A command is a flip of `i_cmd_tog`, with `i_op`, `i_be`, `i_addr` and `i_data` s
 | 5 | reads the word after the one accessed last |
 | 6 | writes `i_data` to the word after the one accessed last, bytes by `i_be` |
 | 7 to 15 | treated as command 0 |
+
+With `addr_bits` equal to 23, bit 23 of `i_addr` is ignored, and `o_rsp_addr` returns the low 24 bits of the last word accessed (bit 24 does not appear with 25).
 
 The value of `count` is 1 after reset and is kept between commands. The register has 25 bits because a fill of the whole SDRAM is $2^{24}$, which does not fit in 24 bits (see [FILL_COUNT_24_BITS.md](../bugs/FILL_COUNT_24_BITS.md)).
 
@@ -78,7 +81,7 @@ The command is seen 2 edges of `i_clk` after the flip of `i_cmd_tog` is sampled,
 | Item | Description |
 | :--- | :--- |
 | Instantiated in | `src/cyclone-v/de0-cv/de0-cv_top.vhd` of the Insper-RISC-V repository (instance `SDRAM_DEBUG`, on the controller clock) and `src/RAM/SoC/sim/sdram_system.vhd` (instance `u_dbg`) |
-| Receives commands from | `sdram_jtag_core`, directly in simulation and through the wrapper `Insper-RISC-V/src/cyclone-v/de0-cv/sdram_jtag_shell.vhd` (which holds the Virtual JTAG) on the board |
+| Receives commands from | `sdram_jtag_core`, directly in simulation and through the wrapper `src/RAM/FPGA/Cyclone-V/sdram_jtag_shell.vhd` (which holds the Virtual JTAG) on the board |
 | Delivers requests to | the master B port of `sdram_arbiter`, which carries them to the controller |
 | Uses | the `synchronizer` of the Common-Components library, two instances, one for `i_cmd_tog` and one for `i_init_done` |
 
@@ -93,6 +96,7 @@ The cocotb tests of `tests/python/unittests/ram/sdram_debug_port.py` run the com
 | `test_write_and_read_back` | a write reads back and reaches the chip, including the highest word address and the byte masks |
 | `test_the_core_and_the_host_see_the_same_memory` | what the core writes the host reads, and the reverse |
 | `test_fill` | the fill writes exactly `count` words from the address and does not change the neighbors |
+| `test_the_host_reaches_the_upper_half_of_a_128_mb_sdram` | with the 32-bit chip (entry `SdramDebugPort32`), bit 3 of `op` reaches the upper half of the $2^{25}$ words |
 | `test_the_fill_count_reaches_the_whole_sdram` | the `count` register holds $2^{24}$ and $2^{24} - 1$ |
 | `test_next_word_commands` | commands 5 and 6 follow the last word accessed |
 | `test_traffic_from_the_core_and_the_host_together` | simultaneous accesses from the core and the host do not corrupt each other |

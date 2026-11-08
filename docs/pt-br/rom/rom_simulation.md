@@ -4,7 +4,7 @@ Modelo de simulação da ROM com duas portas de leitura síncronas sobre o mesmo
 
 ## 1. Função do componente no SoC
 
-O modelo substitui, nas simulações em GHDL, os IPs de ROM da placa ([boot_rom](boot_rom.md) e [flash](flash.md)), que dependem da biblioteca `altera_mf` do Quartus. A porta 1 faz o papel do acesso de busca de instruções e a porta 2, com clock próprio, o do acesso de dados do estágio MEM (a porta B da FLASH no hardware). O modelo da FLASH com escrita pelo carregador é o [flash_simulation](flash_simulation.md). O vetor é escrito em VHDL puro para que o cocotb consiga lê-lo.
+O modelo substitui, nas simulações em GHDL, os IPs de ROM da placa ([boot_memory](boot_memory.md) e [flash](flash.md)), que dependem da biblioteca `altera_mf` do Quartus. A porta 1 faz o papel do acesso de busca de instruções e a porta 2, com clock próprio, o do acesso de dados do estágio MEM (a porta B da FLASH no hardware). O modelo da FLASH com escrita pelo carregador é o [flash_simulation](flash_simulation.md). O vetor é escrito em VHDL puro para que o cocotb consiga lê-lo.
 
 ## 2. Interface
 
@@ -55,7 +55,7 @@ Cada porta lê na borda de subida do seu clock, quando a habilitação está em 
 
 | Topo (Insper-RISC-V) | Instâncias | Uso |
 | :--- | :--- | :--- |
-| Topo de simulação modular | BOOT_ROM, com a porta 1 | Boot ROM interna |
+| Topo de simulação modular | BOOT_MEMORY, com a porta 1 | Memória de boot interna |
 | Topo de simulação modular | FLASH interna, com as portas 1 (busca) e 2 (dado, clock do estágio MEM) | ROM interna de duas portas |
 | Topo de simulação modular | Armazenamento atrás do [flash_chip](flash_chip.md), com `i_re` em `'1'` | ROM externa, de tamanho configurável |
 

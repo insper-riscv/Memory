@@ -40,8 +40,8 @@
 -- código escrito visível à busca.
 --
 -- Endereço: o núcleo usa o PC; a região (1 = ROM, pelos genéricos
--- rom_base_kib e rom_end_kib) escolhe a base de 31:26 (base_flash ou
--- base_sdram) e os bits 25:0 do PC seguem, como na icache.
+-- rom_base_kib e rom_end_kib) escolhe a base dos bits 31 até window_bits (base_flash ou
+-- base_sdram) e os bits window_bits-1:0 do PC seguem, como na icache.
 -- ========================================================================
 
 library ieee;
@@ -52,7 +52,9 @@ entity ifetch_bridge is
   generic (
     -- Pede à memória a linha de quatro palavras que contém o endereço (true) ou só a palavra dele (false).
     fetch_line   : boolean := true;
-    -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória.
+    -- Largura do endereço que a janela da cache cobre, de 2**window_bits bytes (26 é 64 MiB, 27 é 128 MiB): a tag guarda os bits abaixo dela e a base da região, do lado da memória, completa os de cima.
+    window_bits : natural range 26 to 29 := 26;
+    -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória; só os bits de 31 até window_bits entram, os de baixo são da tag.
     base_sdram   : std_logic_vector(5 downto 0) := "010000";
     -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
     base_flash   : std_logic_vector(5 downto 0) := "001000";
@@ -159,16 +161,16 @@ architecture rtl of ifetch_bridge is
     return '0';
   end function in_rom;
 
-  -- Endereço do pedido à memória: a base da região nos bits 31:26, os bits 25:0 do núcleo alinhados ao que se pede.
+  -- Endereço do pedido à memória: a base da região nos bits 31 até window_bits, os bits abaixo dele do núcleo alinhados ao que se pede.
   function mem_addr_of(addr : std_logic_vector(31 downto 0)) return std_logic_vector is
-    -- Bits 25:0 do endereço com os bits baixos zerados pelo alinhamento.
-    variable low : std_logic_vector(25 downto 0) := addr(25 downto 0);
+    -- Bits window_bits-1:0 do endereço com os bits baixos zerados pelo alinhamento.
+    variable low : std_logic_vector(window_bits - 1 downto 0) := addr(window_bits - 1 downto 0);
   begin
     low(LOW_BIT - 1 downto 0) := (others => '0');
     if in_rom(addr) = '1' then
-      return base_flash & low;
+      return base_flash(5 downto window_bits - 26) & low;
     end if;
-    return base_sdram & low;
+    return base_sdram(5 downto window_bits - 26) & low;
   end function mem_addr_of;
 
 begin

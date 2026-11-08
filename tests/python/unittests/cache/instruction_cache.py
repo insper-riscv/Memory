@@ -15,6 +15,7 @@ from tests.python.unittests.dut import Dut
 BASE = 0x40000000
 LAT = 5
 SETTLE = 6  # clocks after the pulse until the lines are gone
+SWEEP = 270  # clocks of the sweep that zeroes the validity of 256 lines
 
 
 def word(addr: int, version: int = 0) -> int:
@@ -70,10 +71,14 @@ async def start(dut: Dut):
     dut.i_rst.value = 0
     mem = Memory(dut)
     cocotb.start_soon(mem.run())
+    dut.i_sel.value = 0
+    for _ in range(SWEEP):  # the reset sweep zeroes the validity of every line
+        await RisingEdge(dut.i_clk)
+    dut.i_sel.value = 1
     return mem
 
 
-async def fetch(dut: Dut, addr: int, timeout: int = 200):
+async def fetch(dut: Dut, addr: int, timeout: int = 600):
     """Hold addr until ready, the way the core does.
 
     Returns (data, clocks waited).
@@ -309,7 +314,7 @@ async def pulse_region(dut: Dut, mem: Memory, first: int, last: int):
     dut.i_inval_region.value = 1
     await RisingEdge(dut.i_clk)
     dut.i_inval_region.value = 0
-    for _ in range(SETTLE):
+    for _ in range(SETTLE + SWEEP):
         await RisingEdge(dut.i_clk)
 
 

@@ -1,5 +1,5 @@
 -- =============================================================================
--- Armazenamento da FLASH externa (IP altsyncram de uma porta, 256 KB por padrão)
+-- Armazenamento da FLASH externa (instância de uma porta da block_ram, 256 KB por padrão)
 --
 -- Bloco de RAM da FPGA que guarda o conteúdo atrás do flash_chip, na região da FLASH
 -- externa. Não é um modelo de chip: o handshake e a latência de leitura ficam no
@@ -14,9 +14,6 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
-
-library altera_mf;
-use altera_mf.altera_mf_components.all;
 
 library work;
 use work.utils_pkg.all;
@@ -45,31 +42,21 @@ end entity flash_store;
 architecture rtl of flash_store is
 begin
 
-	u_altsyncram : altsyncram
+	u_block_ram : entity work.block_ram
 	generic map (
-		address_aclr_a => "NONE",
-		clock_enable_input_a => "BYPASS",
-		clock_enable_output_a => "BYPASS",
-		init_file => "./flash_init.mif",
-		intended_device_family => "Cyclone V",
-		lpm_hint => "ENABLE_RUNTIME_MOD=YES,INSTANCE_NAME=FLASH",
-		lpm_type => "altsyncram",
-		numwords_a => size_bytes / 4,
 		operation_mode => "SINGLE_PORT",
-		outdata_aclr_a => "NONE",
-		outdata_reg_a => "UNREGISTERED",
-		read_during_write_mode_port_a => "NEW_DATA_NO_NBE_READ",
-		widthad_a => log2_exact(size_bytes) - 2,
-		width_a => 32,
-		width_byteena_a => 1
+		word_count => size_bytes / 4,
+		address_width => log2_exact(size_bytes) - 2,
+		init_file => "./flash_init.mif",
+		instance_name => "FLASH"
 	)
 	port map (
-		address_a => i_address,
-		clock0 => i_clk,
-		rden_a => i_rden,
-		wren_a => i_wren,
-		data_a => i_data,
-		q_a => o_q
+		i_clk_a => i_clk,
+		i_address_a => i_address,
+		i_data_a => i_data,
+		i_rden_a => i_rden,
+		i_wren_a => i_wren,
+		o_q_a => o_q
 	);
 
 end architecture rtl;

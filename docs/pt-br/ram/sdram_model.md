@@ -2,7 +2,7 @@
 
 ## 1. Função do componente no SoC
 
-Modelo comportamental da SDRAM SDR de 32M x 16 da placa, usado só em simulação. Guarda os dados escritos numa tabela esparsa e faz a simulação falhar (`severity failure`) quando o controlador quebra uma regra do chip. Um teste que termina sem falha prova, portanto, que o controlador cumpre os tempos de [sdram_pkg](sdram_pkg.md), a ordem dos comandos, a energização, o registrador de modo e o intervalo de refresh. O modelo também oferece portas de depuração que leem e corrompem a memória armazenada.
+Modelo comportamental da SDRAM SDR da placa, usado só em simulação. Os generics fixam a largura do barramento de dados e as larguras de linha, banco e coluna, e o padrão é o chip de 32M x 16 da DE0-CV. Guarda os dados escritos numa tabela esparsa e faz a simulação falhar (`severity failure`) quando o controlador quebra uma regra do chip. Um teste que termina sem falha prova, portanto, que o controlador cumpre os tempos de [sdram_pkg](sdram_pkg.md), a ordem dos comandos, a energização, o registrador de modo e o intervalo de refresh. O modelo também oferece portas de depuração que leem e corrompem a memória armazenada.
 
 ## 2. Interface
 
@@ -12,6 +12,10 @@ Modelo comportamental da SDRAM SDR de 32M x 16 da placa, usado só em simulaçã
 | :--- | :--- | :--- | :--- |
 | `tck_ps` | natural | `T_CK_PS` (7000) | período do clock em ps, convertido em tempo de simulação |
 | `init_file` | string | vazio | arquivo com a imagem inicial do chip, vazio para o chip zerado |
+| `dq_width` | natural | 16 | largura do barramento de dados em bits, 16 ou 32, que define a rajada de $32 / \text{dq\_width}$ beats |
+| `row_bits` | natural | 13 | bits do endereço de linha |
+| `bank_bits` | natural | 2 | bits do endereço de banco |
+| `col_bits` | natural | 10 | bits do endereço de coluna |
 
 ### 2.2. Portas do chip
 
@@ -23,20 +27,20 @@ Modelo comportamental da SDRAM SDR de 32M x 16 da placa, usado só em simulaçã
 | `i_ras_n` | entrada | 1 | strobe de endereço de linha, ativo em `'0'` |
 | `i_cas_n` | entrada | 1 | strobe de endereço de coluna, ativo em `'0'` |
 | `i_we_n` | entrada | 1 | habilita de escrita, ativo em `'0'` |
-| `i_ba` | entrada | 2 | banco |
-| `i_a` | entrada | 13 | endereço de linha ou de coluna |
-| `i_dqm` | entrada | 2 | máscara de bytes dos dados, que mascara em `'1'` |
-| `io_dq` | bidirecional | 16 | pinos de dados DQ |
+| `i_ba` | entrada | `bank_bits` | banco |
+| `i_a` | entrada | maior entre `row_bits` e `col_bits` + 1 | endereço de linha ou de coluna |
+| `i_dqm` | entrada | `dq_width` / 8 | máscara de bytes dos dados, que mascara em `'1'` |
+| `io_dq` | bidirecional | `dq_width` | pinos de dados DQ |
 | `i_reinit` | entrada | 1 | em `'1'` enquanto o controlador está em reset, e reinicia a sequência de energização do chip |
 
 ### 2.3. Portas de depuração
 
 | Porta | Dir. | Largura | Significado |
 | :--- | :--- | ---: | :--- |
-| `i_dbg_word_addr` | entrada | 24 | endereço de palavra lido direto da memória armazenada |
+| `i_dbg_word_addr` | entrada | $AW$ (24 no padrão, 25 com `dq_width` igual a 32) | endereço de palavra lido direto da memória armazenada |
 | `o_dbg_word_data` | saída | 32 | palavra armazenada nesse endereço, registrada no clock do chip |
 | `i_dbg_flip` | entrada | 1 | uma borda de subida inverte um bit de uma palavra armazenada |
-| `i_dbg_flip_addr` | entrada | 24 | endereço de palavra cujo bit é invertido |
+| `i_dbg_flip_addr` | entrada | $AW$ | endereço de palavra cujo bit é invertido |
 | `i_dbg_flip_bit` | entrada | 5 | posição do bit invertido na palavra |
 | `o_dbg_refreshes` | saída | 32 | quantidade de comandos AUTO REFRESH recebidos |
 | `o_dbg_init_ok` | saída | 1 | `'1'` quando o registrador de modo foi carregado depois de uma sequência de energização aceita |
@@ -45,13 +49,13 @@ Modelo comportamental da SDRAM SDR de 32M x 16 da placa, usado só em simulaçã
 
 ### 3.1. Armazenamento
 
-A memória é uma tabela esparsa de meias-palavras de 16 bits, com 65536 baldes de listas encadeadas. A chave de cada meia-palavra é
+A memória é uma tabela esparsa de unidades de `dq_width` bits, a largura de um beat, com 65536 baldes de listas encadeadas. A chave de cada unidade é
 
 $$
-k = (\text{linha} \cdot 4 + \text{banco}) \cdot 1024 + \text{coluna}
+k = (\text{linha} \cdot 2^{\text{bank\_bits}} + \text{banco}) \cdot 2^{\text{col\_bits}} + \text{coluna}
 $$
 
-e uma posição nunca escrita vale zero. A palavra de endereço $w$ ocupa as meias-palavras $2w$ (bits 15 a 0) e $2w+1$ (bits 31 a 16). Na escrita, um byte só é gravado quando o seu bit de `i_dqm` vale `'0'`.
+e uma posição nunca escrita vale zero. A palavra de endereço $w$ ocupa as unidades $Bw$ a $Bw + B - 1$, dos bits mais baixos aos mais altos, com $B = 32 / \text{dq\_width}$. Na escrita, um byte só é gravado quando o seu bit de `i_dqm` vale `'0'`.
 
 ### 3.2. Imagem inicial
 
@@ -81,17 +85,17 @@ O modelo não verifica o intervalo entre ACTIVE de bancos diferentes. O controla
 
 ### 3.5. Leitura e escrita
 
-Um READ põe a meia-palavra de endereço da coluna e a seguinte num pipeline de leitura. O primeiro beat aparece nos pinos DQ $CL$ bordas depois da borda em que o chip amostra o comando, e o segundo beat uma borda depois. Fora desses dois clocks o modelo solta os pinos (alta impedância).
+Um READ põe os $B = 32 / \text{dq\_width}$ beats a partir da coluna num pipeline de leitura. O primeiro beat aparece nos pinos DQ $CL$ bordas depois da borda em que o chip amostra o comando, e cada seguinte uma borda depois. Fora desses clocks o modelo solta os pinos (alta impedância). A coluna do comando precisa ser múltipla de $B$, e o modelo reprova a simulação se não for.
 
-Num WRITE a primeira meia-palavra é gravada na borda do comando e a segunda na borda seguinte, cada uma com a máscara de bytes daquele clock.
+Num WRITE o primeiro beat é gravado na borda do comando e o segundo, quando $B = 2$, na borda seguinte, cada um com a máscara de bytes daquele clock.
 
 Com o bit 10 do endereço em `'1'`, o comando faz auto-precharge. O banco fecha e só aceita ACTIVE depois do instante
 
 $$
-t_{idle} = t_{pre} + T_{RP}, \quad t_{pre} = \max\left(t_{cmd} + 2\,T_{CK},\; t_{act} + T_{RAS}\right)
+t_{idle} = t_{pre} + T_{RP}, \quad t_{pre} = \max\left(t_{cmd} + B\,T_{CK},\; t_{act} + T_{RAS}\right)
 $$
 
-para o READ. No WRITE, $t_{cmd} + 2\,T_{CK}$ é trocado por $t_{cmd} + T_{CK} + T_{WR}$. Cada comando de rajada ocupa o barramento por $2\,T_{CK}$, então o segundo READ de uma linha precisa vir dois clocks depois do primeiro.
+para o READ. No WRITE, $t_{cmd} + B\,T_{CK}$ é trocado por $t_{cmd} + (B - 1)\,T_{CK} + T_{WR}$. Cada comando de rajada ocupa o barramento por $B\,T_{CK}$, então o segundo READ de uma linha precisa vir $B$ clocks depois do primeiro.
 
 ### 3.6. Depuração
 

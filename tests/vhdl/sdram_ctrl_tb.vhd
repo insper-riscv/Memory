@@ -15,10 +15,14 @@ use work.sdram_pkg.all;
 
 entity sdram_ctrl_tb is
   generic (
+    -- Período do clock em picossegundos, base da conversão dos tempos do chip em ciclos.
+    tck_ps         : natural := T_CK_PS;
     -- Ciclos de espera após a energização antes do primeiro comando.
     init_cycles    : natural := cycles(T_INIT_PS, T_CK_PS);
     -- Ciclos entre dois refreshes.
-    refresh_cycles : natural := cycles(T_REFI_PS, T_CK_PS) * 9 / 10
+    refresh_cycles : natural := cycles(T_REFI_PS, T_CK_PS) * 9 / 10;
+    -- Largura do barramento de dados DQ do chip, em bits (16 ou 32).
+    dq_width       : natural := 16
   );
   port (
     -- Clock do controlador e do chip.
@@ -34,7 +38,7 @@ entity sdram_ctrl_tb is
     -- Escrita ('1') ou leitura ('0').
     i_we            : in  std_logic;
     -- Endereço de palavra.
-    i_addr          : in  std_logic_vector(23 downto 0);
+    i_addr          : in  std_logic_vector(dram_word_addr_bits(13, 2, 10, dq_width) - 1 downto 0);
     -- Dado de escrita da palavra 0.
     i_wdata         : in  std_logic_vector(31 downto 0);
     -- Habilita de bytes da palavra 0.
@@ -50,7 +54,7 @@ entity sdram_ctrl_tb is
     -- Palavras 1 a 3 do dado lido da linha.
     o_rdata_x       : out std_logic_vector(95 downto 0);
     -- Endereço de palavra lido diretamente do modelo.
-    i_dbg_word_addr : in  std_logic_vector(23 downto 0);
+    i_dbg_word_addr : in  std_logic_vector(dram_word_addr_bits(13, 2, 10, dq_width) - 1 downto 0);
     -- Palavra do modelo no endereço de depuração.
     o_dbg_word_data : out std_logic_vector(31 downto 0);
     -- Contagem de AUTO REFRESH recebidos pelo chip.
@@ -76,17 +80,17 @@ architecture rtl of sdram_ctrl_tb is
   -- Endereço de linha ou de coluna.
   signal a      : std_logic_vector(12 downto 0);
   -- Máscara de bytes dos dados.
-  signal dqm    : std_logic_vector(1 downto 0);
+  signal dqm    : std_logic_vector(dq_width / 8 - 1 downto 0);
   -- Pinos de dados DQ.
-  signal dq     : std_logic_vector(15 downto 0);
+  signal dq     : std_logic_vector(dq_width - 1 downto 0);
   -- Dado que o controlador coloca nos pinos DQ.
-  signal dq_out : std_logic_vector(15 downto 0);
+  signal dq_out : std_logic_vector(dq_width - 1 downto 0);
   -- O controlador dirige os pinos DQ ('1').
   signal dq_oe  : std_logic;
 begin
 
   u_ctrl : entity work.sdram_ctrl
-    generic map (init_cycles => init_cycles, refresh_cycles => refresh_cycles)
+    generic map (tck_ps => tck_ps, init_cycles => init_cycles, refresh_cycles => refresh_cycles, dq_width => dq_width)
     port map (
       i_clk => i_clk, i_rst => i_rst,
       i_req_tog => i_req_tog, o_ack_tog => o_ack_tog, o_init_done => o_init_done,
@@ -101,7 +105,7 @@ begin
   dq <= dq_out when dq_oe = '1' else (others => 'Z');
 
   u_chip : entity work.sdram_model
-    generic map (init_file => "")
+    generic map (tck_ps => tck_ps, init_file => "", dq_width => dq_width)
     port map (
       i_clk => i_clk, i_cke => cke, i_cs_n => cs_n, i_ras_n => ras_n, i_cas_n => cas_n,
       i_we_n => we_n, i_ba => ba, i_a => a, i_dqm => dqm, io_dq => dq, i_reinit => i_rst,

@@ -72,3 +72,14 @@ A ponte do core é o mestre A e o mestre de depuração é o mestre B. Quando os
 ## 6. Limites
 
 A vazão é a do cabo JTAG, uma palavra por comando e alguns milissegundos cada, então ler um quilobyte leva cerca de um segundo. O preenchimento é a exceção, porque roda dentro da placa. Uma cache entre o core e a SDRAM precisa escrever através (ou ser descarregada) para o hospedeiro ler o que o core escreveu.
+
+## 7. A porta de depuração de cada backend (contrato K5)
+
+Todo backend de RAM e de FLASH oferece uma porta de depuração ao hospedeiro, e o hospedeiro usa a mesma da região qualquer que seja a realização dela.
+
+| Realização | Porta de depuração | Observação |
+| :--- | :--- | :--- |
+| RAM emulada | `i_dbg_word_addr` e `o_dbg_word_data` do modelo; no FPGA, o carregador de memória pela JTAG | Leitura sem cache |
+| SDRAM e SRAM | Mestre de depuração que é o segundo mestre do controlador | O cruzamento de domínio é por inversão de sinal, como na ponte da SDRAM |
+| FLASH emulada | Porta B do armazenamento, dona do carregador com o núcleo parado | Escrita só com o núcleo em reset |
+| FLASH de dispositivo | Controlador de FLASH usando os comandos de [flash_cmd_port](../rom/flash_cmd_port.md) | O carregador de JTAG usa os mesmos comandos |

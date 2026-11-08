@@ -1,18 +1,16 @@
 -- =============================================================================
 -- Instância do Virtual JTAG do carregador da FLASH
 --
--- Contém a instância do Virtual JTAG e a lógica atrás dela (flash_jtag_core). É
--- exclusiva da FPGA: precisa do sld_virtual_jtag da Intel, então não é analisada
--- em simulação, onde o testbench faz o papel da instância e conduz o
--- flash_jtag_core diretamente. O hospedeiro vê uma instância com registrador de
+-- Contém a instância do Virtual JTAG (virtual_jtag, do Common-Components) e a
+-- lógica atrás dela (flash_jtag_core). É exclusiva da FPGA: precisa do
+-- sld_virtual_jtag da Intel, então não é analisada em simulação, onde o
+-- testbench faz o papel da instância e conduz o flash_jtag_core diretamente. O hospedeiro vê uma instância com registrador de
 -- instrução de 2 bits; a instrução 1 seleciona o registrador CMD de 64 bits e a
 -- instrução 2, o registrador STREAM.
 -- =============================================================================
 
 library ieee;
 use ieee.std_logic_1164.all;
-library altera_mf;
-use altera_mf.altera_mf_components.all;
 
 entity flash_jtag_shell is
   port (
@@ -38,50 +36,33 @@ end entity flash_jtag_shell;
 architecture rtl of flash_jtag_shell is
 
   -- Clock da cadeia JTAG.
-  signal tck         : std_logic;
+  signal tck    : std_logic;
   -- Dado serial vindo do hospedeiro.
-  signal tdi         : std_logic;
+  signal tdi    : std_logic;
   -- Dado serial para o hospedeiro.
-  signal tdo         : std_logic;
+  signal tdo    : std_logic;
   -- Registrador de instrução do Virtual JTAG.
-  signal ir_in       : std_logic_vector(1 downto 0);
+  signal ir_in  : std_logic_vector(1 downto 0);
   -- Estado Capture-DR da cadeia virtual.
-  signal st_cdr      : std_logic;
+  signal st_cdr : std_logic;
   -- Estado Shift-DR da cadeia virtual.
-  signal st_sdr      : std_logic;
+  signal st_sdr : std_logic;
   -- Estado Update-DR da cadeia virtual.
-  signal st_udr      : std_logic;
+  signal st_udr : std_logic;
   -- Estado Update-IR da cadeia virtual.
-  signal st_uir      : std_logic;
-  -- Estado Exit1-DR, não usado.
-  signal unused_e1dr : std_logic;
-  -- Estado Pause-DR, não usado.
-  signal unused_pdr  : std_logic;
-  -- Estado Exit2-DR, não usado.
-  signal unused_e2dr : std_logic;
-  -- Estado Capture-IR, não usado.
-  signal unused_cir  : std_logic;
+  signal st_uir : std_logic;
 
 begin
 
-  u_vjtag : sld_virtual_jtag
+  u_vjtag : entity work.virtual_jtag
     generic map (
-      lpm_type => "sld_virtual_jtag",
-      lpm_hint => "sld_instance_index=0",
-      sld_auto_instance_index => "YES",
-      sld_instance_index => 0,
-      sld_ir_width => 2,
-      sld_sim_n_scan => 0,
-      sld_sim_total_length => 0,
-      sld_sim_action => ""
+      instance_index => 0,
+      auto_instance_index => "YES",
+      ir_width => 2
     )
     port map (
-      tdo => tdo, ir_out => (others => '0'),
-      tck => tck, tdi => tdi, ir_in => ir_in,
-      virtual_state_cdr => st_cdr, virtual_state_sdr => st_sdr,
-      virtual_state_e1dr => unused_e1dr, virtual_state_pdr => unused_pdr,
-      virtual_state_e2dr => unused_e2dr, virtual_state_udr => st_udr,
-      virtual_state_cir => unused_cir, virtual_state_uir => st_uir
+      o_tck => tck, o_tdi => tdi, i_tdo => tdo, o_ir_in => ir_in,
+      o_state_cdr => st_cdr, o_state_sdr => st_sdr, o_state_udr => st_udr, o_state_uir => st_uir
     );
 
   u_core : entity work.flash_jtag_core

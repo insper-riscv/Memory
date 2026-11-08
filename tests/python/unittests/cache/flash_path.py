@@ -36,6 +36,12 @@ async def start(dut: Dut):
     for _ in range(3):
         await RisingEdge(dut.i_clk)
     dut.i_rst.value = 0
+    dut.i_sel.value = 0
+    for _ in range(
+        270
+    ):  # the reset sweep zeroes the validity of the 256 lines
+        await RisingEdge(dut.i_clk)
+    dut.i_sel.value = 1
 
 
 async def fetch(dut: Dut, addr: int, timeout: int = 400):

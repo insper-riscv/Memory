@@ -14,7 +14,7 @@ As duas pontes (`axi_master_bridge` e `axi_slave_word_bridge`) ficam neste repos
 
 O lado do core do conjunto é o contrato do barramento externo privado. O acesso fica na porta enquanto o estágio está parado, `ready` é um nível até `mem_advance`, e `rdata` fica no último load concluído até o próximo terminar, porque o load do último estágio ainda o lê enquanto o acesso seguinte está na porta. O lado do periférico é a mesma porta `p_*` com um pulso por acesso, então um periférico (a UART sobre JTAG) é o mesmo VHDL em qualquer dos dois barramentos.
 
-O periférico 7 (0xF0000000) é o controle da cache: uma escrita na sua primeira palavra inicia um flush, e uma leitura dá 1 enquanto um flush está em andamento e 0 no resto do tempo. Com o bit 1 do valor ligado, ele também descarta todas as linhas depois, o que uma boot ROM faz quando um teste termina, antes de o hospedeiro carregar o próximo programa atrás da cache. Um acesso que não usa a cache espera enquanto um flush roda, e o acesso do core que já é dono do mestre quando um flush começa termina primeiro, com o flush seguindo depois dele.
+O periférico 7 (0xF0000000) é o controle da cache: uma escrita na sua primeira palavra inicia um flush, e uma leitura dá 1 enquanto um flush está em andamento e 0 no resto do tempo. Com o bit 1 do valor ligado, ele também descarta todas as linhas depois, o que uma memória de boot faz quando um teste termina, antes de o hospedeiro carregar o próximo programa atrás da cache. Um acesso que não usa a cache espera enquanto um flush roda, e o acesso do core que já é dono do mestre quando um flush começa termina primeiro, com o flush seguindo depois dele.
 
 ## 2. Cache de dados
 
@@ -23,7 +23,7 @@ O periférico 7 (0xF0000000) é o controle da cache: uma escrita na sua primeira
 | Tamanho | 4 KB, mapeamento direto |
 | Linha | 16 bytes, quatro palavras |
 | Política de escrita | Write-back, write-allocate |
-| Divisão do endereço (64 MB de SDRAM) | Bits 25:12 tag, 11:4 linha, 3:2 palavra |
+| Divisão do endereço (janela padrão de 64 MB) | Bits 25:12 tag, 11:4 linha, 3:2 palavra; com `window_bits` maior, a tag cresce até o bit `window_bits`-1 |
 | Contrato com o core | O acesso fica na porta enquanto o estágio está parado, `ready` é um nível até `mem_advance`, e `rdata` muda só nessa borda |
 | Acerto | Pronto em 2 clocks (as RAMs leem com registrador, como as RAMs de bloco) |
 | Falha limpa | Um pedido de linha (uma rajada de quatro beats no barramento), depois as quatro palavras para a RAM |

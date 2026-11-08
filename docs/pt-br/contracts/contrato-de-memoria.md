@@ -32,7 +32,7 @@ Os nomes do contrato seguem o prefixo `i_` e `o_` do CONTRIBUTING. Os IPs do Qua
 | `i_mask` | `byteena`, só no `ram` | `i_mask` | não tem |
 | `o_q` | `q` | `o_data_out` | `o_data` |
 
-Os IPs de ROM (`boot_rom` e `flash_store`) têm `wren` e `data`, porque o bloco de memória do FPGA é o mesmo de uma RAM, mas o desenho da placa os mantém em zero. O `rom_simulation` tem ainda uma segunda porta de leitura, com `i_addr2`, `i_clk2`, `i_re2` e `o_data2`.
+Os IPs de ROM (`boot_memory` e `flash_store`) têm `wren` e `data`, porque o bloco de memória do FPGA é o mesmo de uma RAM, mas o desenho da placa os mantém em zero. O `rom_simulation` tem ainda uma segunda porta de leitura, com `i_addr2`, `i_clk2`, `i_re2` e `o_data2`.
 
 ## 2. Tempo
 
@@ -56,9 +56,11 @@ SDRAM, FLASH atrás de cache e RAM externa levam vários ciclos, e a resposta de
 | Pino | Direção | Função |
 | :--- | :---: | :--- |
 | `o_ready` | saída | Nível que sobe quando o dado está pronto e permanece em `'1'` até o `advance` |
-| `i_advance` | entrada | Indica que o pedido foi consumido, e o chip pode aceitar o seguinte (no `ram_chip` chama-se `i_mem_advance`) |
+| `i_advance` | entrada | Indica que o pedido foi consumido, e o chip pode aceitar o seguinte; o nome é `i_advance` em todo bloco que cumpre o contrato |
 
-O pedido (endereço, dado, máscara, `i_re` e `i_we`) fica estável até `o_ready` subir, e o dado lido só muda no pedido seguinte. Um pedido de linha acrescenta `i_line`, que move quatro palavras, e três portas extras de 32 bits para as palavras 1 a 3 do dado e da leitura. Os chips documentados com esse contrato são [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md) e, do lado da SDRAM, a ponte [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md).
+O pedido (endereço, dado, máscara, `i_re` e `i_we`) fica estável até `o_ready` subir, e o dado lido só muda no pedido seguinte. Um pedido de linha acrescenta `i_line`, que move quatro palavras, e três portas extras de 32 bits para as palavras 1 a 3 do dado e da leitura. Um endereço fora da janela do bloco lê zero e a escrita é descartada, sem erro. O contrato é o mesmo para o backend emulado e para o de dispositivo de uma região, e quem o usa não distingue um do outro. Os chips documentados com esse contrato são [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md) e, do lado da SDRAM, a ponte [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md).
+
+Os modelos emulados que cumprem este contrato (`ram_chip`, `flash_chip` e o adaptador `onchip_ram_port` com `latency` maior que zero) contam a latência com a mesma máquina, o [latency_counter](../latency/latency_counter.md), e por isso um acesso leva as mesmas bordas na simulação e na placa.
 
 ## 4. Clock
 
@@ -66,7 +68,7 @@ O clock é um pino separado, e o bloco só enxerga a borda que recebe. Há dois 
 
 | Caso | Quando acontece | O que fazer |
 | :--- | :--- | :--- |
-| Mesmo clock do core | Os blocos internos da placa, como o `BOOT_ROM` (ligado ao clock `pll_clk_if`) e o armazenamento da FLASH (ligado ao `pll_clk_idexmem`), ambos clocks de 50 MHz do core | Ligar direto, sem sincronização |
+| Mesmo clock do core | Os blocos internos da placa, como o `BOOT_MEMORY` (ligado ao clock `pll_clk_if`) e o armazenamento da FLASH (ligado ao `pll_clk_idexmem`), ambos clocks de 50 MHz do core | Ligar direto, sem sincronização |
 | Clock diferente | O controlador da SDRAM e a porta de depuração, a 142,857 MHz, enquanto o core roda a 50 MHz | Cruzar o domínio por um pedido que inverte um sinal (`req_tog`) e uma resposta que inverte outro (`ack_tog`), cada um lido por dois flip-flops de sincronização, com endereço, dado e máscara estáveis da inversão do pedido até a resposta |
 
 O cruzamento por inversão é o que a ponte [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md) e o árbitro [sdram_arbiter](../ram/sdram_arbiter.md) usam. Um bloco nunca deve receber `i_re`, `i_we` ou `i_addr` de um domínio de clock que não seja o seu sem passar por essa sincronização.
@@ -175,8 +177,8 @@ Uma palavra larga permite mover várias palavras do core de uma vez. A cache de 
 
 | Tipo | Blocos |
 | :--- | :--- |
-| Memória de um ciclo | [ram](../ram/ram.md), [ram_simulation](../ram/ram_simulation.md), [boot_rom](../rom/boot_rom.md), [flash_store](../rom/flash_store.md), [rom_simulation](../rom/rom_simulation.md) |
-| Memória de latência variável | [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md), [sdram_ctrl](../ram/sdram_ctrl.md) |
+| Memória de um ciclo | [ram](../ram/ram.md), [ram_simulation](../ram/ram_simulation.md), [boot_memory](../rom/boot_memory.md), [flash_store](../rom/flash_store.md), [rom_simulation](../rom/rom_simulation.md) |
+| Memória de latência variável | [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md), [onchip_ram_port](../ram/onchip_ram_port.md) (latência emulada), [sdram_ctrl](../ram/sdram_ctrl.md) |
 | Memória de duas portas | [rom_simulation](../rom/rom_simulation.md) (duas leituras) e [ram_chip](../ram/ram_chip.md) (dados, instruções e depuração) |
 
 ---

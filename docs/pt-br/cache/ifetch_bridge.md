@@ -23,8 +23,9 @@ O primeiro endereço fora do registrador, inclusive o alvo de um desvio, dispara
 | Generic | Tipo | Padrão | Significado |
 | :--- | :--- | :--- | :--- |
 | `fetch_line` | boolean | `true` | Pede a linha de quatro palavras que contém o endereço (`true`) ou só a palavra dele (`false`) |
-| `base_sdram` | vetor de 6 bits | `010000` | Bits 31 a 26 acrescentados aos endereços da SDRAM no lado da memória (0x40000000) |
-| `base_flash` | vetor de 6 bits | `001000` | Bits 31 a 26 acrescentados aos endereços da FLASH no lado da memória (0x20000000) |
+| `window_bits` | natural de 26 a 29 | 26 | Largura da janela de endereços da cache: $2^{\texttt{window\_bits}}$ bytes (26 é 64 MiB, 27 é 128 MiB). A tag guarda os bits abaixo dela |
+| `base_sdram` | vetor de 6 bits | `010000` | Bits 31 a 26 dos endereços da SDRAM no lado da memória (0x40000000); entram só os bits de 31 até `window_bits` |
+| `base_flash` | vetor de 6 bits | `001000` | Bits 31 a 26 dos endereços da FLASH no lado da memória (0x20000000); entram só os bits de 31 até `window_bits` |
 | `rom_base_kib` | natural | 524288 | Base da região da ROM em KiB; o que cai nela é tratado como FLASH |
 | `rom_end_kib` | natural | 1048576 | Fim exclusivo da região da ROM em KiB |
 
@@ -40,7 +41,7 @@ O primeiro endereço fora do registrador, inclusive o alvo de um desvio, dispara
 | `o_data` | saída | 32 | Instrução buscada |
 | `i_invalidate` | entrada | 1 | Pulso que descarta o registrador de busca (padrão 0) |
 | `o_miss` | saída | 1 | Pulso de um ciclo depois do início de cada pedido à memória |
-| `o_d_addr` | saída | 32 | Endereço do pedido, com a base da região nos bits 31 a 26 |
+| `o_d_addr` | saída | 32 | Endereço do pedido, com a base da região nos bits 31 a `window_bits` |
 | `o_d_rden` | saída | 1 | Pedido de leitura |
 | `o_d_line` | saída | 1 | O pedido é de uma linha de quatro palavras |
 | `o_d_advance` | saída | 1 | Igual a `i_d_ready` |
@@ -71,7 +72,7 @@ A máquina roda em `i_clk`.
 | `S_IDLE` | Se `i_sel` vale 1, o registrador não contém o endereço de busca e `i_invalidate` vale 0, registra o endereço pendente, monta o pedido e passa a `S_WAIT` |
 | `S_WAIT` | Mantém o pedido até `i_d_ready`; então baixa `o_d_rden` e `o_d_line`, grava o registrador de busca e volta a `S_IDLE` |
 
-O endereço do pedido é a base da região (`base_flash` quando o endereço está em $[\texttt{rom\_base\_kib}, \texttt{rom\_end\_kib})$ KiB, `base_sdram` caso contrário) seguida dos bits 25 a 0 do endereço, com os bits abaixo do alinhamento zerados (16 bytes com `fetch_line` verdadeiro, 4 bytes com falso). O pedido fica estável até `i_d_ready`, que o chip mantém em nível até `o_d_advance`.
+O endereço do pedido é a base da região (`base_flash` quando o endereço está em $[\texttt{rom\_base\_kib}, \texttt{rom\_end\_kib})$ KiB, `base_sdram` caso contrário) seguida dos bits `window_bits`$-1$ a 0 do endereço, com os bits abaixo do alinhamento zerados (16 bytes com `fetch_line` verdadeiro, 4 bytes com falso). O pedido fica estável até `i_d_ready`, que o chip mantém em nível até `o_d_advance`.
 
 Um pedido em andamento não pode ser abortado, porque o chip termina a espera e só então aceita outro. Um desvio durante a espera paga o resto dela, grava a palavra do endereço antigo, que deixa de coincidir com o PC, e só então pede o endereço novo.
 

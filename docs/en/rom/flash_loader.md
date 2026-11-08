@@ -10,13 +10,17 @@ The internal FLASH has a single, dual-port copy. Port B belongs to the MEM stage
 | :--- | :--- | :--- |
 | [flash_jtag_core](flash_jtag_core.md) | JTAG clock | Instruction and data registers and the handing over of a command |
 | `flash_loader` | Clock of the FLASH port B | Runs the command, switches port B and keeps the halt state |
-| `flash_jtag_shell` (`src/ROM/Cyclone-V/`) | | Instance of Intel's `sld_virtual_jtag`, FPGA only |
+| `flash_jtag_shell` (`src/ROM/Cyclone-V/`) | | Instance of the Common-Components `virtual_jtag` (Intel's `sld_virtual_jtag`) plus `flash_jtag_core`, FPGA only |
 
 ### 1.1. Guarantee that the core does not read during the write
 
 1. The write enable of port B is the pulse of the loader combined with the halt state, so with the core running it is `'0'` by construction, whatever command arrives.
 2. A write or a read requested with the core running is refused, does not change the memory and raises the refusal bit of the status until the next halt.
 3. With the core halted the port B selector picks the loader, and the address of the MEM stage is ignored.
+
+### 1.2. FLASH debug port
+
+The loader is the debug port of the emulated FLASH backend, and the table of the debug port of each backend is in [sdram_debug](../ram/sdram_debug.md), section 7.
 
 ## 2. Interface
 
@@ -85,7 +89,7 @@ The command leaves when the shift ends. The status of a command is only up to da
 | ---: | :--- | :--- |
 | 0 | status | Sends nothing, only reads the status |
 | 1 | halt | Halts the core, clears the checksum and the count |
-| 2 | run | Releases the core, which restarts from the BOOT_ROM |
+| 2 | run | Releases the core, which restarts from the BOOT_MEMORY |
 | 3 | write | Writes `data` to word `addr`, and the cursor becomes `addr + 1` |
 | 4 | read | Reads word `addr`, and the cursor becomes `addr + 1` |
 | 5 | summary | Returns the checksum in `data` and the number of words written in `addr` |
@@ -108,7 +112,7 @@ A scan of $32N + 1$ bits writes $N$ consecutive words from the cursor, which adv
 1. The host sends command 1, and the core halts.
 2. It sends command 6 with the index of the first word and a STREAM scan with the image.
 3. It sends command 5 and compares the sum and the count with those of the image.
-4. It sends command 2, and the core restarts from the BOOT_ROM and runs the new test.
+4. It sends command 2, and the core restarts from the BOOT_MEMORY and runs the new test.
 
 ## 5. Behavior
 

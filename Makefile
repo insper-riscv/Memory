@@ -13,6 +13,7 @@ WDIR  := build/ghdl
 check:
 	@mkdir -p $(WDIR)
 	@$(GHDL) -a $(STD) --work=work --workdir=$(WDIR) $$(riscv-tools vhdl-sort src/common/src/utils_pkg.vhd src/common/src/synchronizer.vhd src/*/SoC/*.vhd src/*/SoC/sim/*.vhd src/RAM/SoC/sdram/*.vhd src/tests/*.vhd src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd)
+	@python3 tests/python/check_chip_timing.py
 	@echo "VHDL syntax check passed"
 
 # Per-entity cocotb tests; `make test TEST=RAM` for one entry of tests/python/tests.json.

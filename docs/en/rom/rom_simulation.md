@@ -4,7 +4,7 @@ Simulation model of the ROM with two synchronous read ports over the same word v
 
 ## 1. Role of the component in the SoC
 
-In GHDL simulations the model replaces the board ROM IPs ([boot_rom](boot_rom.md) and [flash](flash.md)), which depend on the Quartus `altera_mf` library. Port 1 plays the instruction fetch access and port 2, with its own clock, plays the data access of the MEM stage (port B of the FLASH in hardware). The FLASH model with writes by the loader is [flash_simulation](flash_simulation.md). The vector is written in plain VHDL so that cocotb can read it.
+In GHDL simulations the model replaces the board ROM IPs ([boot_memory](boot_memory.md) and [flash](flash.md)), which depend on the Quartus `altera_mf` library. Port 1 plays the instruction fetch access and port 2, with its own clock, plays the data access of the MEM stage (port B of the FLASH in hardware). The FLASH model with writes by the loader is [flash_simulation](flash_simulation.md). The vector is written in plain VHDL so that cocotb can read it.
 
 ## 2. Interface
 
@@ -55,7 +55,7 @@ Each port reads on the rising edge of its clock, when the enable is `'1'`, and s
 
 | Top (Insper-RISC-V) | Instances | Use |
 | :--- | :--- | :--- |
-| Modular simulation top | BOOT_ROM, using port 1 | Internal boot ROM |
+| Modular simulation top | BOOT_MEMORY, using port 1 | Internal boot memory |
 | Modular simulation top | Internal FLASH, using port 1 (fetch) and port 2 (data, MEM stage clock) | Two-port internal ROM |
 | Modular simulation top | Storage behind the [flash_chip](flash_chip.md), with `i_re` at `'1'` | External ROM of configurable size |
 

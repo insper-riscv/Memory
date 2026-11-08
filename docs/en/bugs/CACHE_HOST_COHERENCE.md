@@ -31,7 +31,7 @@ dirty data. The host sees every store as soon as it completes, with no flush; lo
 The price is that a store takes the full write to the SDRAM (14 clocks) instead of 2.
 
 The same coherence problem exists in the other direction: the host writes the next program behind
-the cache, so the lines of the previous program would be read in place of it. The boot ROM of the
+the cache, so the lines of the previous program would be read in place of it. The boot memory of the
 platform writes the cache control with bit 1 set when a test ends, which drops every line, and the
 accesses to the shared window (the last 4 KB of the SDRAM) skip the cache.
 

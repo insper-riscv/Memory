@@ -32,7 +32,7 @@ The names of the contract follow the `i_` and `o_` prefix of the CONTRIBUTING. T
 | `i_mask` | `byteena`, only in `ram` | `i_mask` | none |
 | `o_q` | `q` | `o_data_out` | `o_data` |
 
-The ROM IPs (`boot_rom` and `flash_store`) have `wren` and `data`, because the FPGA memory block is the same as a RAM one, but the board design keeps them at zero. The `rom_simulation` also has a second read port, with `i_addr2`, `i_clk2`, `i_re2` and `o_data2`.
+The ROM IPs (`boot_memory` and `flash_store`) have `wren` and `data`, because the FPGA memory block is the same as a RAM one, but the board design keeps them at zero. The `rom_simulation` also has a second read port, with `i_addr2`, `i_clk2`, `i_re2` and `o_data2`.
 
 ## 2. Timing
 
@@ -56,9 +56,11 @@ SDRAM, FLASH behind a cache and external RAM take several cycles, and the one-cy
 | Pin | Direction | Function |
 | :--- | :---: | :--- |
 | `o_ready` | output | Level that rises when the data is ready and stays at `'1'` until the `advance` |
-| `i_advance` | input | Tells that the request was consumed, and the chip can accept the next one (in the `ram_chip` it is called `i_mem_advance`) |
+| `i_advance` | input | Tells that the request was consumed, and the chip can accept the next one; the name is `i_advance` in every block that meets the contract |
 
-The request (address, data, mask, `i_re` and `i_we`) stays stable until `o_ready` rises, and the read data only changes at the next request. A line request adds `i_line`, which moves four words, and three extra 32-bit ports for words 1 to 3 of the data and of the read. The chips documented with this contract are [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md) and, on the SDRAM side, the bridge [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md).
+The request (address, data, mask, `i_re` and `i_we`) stays stable until `o_ready` rises, and the read data only changes at the next request. A line request adds `i_line`, which moves four words, and three extra 32-bit ports for words 1 to 3 of the data and of the read. An address outside the window of the block reads zero and the write is discarded, with no error. The contract is the same for the emulated backend and for the device backend of a region, and whoever uses it cannot tell one from the other. The chips documented with this contract are [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md) and, on the SDRAM side, the bridge [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md).
+
+The emulated models that follow this contract (`ram_chip`, `flash_chip` and the `onchip_ram_port` adapter with `latency` greater than zero) count the latency with the same machine, the [latency_counter](../latency/latency_counter.md), so an access takes the same edges in simulation and on the board.
 
 ## 4. Clock
 
@@ -66,7 +68,7 @@ The clock is a separate pin, and the block only sees the edge it receives. There
 
 | Case | When it happens | What to do |
 | :--- | :--- | :--- |
-| Same clock as the core | The internal blocks of the board, such as the `BOOT_ROM` (wired to the `pll_clk_if` clock) and the FLASH storage (wired to `pll_clk_idexmem`), both 50 MHz clocks of the core | Wire directly, with no synchronization |
+| Same clock as the core | The internal blocks of the board, such as the `BOOT_MEMORY` (wired to the `pll_clk_if` clock) and the FLASH storage (wired to `pll_clk_idexmem`), both 50 MHz clocks of the core | Wire directly, with no synchronization |
 | Different clock | The SDRAM controller and the debug port, at 142.857 MHz, while the core runs at 50 MHz | Cross the domain with a request that toggles one signal (`req_tog`) and a response that toggles another (`ack_tog`), each read through two synchronizing flip-flops, with address, data and mask stable from the toggle of the request until the response |
 
 The crossing by toggling is what the bridge [sdram_cpu_bridge](../ram/sdram_cpu_bridge.md) and the arbiter [sdram_arbiter](../ram/sdram_arbiter.md) use. A block must never receive `i_re`, `i_we` or `i_addr` from a clock domain other than its own without going through this synchronization.
@@ -175,8 +177,8 @@ A wide word allows moving several core words at once. The data cache uses this i
 
 | Type | Blocks |
 | :--- | :--- |
-| One-cycle memory | [ram](../ram/ram.md), [ram_simulation](../ram/ram_simulation.md), [boot_rom](../rom/boot_rom.md), [flash_store](../rom/flash_store.md), [rom_simulation](../rom/rom_simulation.md) |
-| Variable-latency memory | [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md), [sdram_ctrl](../ram/sdram_ctrl.md) |
+| One-cycle memory | [ram](../ram/ram.md), [ram_simulation](../ram/ram_simulation.md), [boot_memory](../rom/boot_memory.md), [flash_store](../rom/flash_store.md), [rom_simulation](../rom/rom_simulation.md) |
+| Variable-latency memory | [ram_chip](../ram/ram_chip.md), [flash_chip](../rom/flash_chip.md), [onchip_ram_port](../ram/onchip_ram_port.md) (emulated latency), [sdram_ctrl](../ram/sdram_ctrl.md) |
 | Dual-port memory | [rom_simulation](../rom/rom_simulation.md) (two reads) and [ram_chip](../ram/ram_chip.md) (data, instructions and debug) |
 
 ---

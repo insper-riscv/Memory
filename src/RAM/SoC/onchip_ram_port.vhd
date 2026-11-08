@@ -23,6 +23,13 @@
 -- palavra com leitura registrada, então uma linha são quatro acessos seguidos
 -- a ele, um por borda.
 --
+-- Latência emulada: o genérico latency, quando maior que zero, conta as mesmas
+-- bordas do ram_chip (a máquina latency_counter é a mesma) e o acesso só termina
+-- na maior entre essa contagem e a estrutural acima. Com latency de pelo menos 5
+-- o acesso termina na borda E_latency, palavra ou linha, igual ao ram_chip de
+-- mesma latência; abaixo disso vale o mínimo do bloco (uma linha não cabe em
+-- menos de 5 bordas). Zero deixa só a latência estrutural.
+--
 -- Janela: o endereço usa os 26 bits baixos, e a janela do chip começa base_kib
 -- KiB dentro dos 64 MB da região e tem size_bytes bytes. Fora dela a leitura
 -- devolve zero e a escrita é descartada, como no ram_chip.
@@ -45,7 +52,9 @@ entity onchip_ram_port is
     -- Tamanho da janela da RAM em bytes, uma potência de dois de 16 bytes a 32 MB (1048576 é 1 MB).
     size_bytes : positive := 1048576;
     -- Onde a RAM começa dentro dos 64 MB da região, em KiB: o endereço da RAM é o da região menos esta base.
-    base_kib   : natural  := 0
+    base_kib   : natural  := 0;
+    -- Bordas mínimas entre o pedido e a conclusão do acesso, como a latência do ram_chip (0 usa só a estrutural).
+    latency    : natural  := 0
   );
   port (
     -- Clock do módulo e do bloco de RAM.
@@ -107,8 +116,8 @@ architecture rtl of onchip_ram_port is
   -- Base da janela dentro da região, em bytes.
   constant BASE_BYTES : natural := base_kib * 1024;
 
-  -- Estados do acesso: livre, falando com o bloco, concluído à espera do avanço.
-  type state_t is (S_IDLE, S_ACCESS, S_DONE);
+  -- Estados do acesso: livre, falando com o bloco, esperando o resto da latência emulada, concluído à espera do avanço.
+  type state_t is (S_IDLE, S_ACCESS, S_HOLD, S_DONE);
 
   -- Estado do acesso.
   signal st        : state_t := S_IDLE;
@@ -155,12 +164,23 @@ architecture rtl of onchip_ram_port is
   signal dbg_index : std_logic_vector(WORD_BITS - 1 downto 0);
   -- Último passo que emite uma palavra: 0 numa palavra, 3 numa linha.
   signal last_step : unsigned(2 downto 0);
+  -- Início da contagem da latência emulada ('1' carrega).
+  signal lat_load  : std_logic;
+  -- Ainda falta mais de uma borda da latência emulada.
+  signal lat_wait  : std_logic;
 
 begin
 
   assert size_bytes >= 16 and size_bytes <= 33554432
     report "size_bytes must be a power of two from 16 bytes to 32 MB"
     severity failure;
+
+  -- A contagem começa junto com o acesso e só existe quando a latência emulada é pedida.
+  lat_load  <= '1' when latency > 0 and st = S_IDLE and (i_rden = '1' or i_wren = '1') else '0';
+
+  u_latency : entity work.latency_counter
+    generic map (max_count => latency + 1)
+    port map (i_clk => i_clk, i_rst => i_rst, i_load => lat_load, i_count => latency, o_last => open, o_wait => lat_wait);
 
   last_step <= to_unsigned(3, 3) when acc_line = '1' else to_unsigned(0, 3);
   issue     <= '1' when st = S_ACCESS and step <= last_step else '0';
@@ -237,9 +257,18 @@ begin
               end if;
             end if;
             if step > last_step then
-              st <= S_DONE;
+              if lat_wait = '1' then
+                st <= S_HOLD;
+              else
+                st <= S_DONE;
+              end if;
             else
               step <= step + 1;
+            end if;
+          when S_HOLD =>
+            -- Acesso feito no bloco, esperando o resto da latência emulada.
+            if lat_wait = '0' then
+              st <= S_DONE;
             end if;
           when S_DONE =>
             if i_mem_advance = '1' then

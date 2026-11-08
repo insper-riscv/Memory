@@ -4,7 +4,7 @@ True dual-port memory IP that holds the test program (the internal FLASH) in a s
 
 ## 1. Role of the component in the SoC
 
-The internal FLASH starts right after the BOOT_ROM and runs to the start of the RAM (`0x00001000` to `0x00007FFF` in the default map, see [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)). Port A serves the instruction fetch (IF) stage. Port B serves the MEM stage, which reads the FLASH as data (for example to copy the `.data` section at startup), and the [flash_loader](flash_loader.md) loader, which writes it. The core only reads, because the write exists only on port B and the loader enables it only while the core is halted.
+The internal FLASH starts right after the BOOT_MEMORY and runs to the start of the RAM (`0x00001000` to `0x00007FFF` in the default map, see [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)). Port A serves the instruction fetch (IF) stage. Port B serves the MEM stage, which reads the FLASH as data (for example to copy the `.data` section at startup), and the [flash_loader](flash_loader.md) loader, which writes it. The core only reads, because the write exists only on port B and the loader enables it only while the core is halted.
 
 The fetch address indexes the IP directly, with no base subtraction, so the IP covers the whole range from zero to the start of the RAM and not only the logical FLASH span (32 KB of IP for 28 KB of FLASH). Each test image is left-padded with zeros up to the FLASH base before it becomes a `.mif`.
 
@@ -40,23 +40,19 @@ The fetch address indexes the IP directly, with no base subtraction, so the IP c
 
 ## 3. Behavior
 
-### 3.1. Library configuration
+### 3.1. Block memory instance
 
-The memory is the `altsyncram` instance of the `altera_mf` library, which belongs to Quartus and is not part of this repository. The parameters fixed in the VHDL are:
+The memory is built by an instance of [block_ram](../block_ram/block_ram.md), which wraps the `altsyncram` of Quartus' `altera_mf` library, and the other megafunction parameters are fixed there. The generics passed to the instance are:
 
-| Parameter | Value |
+| Generic | Value |
 | :--- | :--- |
 | `operation_mode` | `BIDIR_DUAL_PORT` |
-| `width_a`, `width_b` | 32 |
-| `numwords_a`, `numwords_b` | $\text{size\_bytes} / 4$ (8192 by default) |
-| `widthad_a`, `widthad_b` | $\log_2(\text{size\_bytes}) - 2$ (13 by default) |
-| `maximum_depth` | 2048 |
+| `word_count` | $\text{size\_bytes} / 4$ (8192 by default) |
+| `address_width` | $\log_2(\text{size\_bytes}) - 2$ (13 by default) |
+| `block_depth` | 2048 (`maximum_depth` of the megafunction) |
 | `init_file` | `./init.mif` |
-| `outdata_reg_a`, `outdata_reg_b` | `UNREGISTERED` |
-| `read_during_write_mode_port_a`, `read_during_write_mode_port_b` | `NEW_DATA_NO_NBE_READ` |
-| `intended_device_family` | `Cyclone V` |
 
-The IP has no `ENABLE_RUNTIME_MOD` hint, because Quartus Lite does not accept it in two-port mode, so the In-System Memory Content Editor does not see this memory. Rewriting goes through the loader.
+The instance gets no `instance_name`, so it has no `ENABLE_RUNTIME_MOD` hint, because Quartus Lite does not accept it in two-port mode, so the In-System Memory Content Editor does not see this memory. Rewriting goes through the loader.
 
 ### 3.2. Read latency
 
@@ -75,7 +71,7 @@ The values below come from the Fitter report for the Cyclone V 5CEBA4F23C7.
 
 ## 4. Integration
 
-The file `src/ROM/Cyclone-V/flash.qip` registers the IP as "RAM: 2-PORT", version 20.1, family Cyclone V, and points to the VHDL.
+The file `src/ROM/Cyclone-V/flash.qip` lists `block_ram.vhd` and the IP's VHDL, with no family tag.
 
 | Top | Instance | Wiring |
 | :--- | :--- | :--- |

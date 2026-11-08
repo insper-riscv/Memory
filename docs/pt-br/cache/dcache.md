@@ -21,8 +21,9 @@ A visão geral do caminho do core até a SDRAM, as medições de custo e as esco
 | Generic | Tipo | Padrão | Significado |
 | :--- | :--- | :--- | :--- |
 | `size_bits` | positive | 32768 | Tamanho da cache em bits, potência de dois de pelo menos 256 (duas linhas). 32768 é 4 KB e 4096 é 4 kbit |
-| `base_sdram` | vetor de 6 bits | `010000` | Bits 31 a 26 acrescentados aos endereços da SDRAM no lado da memória (0x40000000) |
-| `base_flash` | vetor de 6 bits | `001000` | Bits 31 a 26 acrescentados aos endereços da FLASH no lado da memória (0x20000000) |
+| `window_bits` | natural de 26 a 29 | 26 | Largura da janela de endereços da cache: $2^{\texttt{window\_bits}}$ bytes (26 é 64 MiB, 27 é 128 MiB). A tag guarda os bits abaixo dela |
+| `base_sdram` | vetor de 6 bits | `010000` | Bits 31 a 26 dos endereços da SDRAM no lado da memória (0x40000000); entram só os bits de 31 até `window_bits` |
+| `base_flash` | vetor de 6 bits | `001000` | Bits 31 a 26 dos endereços da FLASH no lado da memória (0x20000000); entram só os bits de 31 até `window_bits` |
 | `rom_base_kib` | natural | 524288 | Base da região da ROM em KiB; o que cai nela é tratado como FLASH (0x20000000) |
 | `rom_end_kib` | natural | 1048576 | Fim exclusivo da região da ROM em KiB (0x40000000) |
 | `write_through` | boolean | falso | Verdadeiro faz todo store ir também à memória e a falha de store não trazer a linha |
@@ -55,7 +56,7 @@ A visão geral do caminho do core até a SDRAM, as medições de custo e as esco
 
 | Porta | Direção | Largura | Significado |
 | :--- | :--- | ---: | :--- |
-| `o_d_addr` | saída | 32 | Endereço do pedido, com a base da região nos bits 31 a 26 |
+| `o_d_addr` | saída | 32 | Endereço do pedido, com a base da região nos bits 31 a `window_bits` |
 | `o_d_wdata` | saída | 32 | Dado de escrita (palavra 0 numa escrita de linha) |
 | `o_d_byteena` | saída | 4 | Habilita de bytes da escrita |
 | `o_d_rden` | saída | 1 | Pedido de leitura |
@@ -77,16 +78,16 @@ Com $I = \log_2(\texttt{size\_bits}) - 7$ bits de índice, a cache tem $2^I$ lin
 | :--- | :--- | ---: |
 | Palavra na linha | 3 a 2 | 2 |
 | Índice | $I+3$ a 4 | $I$ |
-| Tag | 25 a $I+4$ | $22-I$ |
+| Tag | `window_bits`$-1$ a $I+4$ | $W-4-I$ |
 | Região | Calculada a partir de `rom_base_kib` e `rom_end_kib`; vira o bit mais significativo da tag | 1 |
 
 $$
-\text{TAG\_BITS} = 23 - I
+\text{TAG\_BITS} = W - 3 - I
 $$
 
-Os bits 31 a 26 não são guardados. Num pedido ao lado da memória, a cache os reconstrói com `base_flash` (região da ROM) ou `base_sdram`. Com o tamanho padrão, $I = 8$ (256 linhas) e a tag tem 15 bits.
+Aqui $W$ é `window_bits`. Os bits de 31 a $W$ não são guardados. Num pedido ao lado da memória, a cache os reconstrói com os bits de 5 a $W-26$ de `base_flash` (região da ROM) ou `base_sdram`. Com o tamanho padrão e `window_bits` igual a 26, $I = 8$ (256 linhas) e a tag tem 15 bits; com 27, a janela cobre os 128 MiB da SDRAM da DE2-115 e a tag tem 16 bits. A largura é fixada em geração pelo mapa da plataforma (`CACHE_WINDOW_BITS`).
 
-A escolha da base num preenchimento lê o bit 14 da tag, e não o bit mais significativo. Os dois coincidem apenas quando $\text{TAG\_BITS} = 15$, isto é, com `size_bits` igual a 32768. A escolha da base na escrita de volta usa o bit mais significativo da tag, para qualquer tamanho.
+A escolha da base, no preenchimento e na escrita de volta, usa o bit mais significativo da tag (o bit de região), para qualquer tamanho.
 
 ### 3.2. Contrato do lado do core
 

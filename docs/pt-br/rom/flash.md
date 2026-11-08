@@ -4,7 +4,7 @@ IP interno de memória de duas portas verdadeiras que guarda o programa de teste
 
 ## 1. Função do componente no SoC
 
-A FLASH interna começa logo depois da BOOT_ROM e vai até o início da RAM (`0x00001000` até `0x00007FFF` no mapa padrão, ver [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)). A porta A atende o estágio de busca de instruções (IF). A porta B atende o estágio MEM, que lê a FLASH como dado (por exemplo para copiar a seção `.data` na inicialização), e o carregador [flash_loader](flash_loader.md), que a escreve. O núcleo só lê, porque a escrita existe apenas na porta B e o carregador a habilita só com o núcleo parado.
+A FLASH interna começa logo depois da BOOT_MEMORY e vai até o início da RAM (`0x00001000` até `0x00007FFF` no mapa padrão, ver [02-barramento-e-memoria.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/contracts/02-barramento-e-memoria.md)). A porta A atende o estágio de busca de instruções (IF). A porta B atende o estágio MEM, que lê a FLASH como dado (por exemplo para copiar a seção `.data` na inicialização), e o carregador [flash_loader](flash_loader.md), que a escreve. O núcleo só lê, porque a escrita existe apenas na porta B e o carregador a habilita só com o núcleo parado.
 
 O endereço de busca indexa o IP direto, sem subtrair a base, então o IP cobre todo o intervalo de zero até o início da RAM e não só a faixa lógica da FLASH (32 KB de IP para 28 KB de FLASH). A imagem de cada teste é preenchida à esquerda com zeros até a base da FLASH antes de virar `.mif`.
 
@@ -40,23 +40,19 @@ O endereço de busca indexa o IP direto, sem subtrair a base, então o IP cobre 
 
 ## 3. Comportamento
 
-### 3.1. Configuração da biblioteca
+### 3.1. Instância da memória em bloco
 
-A memória é a instância `altsyncram` da biblioteca `altera_mf`, que é do Quartus e não faz parte deste repositório. Os parâmetros fixados no VHDL são:
+A memória é por uma instância de [block_ram](../block_ram/block_ram.md), que encapsula o `altsyncram` da biblioteca `altera_mf` do Quartus, e os demais parâmetros do megafunção ficam fixos nela. Os generics passados à instância são:
 
-| Parâmetro | Valor |
+| Generic | Valor |
 | :--- | :--- |
 | `operation_mode` | `BIDIR_DUAL_PORT` |
-| `width_a`, `width_b` | 32 |
-| `numwords_a`, `numwords_b` | $\text{size\_bytes} / 4$ (8192 com o padrão) |
-| `widthad_a`, `widthad_b` | $\log_2(\text{size\_bytes}) - 2$ (13 com o padrão) |
-| `maximum_depth` | 2048 |
+| `word_count` | $\text{size\_bytes} / 4$ (8192 com o padrão) |
+| `address_width` | $\log_2(\text{size\_bytes}) - 2$ (13 com o padrão) |
+| `block_depth` | 2048 (`maximum_depth` do megafunção) |
 | `init_file` | `./init.mif` |
-| `outdata_reg_a`, `outdata_reg_b` | `UNREGISTERED` |
-| `read_during_write_mode_port_a`, `read_during_write_mode_port_b` | `NEW_DATA_NO_NBE_READ` |
-| `intended_device_family` | `Cyclone V` |
 
-O IP não tem a dica `ENABLE_RUNTIME_MOD`, porque o Quartus Lite não a aceita em duas portas, então o editor de conteúdo em sistema não enxerga esta memória. A regravação passa pelo carregador.
+A instância não recebe `instance_name`, então não tem a dica `ENABLE_RUNTIME_MOD`, porque o Quartus Lite não a aceita em duas portas, então o editor de conteúdo em sistema não enxerga esta memória. A regravação passa pelo carregador.
 
 ### 3.2. Latência de leitura
 
@@ -75,7 +71,7 @@ Os valores abaixo são os do relatório do Fitter para o Cyclone V 5CEBA4F23C7.
 
 ## 4. Integração
 
-O arquivo `src/ROM/Cyclone-V/flash.qip` registra o IP como "RAM: 2-PORT", versão 20.1, família Cyclone V, e aponta para o VHDL.
+O arquivo `src/ROM/Cyclone-V/flash.qip` lista o `block_ram.vhd` e o VHDL do IP, sem marca de família.
 
 | Topo | Instância | Ligação |
 | :--- | :--- | :--- |

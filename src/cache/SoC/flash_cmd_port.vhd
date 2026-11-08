@@ -127,8 +127,17 @@ architecture rtl of flash_cmd_port is
   constant SECTOR_WORDS : natural := sector_bytes / 4;
   -- Palavras de uma página.
   constant PAGE_WORDS  : natural := page_bytes / 4;
+  -- Maior de dois naturais (o Quartus Lite não traz a função maximum do VHDL-2008 para natural).
+  pure function max_natural(a : natural; b : natural) return natural is
+  begin
+    if a > b then
+      return a;
+    end if;
+    return b;
+  end function;
+
   -- Maior espera inicial entre as duas operações.
-  constant MAX_LATENCY : natural := maximum(erase_latency, program_latency);
+  constant MAX_LATENCY : natural := max_natural(erase_latency, program_latency);
 
   -- Estados: livre, espera inicial e varredura das palavras da região.
   type state_t is (S_IDLE, S_WAIT, S_RUN);

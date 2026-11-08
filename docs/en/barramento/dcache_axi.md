@@ -14,7 +14,7 @@ The two bridges (`axi_master_bridge` and `axi_slave_word_bridge`) live in this r
 
 The core side of the whole is the contract of the private external bus: the access sits on the port while the stage is stopped, `ready` is a level until `mem_advance`, and `rdata` stays on the last completed load until the next one completes, because the load in the last stage still reads it while the next access is on the port. The peripheral side is the same `p_*` port with one pulse per access, so a peripheral (the JTAG UART) is the same VHDL on either bus.
 
-Peripheral 7 (0xF0000000) is the cache's control: a write to its first word starts a flush, and a read gives 1 while a flush is under way, 0 otherwise. With bit 1 of the value set it also drops every line afterwards, which a boot ROM does when a test ends, before the host loads the next program behind the cache. An access that does not use the cache waits while a flush runs; the core's access that already owns the master when a flush starts finishes first, and the flush goes on after it.
+Peripheral 7 (0xF0000000) is the cache's control: a write to its first word starts a flush, and a read gives 1 while a flush is under way, 0 otherwise. With bit 1 of the value set it also drops every line afterwards, which a boot memory does when a test ends, before the host loads the next program behind the cache. An access that does not use the cache waits while a flush runs; the core's access that already owns the master when a flush starts finishes first, and the flush goes on after it.
 
 ## 2. Data cache
 
@@ -23,7 +23,7 @@ Peripheral 7 (0xF0000000) is the cache's control: a write to its first word star
 | Size | 4 KB, direct-mapped |
 | Line | 16 bytes, four words |
 | Write policy | Write-back, write-allocate |
-| Address split (64 MB of SDRAM) | Bits 25:12 tag, 11:4 line, 3:2 word |
+| Address split (default window of 64 MB) | Bits 25:12 tag, 11:4 line, 3:2 word; with a larger `window_bits`, the tag grows up to bit `window_bits`-1 |
 | Core contract | The access sits on the port while the stage is stopped; `ready` is a level until `mem_advance`; `rdata` changes only on that edge |
 | Hit | Ready in 2 clocks (the RAMs read with a register, as block RAMs do) |
 | Clean miss | One line request (a burst of four beats on the bus), then the four words into the RAM |
