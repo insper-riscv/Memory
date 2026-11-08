@@ -114,6 +114,21 @@ Follow this procedure when changing a list.
 
 In `nor_flash_ctrl`, `yices` closes both proofs (773 s and 62 s), `boolector` closes the second and `bitwuzla` finishes neither within 1500 s.
 
+### 10.1. Proof with its own time limit
+
+The `long_tags` list in the `run.sh` of the block gives a proof the `FORMAL_TIMEOUT_LONG` limit, in place of `FORMAL_TIMEOUT`, in every engine. Follow this procedure when adding a proof to the list.
+
+1. Measure the proof alone in each engine, with `FORMAL_JOBS=1`, and record the time.
+2. Choose a `FORMAL_TIMEOUT_LONG` with a margin of at least five times the longest time measured and below the limit of the job (120 minutes), keeping in mind that the other proofs share the same slots.
+3. Keep the depth of the proof: it is the depth that reaches the end of the operation of the scenario.
+4. Update the table below when the list changes.
+
+| Block | Proof | Depth | Limit | Time alone |
+| :--- | :--- | :--- | :--- | :--- |
+| `nor_flash_ctrl` | `safety_a_program`, configuration A, scenario `program` | 80 | 4800 s | `abc-bmc3` 149 s, `yices` 773 s |
+
+The proof of the `program` scenario is the deepest of the block and closes in `abc-bmc3` and in `yices`. On the CI, with the other proofs running in parallel, it went past the 1500 s limit in every engine and was left without an answer; with 4800 s there is a margin of more than six times over `yices` and thirty times over `abc-bmc3`.
+
 ## 11. Warnings are errors
 
 A warning from GHDL, Yosys or SymbiYosys points to code outside the standard or at its limit, so it makes the run fail. The fix is in the code, the proof or the netlist, and neither a `-Wno-*` option nor a list of ignored warnings is allowed.

@@ -48,6 +48,11 @@ export FORMAL_TIMEOUT="${FORMAL_TIMEOUT:-1500}"
 # abc-bmc3 skips what it does not do. yices closes both (773 s and 62 s), and formal/aggregate.sh still demands an
 # answer from some engine for each of them.
 bitwuzla_slow=" safety_a_program safety_b_read "
+# The program scenario of configuration A is the deepest proof (depth 80): alone, abc-bmc3 closes it in 149 s and yices in
+# 773 s, but on a CI runner with the other proofs running side by side it went past FORMAL_TIMEOUT in every engine and was left
+# without an answer. It gets FORMAL_TIMEOUT_LONG (4800 s, inside the 120 minutes of the job); the other proofs keep FORMAL_TIMEOUT.
+long_tags=" safety_a_program "
+export FORMAL_TIMEOUT_LONG="${FORMAL_TIMEOUT_LONG:-4800}"
 start prove a_dbg.v bmc   80 '-DSC_PROGRAM'                  safety_a_program
 start prove a_dbg.v cover 80 '-DSC_PROGRAM -DCOVER'          cover_a_program
 start prove a_dbg.v bmc   50 '-DSC_ERASE'                    safety_a_erase

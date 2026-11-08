@@ -114,6 +114,21 @@ Siga este procedimento ao mexer em uma lista.
 
 No `nor_flash_ctrl`, o `yices` fecha as duas provas (773 s e 62 s), o `boolector` fecha a segunda e o `bitwuzla` não termina nenhuma das duas em 1500 s.
 
+### 10.1. Prova com limite de tempo próprio
+
+A lista `long_tags` do `run.sh` do bloco dá a uma prova o limite `FORMAL_TIMEOUT_LONG`, no lugar do `FORMAL_TIMEOUT`, para todos os motores. Siga este procedimento ao incluir uma prova na lista.
+
+1. Meça a prova sozinha em cada motor, com `FORMAL_JOBS=1`, e registre o tempo.
+2. Escolha um `FORMAL_TIMEOUT_LONG` com folga de pelo menos cinco vezes o maior tempo medido e abaixo do limite do job (120 minutos), contando que as outras provas dividem os mesmos espaços.
+3. Mantenha a profundidade da prova: ela é a que alcança o fim da operação do cenário.
+4. Atualize a tabela abaixo quando a lista mudar.
+
+| Bloco | Prova | Profundidade | Limite | Tempo sozinha |
+| :--- | :--- | :--- | :--- | :--- |
+| `nor_flash_ctrl` | `safety_a_program`, configuração A, cenário `program` | 80 | 4800 s | `abc-bmc3` 149 s, `yices` 773 s |
+
+A prova do cenário `program` é a mais profunda do bloco e fecha em `abc-bmc3` e em `yices`. Na CI, com as outras provas rodando em paralelo, ela passou do limite de 1500 s em todos os motores e ficou sem resposta; com 4800 s há folga de mais de seis vezes sobre o `yices` e de trinta vezes sobre o `abc-bmc3`.
+
 ## 11. Avisos são erros
 
 Um aviso do GHDL, do Yosys ou do SymbiYosys indica código fora da norma ou no limite dela, e por isso faz a execução falhar. A correção é no código, na prova ou na netlist, e nenhuma opção `-Wno-*` nem lista de avisos ignorados é permitida.

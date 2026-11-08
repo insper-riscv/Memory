@@ -70,7 +70,8 @@ warnings_in() {
 # PASS (exit code 0), FAIL (2, a counterexample or a goal that cannot be covered), ERROR (any other code, such
 # as 4 unknown, 8 timeout and 16 error: the tool did not reach a verdict) or SKIP (the engine cannot run that
 # kind of proof: abc-bmc3 only does bounded checks; the bitwuzla engine on a tag that the script lists in bitwuzla_slow;
-# or it did not finish within FORMAL_TIMEOUT seconds, 600 by default, which leaves the proof to the other engines), and the exit code and the seconds it took to <tag>.info.
+# or it did not finish within FORMAL_TIMEOUT seconds, 600 by default, or within FORMAL_TIMEOUT_LONG seconds for a tag
+# that the script lists in long_tags, which leaves the proof to the other engines), and the exit code and the seconds it took to <tag>.info.
 prove() {
   if [ "$engine" = abc-bmc3 ] && [ "$2" != bmc ]; then
     echo "SKIP abc-bmc3 runs only bounded checks, not mode $2" > "$5.res"
@@ -90,9 +91,11 @@ prove() {
     if [ "$engine" = abc-bmc3 ]; then printf '%s\n' 'techmap' 'opt -fast' 'setundef -anyseq'; fi
     printf '%s\n' '[files]' "$1" "$props"
   } > "$5.sby"
-  local rc=0 t0 t1
+  local rc=0 t0 t1 limit="${FORMAL_TIMEOUT:-600}"
+  # A tag of long_tags may run up to FORMAL_TIMEOUT_LONG, so that a slow runner does not leave the proof without an answer
+  if [[ "${long_tags:-}" == *" $5 "* ]]; then limit="${FORMAL_TIMEOUT_LONG:-$limit}"; fi
   t0="$(date +%s.%N)"
-  timeout "${FORMAL_TIMEOUT:-600}" sby -f "$5.sby" > "$5.log" 2>&1 || rc=$?
+  timeout "$limit" sby -f "$5.sby" > "$5.log" 2>&1 || rc=$?
   t1="$(date +%s.%N)"
   local found
   found="$(warnings_in "$5.log" "${out:-.}/$5.log")"
@@ -105,7 +108,7 @@ prove() {
     case "$rc" in
       0) echo PASS ;;
       2) echo FAIL ;;
-      124) echo "SKIP the engine did not finish within FORMAL_TIMEOUT (${FORMAL_TIMEOUT:-600} s)" ;;
+      124) echo "SKIP the engine did not finish within FORMAL_TIMEOUT (${limit} s)" ;;
       *) echo "ERROR sby exited with code $rc, not a verdict (see $5.log)" ;;
     esac > "$5.res.tmp"
   fi
