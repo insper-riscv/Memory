@@ -90,8 +90,7 @@ The machine runs on `i_clk_cpu`.
 
 | State | Function | Output |
 | :--- | :--- | :--- |
-| `S_IDLE` | Waits for a miss. With `blocked` at 1 and a sweep pending, it starts `S_SWEEP`. Otherwise, if the registered `i_sel` is 1, there is no hit, the registered address equals `i_addr` and `i_invalidate` is 0, it copies the registered address and moves to `S_FILL_PRE` | |
-| `S_FILL_PRE` | Computes the tag and the index of the line from the address copied in `S_IDLE`, off the fetch path | |
+| `S_IDLE` | Waits for a miss. With `blocked` at 1 and a sweep pending, it starts `S_SWEEP`. Otherwise, if the miss registered in the previous cycle (`miss_q`, which is 1 when `S_IDLE` saw the registered `i_sel` at 1, no hit, the registered address equal to `i_addr` and `i_invalidate` at 0) still holds with `i_invalidate` at 0, it computes the tag and the index of the line from the address of the miss (`miss_a`, registered) and moves to `S_FILL_REQ`. Registering the decision takes the read of the tag out of the path to the state machine | |
 | `S_FILL_REQ` | Builds the line request with the address $\text{base} \,\Vert\, \text{tag} \,\Vert\, \text{index} \,\Vert\, 0000_2$ and raises `o_d_rden` and `o_d_line` | `o_miss` at 1 |
 | `S_FILL_WAIT` | Waits for `i_d_ready`, then lowers the request | |
 | `S_FILL_GET` | Stores one word per cycle in the data RAM (words 0 to 3); on word 3 it stores the tag and the valid bit | |
@@ -102,7 +101,7 @@ During the fill, `i_addr` may change (a branch moved the PC). The line keeps bei
 
 ### 3.4. Latency
 
-Let $k$ be the number of `S_FILL_WAIT` cycles ($k \ge 1$) and assume `i_clk` equal to `i_clk_cpu`. A miss is detected in `S_IDLE`, in the cycle after the edge that registered the address, and spends $1 + 1 + k + 4 + 2$ cycles from `S_FILL_PRE` to `S_SETTLE`. Counting the detection cycle, the miss costs $9 + k$ cycles more than a hit, and the next lookup hits.
+Let $k$ be the number of `S_FILL_WAIT` cycles ($k \ge 1$) and assume `i_clk` equal to `i_clk_cpu`. A miss is detected in `S_IDLE`, in the cycle after the edge that registered the address, and spends $1 + 1 + k + 4 + 2$ cycles from the second cycle of `S_IDLE` (the one that reads `miss_q`) to `S_SETTLE`. Counting the detection cycle, the miss costs $9 + k$ cycles more than a hit, and the next lookup hits.
 
 | Case | Cycles beyond a hit |
 | :--- | ---: |

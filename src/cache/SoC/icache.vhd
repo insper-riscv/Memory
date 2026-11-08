@@ -125,7 +125,7 @@ end entity icache;
 architecture rtl of icache is
 
   -- Estados da cache: livre e as etapas do preenchimento de linha.
-  type state_t is (S_IDLE, S_FILL_REQ, S_FILL_WAIT, S_FILL_GET, S_SETTLE, S_SWEEP, S_RELEASE, S_FILL_PRE, S_SETTLE2, S_RELEASE2);
+  type state_t is (S_IDLE, S_FILL_REQ, S_FILL_WAIT, S_FILL_GET, S_SETTLE, S_SWEEP, S_RELEASE, S_SETTLE2, S_RELEASE2);
   -- Estado atual da cache.
   signal st : state_t := S_IDLE;
 
@@ -222,8 +222,10 @@ architecture rtl of icache is
   signal fill_tag : std_logic_vector(TAG_BITS - 1 downto 0);
   -- Índice da linha em preenchimento.
   signal fill_idx : std_logic_vector(INDEX_BITS - 1 downto 0);
-  -- Endereço da falha, copiado do endereço registrado sem lógica; a tag e o índice do preenchimento saem dele no ciclo seguinte.
-  signal fill_a   : std_logic_vector(31 downto 0) := (others => '0');
+  -- A consulta do ciclo anterior errou: registrada, tira a leitura da tag do caminho até a máquina de estados.
+  signal miss_q   : std_logic := '0';
+  -- Endereço da falha, copiado do endereço registrado sem lógica; a tag e o índice do preenchimento saem dele.
+  signal miss_a   : std_logic_vector(31 downto 0) := (others => '0');
   -- O endereço registrado é o de i_addr (ou a conferência está desligada).
   signal addr_same : std_logic;
   -- Palavra da linha em preenchimento.
@@ -356,8 +358,15 @@ begin
         d_rden_i <= '0';
         d_line_i <= '0';
         cnt      <= (others => '0');
+        miss_q   <= '0';
       else
         rq_v <= '0';
+        if st = S_IDLE and hit = '0' and sel_eff = '1' and addr_same = '1' and i_invalidate = '0' and blocked = '0' then
+          miss_q <= '1';
+        else
+          miss_q <= '0';
+        end if;
+        miss_a <= addr_q;
         if i_inval_region = '1' and unsigned(i_inval_last(31 downto 4)) >= unsigned(i_inval_first(31 downto 4)) then
           span_m1 := unsigned(i_inval_last(31 downto 4)) - unsigned(i_inval_first(31 downto 4));
           rq_v     <= '1';
@@ -400,17 +409,12 @@ begin
                 pend    <= '0';
                 st      <= S_SWEEP;
               end if;
-            -- uma falha do endereço que ainda está em addr: traz a sua linha
-            elsif sel_eff = '1' and hit = '0' and addr_same = '1' and i_invalidate = '0' then
-              fill_a <= addr_q;
-              st     <= S_FILL_PRE;
+            -- uma falha registrada no ciclo anterior (a decisão sai da leitura da tag em um registrador): traz a sua linha
+            elsif miss_q = '1' and i_invalidate = '0' then
+              fill_tag <= in_rom(miss_a) & miss_a(window_bits - 1 downto TAG_LOW);
+              fill_idx <= miss_a(INDEX_BITS + 3 downto 4);
+              st       <= S_FILL_REQ;
             end if;
-
-          -- a tag e o índice da linha saem do endereço copiado, fora do caminho da busca
-          when S_FILL_PRE =>
-            fill_tag <= in_rom(fill_a) & fill_a(window_bits - 1 downto TAG_LOW);
-            fill_idx <= fill_a(INDEX_BITS + 3 downto 4);
-            st       <= S_FILL_REQ;
 
           when S_FILL_REQ =>
             if fill_tag(TAG_BITS - 1) = '1' then

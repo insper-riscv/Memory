@@ -90,8 +90,7 @@ A máquina roda em `i_clk_cpu`.
 
 | Estado | Função | Saída |
 | :--- | :--- | :--- |
-| `S_IDLE` | Espera uma falha. Com `blocked` em 1 e uma varredura pendente, inicia `S_SWEEP`. Senão, se `i_sel` registrado está em 1, não há acerto, o endereço registrado é igual a `i_addr` e `i_invalidate` está em 0, copia o endereço registrado e passa a `S_FILL_PRE` | |
-| `S_FILL_PRE` | Calcula a tag e o índice da linha a partir do endereço copiado em `S_IDLE`, fora do caminho da busca | |
+| `S_IDLE` | Espera uma falha. Com `blocked` em 1 e uma varredura pendente, inicia `S_SWEEP`. Senão, se a falha registrada no ciclo anterior (`miss_q`, que vale 1 quando `S_IDLE` viu `i_sel` registrado em 1, nenhum acerto, o endereço registrado igual a `i_addr` e `i_invalidate` em 0) continua valendo com `i_invalidate` em 0, calcula a tag e o índice da linha a partir do endereço da falha (`miss_a`, registrado) e passa a `S_FILL_REQ`. Registrar a decisão tira a leitura da tag do caminho até a máquina de estados | |
 | `S_FILL_REQ` | Monta o pedido de linha com o endereço $\text{base} \,\Vert\, \text{tag} \,\Vert\, \text{índice} \,\Vert\, 0000_2$ e levanta `o_d_rden` e `o_d_line` | `o_miss` em 1 |
 | `S_FILL_WAIT` | Espera `i_d_ready`, então baixa o pedido | |
 | `S_FILL_GET` | Grava uma palavra por ciclo nas RAMs de dados (palavras 0 a 3); na palavra 3 grava a tag e o bit de validade | |
@@ -102,7 +101,7 @@ Durante o preenchimento, `i_addr` pode mudar (um desvio moveu o PC). A linha con
 
 ### 3.4. Latência
 
-Seja $k$ o número de ciclos de `S_FILL_WAIT` ($k \ge 1$) e supondo `i_clk` igual a `i_clk_cpu`. Uma falha é detectada em `S_IDLE`, no ciclo seguinte à borda que registrou o endereço, e gasta $1 + 1 + k + 4 + 2$ ciclos de `S_FILL_PRE` a `S_SETTLE`. Com o ciclo de detecção, a falha custa $9 + k$ ciclos a mais que um acerto, e a consulta seguinte acerta.
+Seja $k$ o número de ciclos de `S_FILL_WAIT` ($k \ge 1$) e supondo `i_clk` igual a `i_clk_cpu`. Uma falha é detectada em `S_IDLE`, no ciclo seguinte à borda que registrou o endereço, e gasta $1 + 1 + k + 4 + 2$ ciclos do segundo ciclo de `S_IDLE` (o que lê `miss_q`) a `S_SETTLE`. Com o ciclo de detecção, a falha custa $9 + k$ ciclos a mais que um acerto, e a consulta seguinte acerta.
 
 | Caso | Ciclos além do acerto |
 | :--- | ---: |
