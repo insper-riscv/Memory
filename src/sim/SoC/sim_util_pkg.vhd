@@ -18,10 +18,12 @@ package sim_util_pkg is
   -- Converte n nanossegundos em tempo.
   pure function tns (n : natural) return time;
 
-  -- Palavra do padrão determinístico no endereço a, (a x 0x9E3779B1) xor 0x5A5A1234 em 32 bits; o byte de endereço a de um chip é o byte 3 da palavra do endereço a.
+  -- Palavra do padrão determinístico no endereço a, (a x 0x9E3779B1) xor 0x5A5A1234 em 32 bits; o
+  -- byte de endereço a de um chip é o byte 3 da palavra do endereço a.
   pure function pattern_word (a : std_logic_vector(31 downto 0)) return std_logic_vector;
 
-  -- Registra uma violação: pulsa o_violation por 1 ns e, com abort verdadeiro, falha a simulação, ou, com abort falso, só avisa. A mensagem leva o prefixo do modelo.
+  -- Registra uma violação: pulsa o_violation por 1 ns e, com abort verdadeiro, falha a simulação,
+  -- ou, com abort falso, só avisa. A mensagem leva o prefixo do modelo.
   procedure violate (
     -- Saída de violação do modelo, que recebe o pulso.
     signal   o_violation : out std_logic;

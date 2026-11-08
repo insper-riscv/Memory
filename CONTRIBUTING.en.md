@@ -95,7 +95,7 @@ All code identifiers must be written in **English**, whereas all comments and fi
 
 ### 4.1. Mandatory File Header
 
-Every `.vhd` file must begin with a 72-column header block (`-- ====...====`) in Portuguese describing the architectural responsibility of the package or entity:
+Every `.vhd` file must begin with a header block (`-- ====...====`) in Portuguese describing the architectural responsibility of the package or entity. No VHDL line is longer than 100 characters:
 
 ```vhdl
 -- ============================================================================
@@ -106,7 +106,7 @@ Every `.vhd` file must begin with a 72-column header block (`-- ====...====`) in
 -- ============================================================================
 ```
 
-Internal sections within an architecture must use 72-column single-hyphen dividers (`-- ----...----`).
+Internal sections within an architecture must use single-hyphen dividers (`-- ----...----`).
 
 ### 4.2. Individual Docstring Above Every Declaration
 

@@ -69,9 +69,13 @@ entity icache is
     base_sdram : std_logic_vector(5 downto 0) := "010000";
     -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
     base_flash : std_logic_vector(5 downto 0) := "001000";
-    -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão). Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o padrão difere dos defaults do Core.
+    -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão).
+    -- Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa
+    -- do Core, por isso o padrão difere dos defaults do Core.
     rom_base_kib : natural := 524288;
-    -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão). Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o padrão difere dos defaults do Core.
+    -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão). Origem: o espaço de
+    -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
+    -- padrão difere dos defaults do Core.
     rom_end_kib  : natural := 1048576;
     -- Com valor não negativo, a seleção da cache sai do endereço registrado (selecionado a partir deste endereço, em KiB), e a porta i_sel é ignorada; -1 usa i_sel. Tira a decodificação do PC do caminho até a cache.
     sel_from_kib : integer := -1;
@@ -209,6 +213,10 @@ architecture rtl of icache is
 
   -- A tag lida bate com a do endereço registrado.
   signal tag_match : std_logic;
+  -- O endereço registrado da busca está na região da ROM.
+  signal rom_q     : std_logic;
+  -- O endereço da falha em andamento está na região da ROM.
+  signal rom_miss  : std_logic;
   -- A instrução pedida está na cache.
   signal hit       : std_logic;
 
@@ -257,7 +265,10 @@ architecture rtl of icache is
 
 begin
 
-  tag_match <= '1' when tag_rd = (in_window(addr_q, rom_base_kib, rom_end_kib) & addr_q(window_bits - 1 downto TAG_LOW)) else '0';
+  rom_q    <= in_window(addr_q, rom_base_kib, rom_end_kib);
+  rom_miss <= in_window(miss_a, rom_base_kib, rom_end_kib);
+
+  tag_match <= '1' when tag_rd = (rom_q & addr_q(window_bits - 1 downto TAG_LOW)) else '0';
   sel_eff   <= sel_q when sel_from_kib < 0 else
                '1' when unsigned(addr_q) >= SEL_FROM_ADDR else '0';
   hit       <= sel_eff and valid_rd and tag_match and (not blocked);
@@ -395,7 +406,7 @@ begin
               end if;
             -- uma falha registrada no ciclo anterior (a decisão sai da leitura da tag em um registrador): traz a sua linha
             elsif miss_q = '1' and i_invalidate = '0' then
-              fill_tag <= in_window(miss_a, rom_base_kib, rom_end_kib) & miss_a(window_bits - 1 downto TAG_LOW);
+              fill_tag <= rom_miss & miss_a(window_bits - 1 downto TAG_LOW);
               fill_idx <= miss_a(INDEX_BITS + 3 downto 4);
               st       <= S_FILL_REQ;
             end if;

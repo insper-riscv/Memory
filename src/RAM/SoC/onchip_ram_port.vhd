@@ -52,7 +52,9 @@ entity onchip_ram_port is
   generic (
     -- Tamanho da janela da RAM em bytes, uma potência de dois de 16 bytes a 32 MB (1048576 é 1 MB).
     size_bytes : positive := 1048576;
-    -- Onde a RAM começa dentro dos 64 MB da região, em KiB: o endereço da RAM é o da região menos esta base. Origem: o espaço de endereços da região da memória que o Memory enxerga (26 bits baixos), não o mapa do Core.
+    -- Onde a RAM começa dentro dos 64 MB da região, em KiB: o endereço da RAM é o da região menos
+    -- esta base. Origem: o espaço de endereços da região da memória que o Memory enxerga (26 bits
+    -- baixos), não o mapa do Core.
     base_kib   : natural  := 0;
     -- Bordas mínimas entre o pedido e a conclusão do acesso, como a latência do ram_chip (0 usa só a estrutural).
     latency    : natural  := 0

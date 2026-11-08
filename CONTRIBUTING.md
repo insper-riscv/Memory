@@ -95,7 +95,7 @@ Todos os identificadores de código devem ser escritos em **inglês**, enquanto 
 
 ### 4.1. Cabeçalho Obrigatório de Arquivo
 
-Todo arquivo `.vhd` deve iniciar com um bloco de cabeçalho de 72 colunas (`-- ====...====`) em português descrevendo a responsabilidade arquitetural do pacote ou da entidade:
+Todo arquivo `.vhd` deve iniciar com um bloco de cabeçalho (`-- ====...====`) em português descrevendo a responsabilidade arquitetural do pacote ou da entidade. Nenhuma linha de VHDL passa de 100 caracteres:
 
 ```vhdl
 -- ============================================================================
@@ -106,7 +106,7 @@ Todo arquivo `.vhd` deve iniciar com um bloco de cabeçalho de 72 colunas (`-- =
 -- ============================================================================
 ```
 
-Seções internas de uma arquitetura devem utilizar separadores de 72 colunas com hífens simples (`-- ----...----`).
+Seções internas de uma arquitetura devem utilizar separadores com hífens simples (`-- ----...----`).
 
 ### 4.2. Docstring Individual Acima de Cada Declaração
 

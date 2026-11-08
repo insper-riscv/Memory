@@ -141,7 +141,9 @@ architecture rtl of sdram_ctrl is
     max_natural(C_RC, max_natural(C_RCD + CAS_LATENCY + BEATS + 2, C_RCD + BEATS + C_WR + C_RP));
   -- O mesmo intervalo para uma linha: o último comando sai três palavras de beats depois do primeiro e o último beat dois clocks depois dele.
   constant ACT_TO_ACT_LINE : natural :=
-    max_natural(C_RC, max_natural(C_RCD + 3 * BEATS + CAS_LATENCY + BEATS + 2, C_RCD + 4 * BEATS + C_WR + C_RP));
+    max_natural(C_RC,
+                max_natural(C_RCD + 3 * BEATS + CAS_LATENCY + BEATS + 2,
+                            C_RCD + 4 * BEATS + C_WR + C_RP));
 
   -- Coluna do chip do comando READ ou WRITE: a coluna da palavra (ou a da palavra lcnt da linha) seguida dos bits que a rajada percorre.
   function chip_col (colword : std_logic_vector; lcnt : natural; line : std_logic) return std_logic_vector is

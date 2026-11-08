@@ -24,7 +24,8 @@ entity onchip_ram_system is
     write_through : boolean  := false;
     -- Tamanho da memória em bytes, uma potência de dois.
     size_bytes    : positive := 4096;
-    -- Onde a memória começa dentro dos 64 MB da região, em KiB. Origem: o espaço de endereços da região da memória que o Memory enxerga (26 bits baixos), não o mapa do Core.
+    -- Onde a memória começa dentro dos 64 MB da região, em KiB. Origem: o espaço de endereços da
+    -- região da memória que o Memory enxerga (26 bits baixos), não o mapa do Core.
     base_kib      : natural  := 0;
     -- Latência emulada em bordas, a mesma no ram_chip e no adaptador (0 deixa ao ram_chip o padrão e ao adaptador a estrutural).
     latency       : natural  := 0;

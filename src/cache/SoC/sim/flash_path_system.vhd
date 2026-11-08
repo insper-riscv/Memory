@@ -21,7 +21,8 @@ entity flash_path_system is
     first_latency : natural := 12;
     -- Bordas entre as palavras de uma linha do chip.
     next_latency  : natural := 3;
-    -- Verdadeiro: a ponte de busca (ifetch_bridge) faz o lado da busca, no lugar da cache de instruções.
+    -- Verdadeiro: a ponte de busca (ifetch_bridge) faz o lado da busca, no lugar da cache de
+    -- instruções.
     use_bridge    : boolean := false;
     -- Só com use_bridge: a ponte pede a linha de quatro palavras (true) ou só a palavra (false).
     fetch_line    : boolean := true
@@ -34,15 +35,18 @@ entity flash_path_system is
 
     -- Busca da cache de instruções ou da ponte: endereço do PC.
     i_addr       : in  std_logic_vector(31 downto 0);
-    -- Busca da cache de instruções ou da ponte: o endereço pertence a uma região com cache (ou à FLASH ou à SDRAM, na ponte).
+    -- Busca da cache de instruções ou da ponte: o endereço pertence a uma região com cache (ou à
+    -- FLASH ou à SDRAM, na ponte).
     i_sel        : in  std_logic;
-    -- Busca da cache de instruções ou da ponte: pulso que derruba as linhas (na ponte, descarta o registrador de busca, o fence.i).
+    -- Busca da cache de instruções ou da ponte: pulso que derruba as linhas (na ponte, descarta o
+    -- registrador de busca, o fence.i).
     i_invalidate : in  std_logic;
     -- Busca da cache de instruções ou da ponte: a instrução em o_data é a do endereço.
     o_ready      : out std_logic;
     -- Busca da cache de instruções ou da ponte: instrução buscada.
     o_data       : out std_logic_vector(31 downto 0);
-    -- Busca da ponte: pulso de um ciclo depois do início de cada pedido à memória; sempre '0' com a cache de instruções.
+    -- Busca da ponte: pulso de um ciclo depois do início de cada pedido à memória; sempre '0' com a
+    -- cache de instruções.
     o_miss       : out std_logic;
 
     -- Mestre B (papel da cache de dados): endereço do pedido.

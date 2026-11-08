@@ -70,9 +70,13 @@ entity dcache is
     base_sdram    : std_logic_vector(5 downto 0) := "010000";
     -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
     base_flash    : std_logic_vector(5 downto 0) := "001000";
-    -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão). Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o padrão difere dos defaults do Core.
+    -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão).
+    -- Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa
+    -- do Core, por isso o padrão difere dos defaults do Core.
     rom_base_kib  : natural := 524288;
-    -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão). Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o padrão difere dos defaults do Core.
+    -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão). Origem: o espaço de
+    -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
+    -- padrão difere dos defaults do Core.
     rom_end_kib   : natural := 1048576;
     -- Verdadeiro: todo store vai também à memória e a falha de store não traz a linha (nenhuma linha fica suja).
     write_through : boolean := false
@@ -205,6 +209,8 @@ architecture rtl of dcache is
 
   -- Tag do endereço do acesso.
   signal req_tag  : std_logic_vector(TAG_BITS - 1 downto 0);
+  -- O endereço do pedido está na região da ROM.
+  signal is_rom   : std_logic;
   -- Índice da linha do endereço do acesso.
   signal req_idx  : std_logic_vector(INDEX_BITS - 1 downto 0);
   -- Linha em processamento.
@@ -265,7 +271,9 @@ architecture rtl of dcache is
 
 begin
 
-  req_tag <= in_window(i_addr, rom_base_kib, rom_end_kib) & i_addr(window_bits - 1 downto TAG_LOW);
+  is_rom <= in_window(i_addr, rom_base_kib, rom_end_kib);
+
+  req_tag <= is_rom & i_addr(window_bits - 1 downto TAG_LOW);
   req_idx <= i_addr(INDEX_BITS + 3 downto 4);
   cur_idx <= std_logic_vector(f_idx) when flushing = '1' else req_idx;
   hit     <= valid(to_integer(unsigned(cur_idx))) when tag_rd = req_tag else '0';
@@ -275,7 +283,8 @@ begin
   tag_ra <= cur_idx;
 
   -- porta de escrita: um acerto escreve a palavra, um preenchimento escreve a palavra que chegou
-  ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1' and in_window(i_addr, rom_base_kib, rom_end_kib) = '0' and i_bypass = '0') or st = S_FILL_GET else '0';
+  ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1' and is_rom = '0'
+                      and i_bypass = '0') or st = S_FILL_GET else '0';
   ram_wa <= i_addr(INDEX_BITS + 3 downto 2) when st = S_LOOK else req_idx & std_logic_vector(cnt);
   fill_w <= i_d_rdata when cnt = "00" else
             i_d_rdata_x(31 downto 0)  when cnt = "01" else
@@ -386,7 +395,7 @@ begin
             if i_bypass = '1' and i_wren = '0' then
               -- load sem cache: uma palavra da memória
               st <= S_BY_REQ;
-            elsif (write_through or in_window(i_addr, rom_base_kib, rom_end_kib) = '1' or i_bypass = '1') and i_wren = '1' then
+            elsif (write_through or is_rom = '1' or i_bypass = '1') and i_wren = '1' then
               -- a RAM da cache recebe a palavra num acerto (ram_we); a memória a recebe nos dois casos.
               -- Um store à FLASH nunca atualiza a cache, porque a FLASH ignora o store: só passa adiante
               st <= S_WT_REQ;
@@ -416,7 +425,7 @@ begin
 
           -- escrita direta: a palavra do store vai à memória
           when S_WT_REQ =>
-            if in_window(i_addr, rom_base_kib, rom_end_kib) = '1' then
+            if is_rom = '1' then
               d_addr_i <= base_flash(5 downto window_bits - 26) & i_addr(window_bits - 1 downto 2) & "00";
             else
               d_addr_i <= base_sdram(5 downto window_bits - 26) & i_addr(window_bits - 1 downto 2) & "00";
@@ -435,7 +444,7 @@ begin
 
           -- load sem cache: o pedido de uma palavra e a espera da resposta
           when S_BY_REQ =>
-            if in_window(i_addr, rom_base_kib, rom_end_kib) = '1' then
+            if is_rom = '1' then
               d_addr_i <= base_flash(5 downto window_bits - 26) & i_addr(window_bits - 1 downto 2) & "00";
             else
               d_addr_i <= base_sdram(5 downto window_bits - 26) & i_addr(window_bits - 1 downto 2) & "00";

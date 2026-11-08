@@ -59,9 +59,13 @@ entity ifetch_bridge is
     base_sdram   : std_logic_vector(5 downto 0) := "010000";
     -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
     base_flash   : std_logic_vector(5 downto 0) := "001000";
-    -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão). Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o padrão difere dos defaults do Core.
+    -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão).
+    -- Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa
+    -- do Core, por isso o padrão difere dos defaults do Core.
     rom_base_kib : natural := 524288;
-    -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão). Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o padrão difere dos defaults do Core.
+    -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão). Origem: o espaço de
+    -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
+    -- padrão difere dos defaults do Core.
     rom_end_kib  : natural := 1048576
   );
   port (

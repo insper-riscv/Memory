@@ -53,7 +53,8 @@ entity sram_ctrl is
     margin_ns     : natural  := 0;
     -- Tamanho do chip em bytes, uma potência de dois de 16 bytes a 2 MB.
     size_bytes    : positive := 2097152;
-    -- Onde o chip começa dentro dos 64 MB da região, em KiB. Origem: o espaço de endereços da região da memória que o Memory enxerga (26 bits baixos), não o mapa do Core.
+    -- Onde o chip começa dentro dos 64 MB da região, em KiB. Origem: o espaço de endereços da
+    -- região da memória que o Memory enxerga (26 bits baixos), não o mapa do Core.
     base_kib      : natural  := 0;
     -- Acesso por endereço, em ns.
     t_aa_ns       : natural  := SRAM_T_AA_NS;

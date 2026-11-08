@@ -32,10 +32,13 @@ end entity cache_pkg_tb;
 architecture sim of cache_pkg_tb is
 begin
 
-  o_in_window <= in_window(i_addr, to_integer(unsigned(i_base_kib)), to_integer(unsigned(i_end_kib)));
+  o_in_window <= in_window(
+    i_addr, to_integer(unsigned(i_base_kib)), to_integer(unsigned(i_end_kib))
+  );
 
   -- Abaixo de 2**8 bits a função falha por projeto, então a saída fica em zero.
-  o_index_bits <= std_logic_vector(to_unsigned(index_bits_of(2 ** to_integer(unsigned(i_size_log2))), 5))
+  o_index_bits <= std_logic_vector(
+                    to_unsigned(index_bits_of(2 ** to_integer(unsigned(i_size_log2))), 5))
                   when unsigned(i_size_log2) >= 8 else (others => '0');
 
 end architecture sim;

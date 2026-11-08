@@ -43,7 +43,9 @@ entity ram_chip is
     latency     : natural := 8;
     -- Tamanho do chip em bytes, uma potência de dois de 16 bytes a 32 MB (1048576 é 1 MB).
     size_bytes  : positive := 1048576;
-    -- Onde o chip começa dentro dos 64 MB da região, em KiB: o endereço do chip é o da região menos esta base. Origem: o espaço de endereços da região da memória que o Memory enxerga (26 bits baixos), não o mapa do Core.
+    -- Onde o chip começa dentro dos 64 MB da região, em KiB: o endereço do chip é o da região menos
+    -- esta base. Origem: o espaço de endereços da região da memória que o Memory enxerga (26 bits
+    -- baixos), não o mapa do Core.
     base_kib    : natural := 0
   );
   port (

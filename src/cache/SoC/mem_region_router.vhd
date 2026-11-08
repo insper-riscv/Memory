@@ -31,9 +31,13 @@ use work.cache_pkg.all;
 
 entity mem_region_router is
   generic (
-    -- Base, em KiB, da região da FLASH (0x20000000 por padrão). Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o padrão difere dos defaults do Core.
+    -- Base, em KiB, da região da FLASH (0x20000000 por padrão). Origem: o espaço de endereços da
+    -- região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o padrão
+    -- difere dos defaults do Core.
     rom_base_kib   : natural := 524288;
-    -- Fim exclusivo, em KiB, da região da FLASH (0x40000000 por padrão). Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o padrão difere dos defaults do Core.
+    -- Fim exclusivo, em KiB, da região da FLASH (0x40000000 por padrão). Origem: o espaço de
+    -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
+    -- padrão difere dos defaults do Core.
     rom_end_kib    : natural := 1048576;
     -- Tamanho, em KiB, da janela que o chip da FLASH atende a partir da base; a leitura além dela devolve zero.
     rom_window_kib : natural := 1024;

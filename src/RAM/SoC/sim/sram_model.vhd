@@ -150,19 +150,22 @@ begin
           avail := t_oe + tns(t_aa_ns);
         end if;
         if now < avail then
-          violate(o_violation, MODEL_NAME, abort_on_violation, "leitura encerrada antes do tempo de acesso");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "leitura encerrada antes do tempo de acesso");
         end if;
       end if;
 
       if i_sram_addr'event then
         if i_sram_ce_n = '0' and now - t_addr < tns(t_rc_ns) and (was_active or i_sram_we_n = '0') then
-          violate(o_violation, MODEL_NAME, abort_on_violation, "endereco mudou em menos que o ciclo minimo");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "endereco mudou em menos que o ciclo minimo");
         end if;
         if i_sram_ce_n = '0' and i_sram_we_n = '0' then
           violate(o_violation, MODEL_NAME, abort_on_violation, "endereco mudou com WE# baixo");
         end if;
         if seen_we and now - t_we_rise < tns(t_ha_ns) then
-          violate(o_violation, MODEL_NAME, abort_on_violation, "endereco mudou antes de t_ha depois da subida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "endereco mudou antes de t_ha depois da subida de WE#");
         end if;
         t_addr := now;
       end if;
@@ -174,14 +177,16 @@ begin
       end if;
       if i_sram_dq'event then
         if seen_we and now - t_we_rise < tns(t_hd_ns) and now /= t_we_rise then
-          violate(o_violation, MODEL_NAME, abort_on_violation, "dado mudou antes de t_hd depois da subida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "dado mudou antes de t_hd depois da subida de WE#");
         end if;
         t_dq := now;
       end if;
 
       -- Contenção: o controlador dirige o dado enquanto o chip dirige a leitura.
       if cur_active and not (i_sram_dq = "ZZZZZZZZZZZZZZZZ") and i_sram_dq'event then
-        violate(o_violation, MODEL_NAME, abort_on_violation, "controlador dirigindo o dado durante a leitura");
+        violate(o_violation, MODEL_NAME, abort_on_violation,
+                 "controlador dirigindo o dado durante a leitura");
       end if;
 
       -- Escrita: descida de WE#.
@@ -205,20 +210,25 @@ begin
           violate(o_violation, MODEL_NAME, abort_on_violation, "pulso de WE# menor que t_pwe");
         end if;
         if now - t_addr < tns(t_aw_ns) then
-          violate(o_violation, MODEL_NAME, abort_on_violation, "endereco estavel por menos de t_aw antes da subida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "endereco estavel por menos de t_aw antes da subida de WE#");
         end if;
         if now - t_ce < tns(t_sce_ns) then
-          violate(o_violation, MODEL_NAME, abort_on_violation, "CE# baixo por menos de t_sce antes da subida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "CE# baixo por menos de t_sce antes da subida de WE#");
         end if;
         if now - t_dq < tns(t_sd_ns) then
-          violate(o_violation, MODEL_NAME, abort_on_violation, "dado estavel por menos de t_sd antes da subida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "dado estavel por menos de t_sd antes da subida de WE#");
         end if;
         if wr_lb /= i_sram_lb_n or wr_ub /= i_sram_ub_n then
-          violate(o_violation, MODEL_NAME, abort_on_violation, "LB# ou UB# mudou durante o pulso de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "LB# ou UB# mudou durante o pulso de WE#");
         end if;
         if is_x(i_sram_dq) then
           if wr_lb = '0' or wr_ub = '0' then
-            violate(o_violation, MODEL_NAME, abort_on_violation, "dado indefinido na subida de WE#");
+            violate(o_violation, MODEL_NAME, abort_on_violation,
+                     "dado indefinido na subida de WE#");
           end if;
         elsif i_sram_ce_n = '0' then
           old   := mem(wr_addr);

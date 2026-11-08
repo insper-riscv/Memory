@@ -41,8 +41,8 @@ done
 
 # Mutants of the VHDL: each defect must make a proof fail.
 export MUT_DEPTH=24 MUT_DEFS='-DDATA'
-start_mutant hit_store_not_cached "s/ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1' and in_window(i_addr, rom_base_kib, rom_end_kib) = '0' and i_bypass = '0') or st = S_FILL_GET else '0';/ram_we <= '1' when st = S_FILL_GET else '0';/"
-start_mutant write_back_on_hit    "s/elsif (write_through or in_window(i_addr, rom_base_kib, rom_end_kib) = '1' or i_bypass = '1') and i_wren = '1' then/elsif (in_window(i_addr, rom_base_kib, rom_end_kib) = '1' or i_bypass = '1') and i_wren = '1' then/"
+start_mutant hit_store_not_cached "/ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1' and is_rom = '0'/{N;s/.*/  ram_we <= '1' when st = S_FILL_GET else '0';/}"
+start_mutant write_back_on_hit    "s/elsif (write_through or is_rom = '1' or i_bypass = '1') and i_wren = '1' then/elsif (is_rom = '1' or i_bypass = '1') and i_wren = '1' then/"
 start_mutant byteena_lost         "s/d_be_i    <= i_byteena;/d_be_i    <= \"1111\";/"
 start_mutant fill_word_swapped    "s/i_d_rdata_x(31 downto 0)  when cnt = \"01\" else/i_d_rdata_x(63 downto 32) when cnt = \"01\" else/"
 start_mutant hit_ignores_tag      "s/hit     <= valid(to_integer(unsigned(cur_idx))) when tag_rd = req_tag else '0';/hit     <= valid(to_integer(unsigned(cur_idx)));/"
