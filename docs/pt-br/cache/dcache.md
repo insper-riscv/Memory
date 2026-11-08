@@ -87,7 +87,7 @@ $$
 
 Aqui $W$ é `window_bits`. Os bits de 31 a $W$ não são guardados. Num pedido ao lado da memória, a cache os reconstrói com os bits de 5 a $W-26$ de `base_flash` (região da ROM) ou `base_sdram`. Com o tamanho padrão e `window_bits` igual a 26, $I = 8$ (256 linhas) e a tag tem 15 bits; com 27, a janela cobre os 128 MiB da SDRAM da DE2-115 e a tag tem 16 bits. A largura é fixada em geração pelo mapa da plataforma (`CACHE_WINDOW_BITS`).
 
-A escolha da base num preenchimento lê o bit 14 da tag, e não o bit mais significativo. Os dois coincidem apenas quando $\text{TAG\_BITS} = 15$, isto é, com `size_bits` igual a 32768. A escolha da base na escrita de volta usa o bit mais significativo da tag, para qualquer tamanho.
+A escolha da base, no preenchimento e na escrita de volta, usa o bit mais significativo da tag (o bit de região), para qualquer tamanho.
 
 ### 3.2. Contrato do lado do core
 

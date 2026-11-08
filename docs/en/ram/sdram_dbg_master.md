@@ -56,6 +56,8 @@ A command is a flip of `i_cmd_tog`, with `i_op`, `i_be`, `i_addr` and `i_data` s
 | 6 | writes `i_data` to the word after the one accessed last, bytes by `i_be` |
 | 7 to 15 | treated as command 0 |
 
+With `addr_bits` equal to 23, bit 23 of `i_addr` is ignored, and `o_rsp_addr` returns the low 24 bits of the last word accessed (bit 24 does not appear with 25).
+
 The value of `count` is 1 after reset and is kept between commands. The register has 25 bits because a fill of the whole SDRAM is $2^{24}$, which does not fit in 24 bits (see [FILL_COUNT_24_BITS.md](../bugs/FILL_COUNT_24_BITS.md)).
 
 ### 3.3. State machine

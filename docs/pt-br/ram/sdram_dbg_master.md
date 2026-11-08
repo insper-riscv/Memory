@@ -56,6 +56,8 @@ Um comando é uma inversão de `i_cmd_tog`, com `i_op`, `i_be`, `i_addr` e `i_da
 | 6 | escreve `i_data` na palavra seguinte à acessada por último, bytes por `i_be` |
 | 7 a 15 | tratados como o comando 0 |
 
+Com `addr_bits` igual a 23, o bit 23 de `i_addr` é ignorado, e `o_rsp_addr` devolve os 24 bits baixos da última palavra acessada (o bit 24 não aparece com 25).
+
 O valor de `count` é 1 depois do reset e se mantém entre comandos. O registrador tem 25 bits porque o preenchimento da SDRAM inteira vale $2^{24}$, que não cabe em 24 bits (veja [FILL_COUNT_24_BITS.md](../bugs/FILL_COUNT_24_BITS.md)).
 
 ### 3.3. Máquina de estados

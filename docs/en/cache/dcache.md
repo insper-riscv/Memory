@@ -87,7 +87,7 @@ $$
 
 Here $W$ is `window_bits`. Bits 31 to $W$ are not stored. In a memory-side request, the cache rebuilds them with bits 5 down to $W-26$ of `base_flash` (ROM region) or `base_sdram`. With the default size and `window_bits` equal to 26, $I = 8$ (256 lines) and the tag has 15 bits; with 27, the window covers the 128 MiB of the DE2-115 SDRAM and the tag has 16 bits. The width is fixed at generation by the memory map of the platform (`CACHE_WINDOW_BITS`).
 
-The choice of base in a fill reads bit 14 of the tag, not the most significant bit. The two coincide only when $\text{TAG\_BITS} = 15$, that is, with `size_bits` equal to 32768. The choice of base in the write-back uses the most significant tag bit, for any size.
+The choice of base, in the fill and in the write-back, uses the most significant tag bit (the region bit), for any size.
 
 ### 3.2. Core-side contract
 

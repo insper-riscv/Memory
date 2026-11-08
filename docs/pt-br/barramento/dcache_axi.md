@@ -23,7 +23,7 @@ O periférico 7 (0xF0000000) é o controle da cache: uma escrita na sua primeira
 | Tamanho | 4 KB, mapeamento direto |
 | Linha | 16 bytes, quatro palavras |
 | Política de escrita | Write-back, write-allocate |
-| Divisão do endereço (64 MB de SDRAM) | Bits 25:12 tag, 11:4 linha, 3:2 palavra |
+| Divisão do endereço (janela padrão de 64 MB) | Bits 25:12 tag, 11:4 linha, 3:2 palavra; com `window_bits` maior, a tag cresce até o bit `window_bits`-1 |
 | Contrato com o core | O acesso fica na porta enquanto o estágio está parado, `ready` é um nível até `mem_advance`, e `rdata` muda só nessa borda |
 | Acerto | Pronto em 2 clocks (as RAMs leem com registrador, como as RAMs de bloco) |
 | Falha limpa | Um pedido de linha (uma rajada de quatro beats no barramento), depois as quatro palavras para a RAM |
