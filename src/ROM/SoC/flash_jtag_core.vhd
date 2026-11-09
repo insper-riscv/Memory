@@ -104,8 +104,10 @@ architecture rtl of flash_jtag_core is
   signal bypass  : std_logic := '0';
   -- Alternância de comando ao carregador (registrada).
   signal cmd_i   : std_logic := '0';
-  -- Sincronizador de dois estágios de done_tog em tck.
-  signal done_s  : std_logic_vector(1 downto 0) := "00";
+  -- done_tog como vetor de um bit, entrada do sincronizador.
+  signal done_tog_v : std_logic_vector(0 downto 0);
+  -- done_tog sincronizado em tck por dois estágios.
+  signal done_sync  : std_logic_vector(0 downto 0);
   -- Um comando ou uma palavra chegou com o carregador ocupado e foi descartado.
   signal overrun : std_logic := '0';
   -- O comando anterior ainda não terminou.
@@ -125,7 +127,14 @@ architecture rtl of flash_jtag_core is
 
 begin
 
-  busy      <= '1' when cmd_i /= done_s(1) else '0';
+  done_tog_v(0) <= i_done_tog;
+
+  -- Cruza o toggle de confirmação do domínio da porta B para tck.
+  u_sync_done : entity work.synchronizer
+    generic map (stages => 2, data_width => 1)
+    port map (i_clk => i_tck, i_d => done_tog_v, o_d => done_sync);
+
+  busy      <= '1' when cmd_i /= done_sync(0) else '0';
   o_cmd_tog <= cmd_i;
   o_op      <= op_r;
   o_addr    <= addr_r;
@@ -137,7 +146,6 @@ begin
     variable cmd_op : std_logic_vector(3 downto 0);
   begin
     if rising_edge(i_tck) then
-      done_s <= done_s(0) & i_done_tog;
       cmd_op := sr(63 downto 60);
 
       if i_state_uir = '1' then

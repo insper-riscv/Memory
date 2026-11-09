@@ -49,7 +49,7 @@ Modelo comportamental da SDRAM SDR da placa, usado só em simulação. Os generi
 
 ### 3.1. Armazenamento
 
-A memória é uma tabela esparsa de unidades de `dq_width` bits, a largura de um beat, com 65536 baldes de listas encadeadas. A chave de cada unidade é
+A memória é uma tabela esparsa de unidades de `dq_width` bits, a largura de um beat, com `BUCKET_COUNT` (65536) baldes de listas encadeadas. A chave de cada unidade é
 
 $$
 k = (\text{linha} \cdot 2^{\text{bank\_bits}} + \text{banco}) \cdot 2^{\text{col\_bits}} + \text{coluna}
@@ -106,7 +106,7 @@ para o READ. No WRITE, $t_{cmd} + B\,T_{CK}$ é trocado por $t_{cmd} + (B - 1)\,
 | Instância | Onde | Ligação |
 | :--- | :--- | :--- |
 | `u_chip` em `sdram_system` | topo de simulação do subsistema | `tck_ps` e `init_file` vindos dos generics do topo, `i_reinit` ligado ao reset do lado do controlador, portas de depuração levadas à porta do topo |
-| `u_chip` em `teste_sdram_system` | topo de simulação do autoteste | generics padrão e `i_reinit` ligado ao reset do autoteste |
+| `u_chip` em `sdram_bist_system` | topo de simulação do autoteste | generics padrão e `i_reinit` ligado ao reset do autoteste |
 
 O topo une os pinos DQ. O [sdram_ctrl](sdram_ctrl.md) os dirige quando `o_dram_dq_oe` vale `'1'`, e o modelo dirige nos demais casos. O topo do subsistema é por sua vez usado pelos topos da cache de dados e do escravo AXI.
 

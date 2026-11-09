@@ -10,7 +10,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.sdram_pkg.all;
 
-entity teste_sdram_system is
+entity sdram_bist_system is
   generic (
     -- Log2 do número de palavras da janela.
     window_log2 : natural := 8;
@@ -66,9 +66,9 @@ entity teste_sdram_system is
     -- Contagem de comandos AUTO REFRESH recebidos pelo chip.
     o_dbg_refreshes : out std_logic_vector(31 downto 0)
   );
-end entity teste_sdram_system;
+end entity sdram_bist_system;
 
-architecture rtl of teste_sdram_system is
+architecture rtl of sdram_bist_system is
   -- Alternância de pedido do autoteste ao controlador.
   signal req_tog : std_logic;
   -- Alternância de confirmação do controlador.
@@ -115,7 +115,7 @@ begin
 
   o_init_done <= init_i;
 
-  u_bist : entity work.teste_sdram
+  u_bist : entity work.sdram_bist
     generic map (window_log2 => window_log2, sweep_log2 => sweep_log2, random_log2 => random_log2)
     port map (
       i_clk => i_clk, i_rst => i_rst, i_start => i_start, i_mode => i_mode, i_init_done => init_i,

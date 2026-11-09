@@ -45,7 +45,7 @@ The line signals of master A (`i_a_line`, `i_a_wdata_x`, `i_a_be_x`) and every i
 
 A request is the flip of the master's request toggle, with the word on the buses. The acknowledge is the flip of the same master's acknowledge toggle, and the master keeps the buses stable from the request flip until the acknowledge. A request is pending while the request toggle, already synchronized, differs from the acknowledge toggle.
 
-The toggles of masters A and I come from the core clock and pass through a two-flip-flop synchronizer inside the arbiter. The toggle of master B is on the arbiter clock and is read directly. The data buses are not synchronized. The arbiter reads them only after seeing the flip, when they are already stable.
+The toggles of masters A and I come from the core clock and each pass through an instance of the two-stage `synchronizer` inside the arbiter. The toggle of master B is on the arbiter clock and is read directly. The data buses are not synchronized. The arbiter reads them only after seeing the flip, when they are already stable.
 
 ### 3.2. States
 

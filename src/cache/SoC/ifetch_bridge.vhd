@@ -47,6 +47,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.cache_pkg.all;
 
 entity ifetch_bridge is
   generic (
@@ -59,8 +60,12 @@ entity ifetch_bridge is
     -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
     base_flash   : std_logic_vector(5 downto 0) := "001000";
     -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão).
+    -- Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa
+    -- do Core, por isso o padrão difere dos defaults do Core.
     rom_base_kib : natural := 524288;
-    -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão).
+    -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão). Origem: o espaço de
+    -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
+    -- padrão difere dos defaults do Core.
     rom_end_kib  : natural := 1048576
   );
   port (
@@ -151,23 +156,13 @@ architecture rtl of ifetch_bridge is
   -- O endereço de busca é o do registrador de busca.
   signal match      : std_logic;
 
-  -- A região da ROM: o endereço está em [rom_base_kib, rom_end_kib) KiB.
-  function in_rom(addr : std_logic_vector(31 downto 0)) return std_logic is
-  begin
-    if unsigned(addr) >= shift_left(to_unsigned(rom_base_kib, 32), 10) and
-       unsigned(addr) < shift_left(to_unsigned(rom_end_kib, 32), 10) then
-      return '1';
-    end if;
-    return '0';
-  end function in_rom;
-
   -- Endereço do pedido à memória: a base da região nos bits 31 até window_bits, os bits abaixo dele do núcleo alinhados ao que se pede.
   function mem_addr_of(addr : std_logic_vector(31 downto 0)) return std_logic_vector is
     -- Bits window_bits-1:0 do endereço com os bits baixos zerados pelo alinhamento.
     variable low : std_logic_vector(window_bits - 1 downto 0) := addr(window_bits - 1 downto 0);
   begin
     low(LOW_BIT - 1 downto 0) := (others => '0');
-    if in_rom(addr) = '1' then
+    if in_window(addr, rom_base_kib, rom_end_kib) = '1' then
       return base_flash(5 downto window_bits - 26) & low;
     end if;
     return base_sdram(5 downto window_bits - 26) & low;

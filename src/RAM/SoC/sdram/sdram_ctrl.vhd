@@ -32,6 +32,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.sdram_pkg.all;
+use work.chip_timing_pkg.max_natural;
 
 entity sdram_ctrl is
   generic (
@@ -112,15 +113,6 @@ end entity sdram_ctrl;
 
 architecture rtl of sdram_ctrl is
 
-  -- (o máximo do VHDL-2008 não é aceito pelo Quartus)
-  function larger (a, b : natural) return natural is
-  begin
-    if a > b then
-      return a;
-    end if;
-    return b;
-  end function;
-
   -- Beats de dados por palavra de 32 bits (a rajada do chip).
   constant BEATS      : natural := dram_beats(dq_width);
   -- Bits do endereço de palavra do pedido.
@@ -146,10 +138,12 @@ architecture rtl of sdram_ctrl is
   constant C_WR  : natural := cycles(T_WR_PS, tck_ps);
   -- ACTIVE até o próximo ACTIVE de um acesso de página fechada: o maior entre tRC e o caminho de leitura (ACTIVE, tRCD, latência CAS, os beats e um clock de folga); o caminho de escrita (tRCD, os beats, tWR, tRP) nunca é mais longo.
   constant ACT_TO_ACT : natural :=
-    larger(C_RC, larger(C_RCD + CAS_LATENCY + BEATS + 2, C_RCD + BEATS + C_WR + C_RP));
+    max_natural(C_RC, max_natural(C_RCD + CAS_LATENCY + BEATS + 2, C_RCD + BEATS + C_WR + C_RP));
   -- O mesmo intervalo para uma linha: o último comando sai três palavras de beats depois do primeiro e o último beat dois clocks depois dele.
   constant ACT_TO_ACT_LINE : natural :=
-    larger(C_RC, larger(C_RCD + 3 * BEATS + CAS_LATENCY + BEATS + 2, C_RCD + 4 * BEATS + C_WR + C_RP));
+    max_natural(C_RC,
+                max_natural(C_RCD + 3 * BEATS + CAS_LATENCY + BEATS + 2,
+                            C_RCD + 4 * BEATS + C_WR + C_RP));
 
   -- Coluna do chip do comando READ ou WRITE: a coluna da palavra (ou a da palavra lcnt da linha) seguida dos bits que a rajada percorre.
   function chip_col (colword : std_logic_vector; lcnt : natural; line : std_logic) return std_logic_vector is

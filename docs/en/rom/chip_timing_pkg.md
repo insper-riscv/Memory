@@ -50,7 +50,7 @@ All values are in ns and hold for the DE2-115. None was read in a datasheet: the
 
 $$ n = \max\left(1, \left\lceil \frac{t + m}{T} \right\rceil\right) $$
 
-`max_natural(a, b)` returns the larger of two naturals, because Quartus Lite does not carry the VHDL-2008 `maximum` function for `natural`.
+`max_natural(a, b)` returns the larger of two naturals, because Quartus Lite does not carry the VHDL-2008 `maximum` function for `natural`. It is the only copy: the `flash_cmd_port` and the `sdram_ctrl` import it from here too.
 
 ## 4. Reference
 

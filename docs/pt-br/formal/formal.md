@@ -12,7 +12,7 @@ Três mestres enviam pedidos a um controlador: A (a ponte de dados do core, em o
 2. O Yosys lê a netlist junto com as propriedades, escritas em SystemVerilog ao redor dela.
 3. O SymbiYosys roda um motor sobre o resultado, que é um solver SMT (`yices`, `bitwuzla` ou `boolector`, pelo `smtbmc`) ou o verificador de modelos limitado do ABC (`abc bmc3`). A seção 9 diz o que cada motor roda e como o CI decide entre eles.
 
-Uma cópia da netlist expõe como saídas nove registradores internos (o estado, o mestre atendido e o último mestre atendido, com dois flags cada, o toggle travado e o sincronizador de A e de I). A lógica é a mesma, e os registradores deixam a prova enunciar invariantes do árbitro, de que a indução precisa para descartar estados que não podem ocorrer.
+Uma cópia da netlist expõe como saídas nove registradores internos (o estado, o mestre atendido e o último mestre atendido, com dois flags cada, o toggle travado e a cadeia do sincronizador de A e de I, que a netlist expõe pelo módulo do `synchronizer` e o árbitro repassa). A lógica é a mesma, e os registradores deixam a prova enunciar invariantes do árbitro, de que a indução precisa para descartar estados que não podem ocorrer.
 
 ## 3. Suposições sobre o ambiente
 
@@ -21,7 +21,7 @@ Uma cópia da netlist expõe como saídas nove registradores internos (o estado,
 | Reset | Um clock de reset no início, com todo toggle no seu valor de reset |
 | Um mestre | Inverte o seu toggle só depois de o pedido anterior ser respondido, e segura os barramentos da inversão até a resposta (A, I e B igualmente) |
 | O controlador | Só responde um pedido pendente, com o toggle desse pedido, em até 4 clocks |
-| Clocks | Um clock para todos, e os sincronizadores de A e de I são os dois flip-flops do próprio árbitro |
+| Clocks | Um clock para todos, e os sincronizadores de A e de I são as duas instâncias do `synchronizer` de dois estágios do próprio árbitro |
 
 ## 4. Propriedades
 
@@ -113,6 +113,21 @@ Siga este procedimento ao mexer em uma lista.
 4. Atualize a tabela acima quando a lista mudar.
 
 No `nor_flash_ctrl`, o `yices` fecha as duas provas (773 s e 62 s), o `boolector` fecha a segunda e o `bitwuzla` não termina nenhuma das duas em 1500 s.
+
+### 10.1. Prova com limite de tempo próprio
+
+A lista `long_tags` do `run.sh` do bloco dá a uma prova o limite `FORMAL_TIMEOUT_LONG`, no lugar do `FORMAL_TIMEOUT`, para todos os motores. Siga este procedimento ao incluir uma prova na lista.
+
+1. Meça a prova sozinha em cada motor, com `FORMAL_JOBS=1`, e registre o tempo.
+2. Escolha um `FORMAL_TIMEOUT_LONG` com folga de pelo menos cinco vezes o maior tempo medido e abaixo do limite do job (120 minutos), contando que as outras provas dividem os mesmos espaços.
+3. Mantenha a profundidade da prova: ela é a que alcança o fim da operação do cenário.
+4. Atualize a tabela abaixo quando a lista mudar.
+
+| Bloco | Prova | Profundidade | Limite | Tempo sozinha |
+| :--- | :--- | :--- | :--- | :--- |
+| `nor_flash_ctrl` | `safety_a_program`, configuração A, cenário `program` | 80 | 4800 s | `abc-bmc3` 149 s, `yices` 773 s |
+
+A prova do cenário `program` é a mais profunda do bloco e fecha em `abc-bmc3` e em `yices`. Na CI, com as outras provas rodando em paralelo, ela passou do limite de 1500 s em todos os motores e ficou sem resposta; com 4800 s há folga de mais de seis vezes sobre o `yices` e de trinta vezes sobre o `abc-bmc3`.
 
 ## 11. Avisos são erros
 

@@ -106,8 +106,10 @@ architecture rtl of sdram_model is
     val  : unit_t;
     next_node : node_ptr_t;
   end record;
+  -- Quantidade de baldes da tabela esparsa, o módulo do hash da chave.
+  constant BUCKET_COUNT : natural := 65536;
   -- Vetor de baldes da tabela esparsa.
-  type bucket_array_t is array (0 to 65535) of node_ptr_t;
+  type bucket_array_t is array (0 to BUCKET_COUNT - 1) of node_ptr_t;
 
   -- Tabela esparsa de meias-palavras de 16 bits, indexada por linha, banco e coluna.
   type sparse_t is protected
@@ -122,7 +124,7 @@ architecture rtl of sdram_model is
 
     procedure write (key : natural; val : unit_t) is
       -- Nó corrente na busca da tabela.
-      variable p : node_ptr_t := buckets(key mod 65536);
+      variable p : node_ptr_t := buckets(key mod BUCKET_COUNT);
     begin
       while p /= null loop
         if p.key = key then
@@ -131,13 +133,13 @@ architecture rtl of sdram_model is
         end if;
         p := p.next_node;
       end loop;
-      p := new node_t'(key => key, val => val, next_node => buckets(key mod 65536));
-      buckets(key mod 65536) := p;
+      p := new node_t'(key => key, val => val, next_node => buckets(key mod BUCKET_COUNT));
+      buckets(key mod BUCKET_COUNT) := p;
     end procedure;
 
     impure function read (key : natural) return std_logic_vector is
       -- Nó corrente na busca da tabela.
-      variable p : node_ptr_t := buckets(key mod 65536);
+      variable p : node_ptr_t := buckets(key mod BUCKET_COUNT);
     begin
       while p /= null loop
         if p.key = key then

@@ -122,10 +122,14 @@ architecture rtl of sdram_arbiter is
   type state_t is (ST_IDLE, ST_BUSY);
   -- Estado do árbitro: livre para escolher um mestre ou aguardando o controlador.
   signal st        : state_t := ST_IDLE;
-  -- Sincronizador de dois estágios do toggle de pedido do mestre A.
-  signal a_s       : std_logic_vector(1 downto 0) := "00";
-  -- Sincronizador de dois estágios do toggle de pedido do mestre I.
-  signal ins_s       : std_logic_vector(1 downto 0) := "00";
+  -- Toggle de pedido do mestre A como vetor de um bit, entrada do sincronizador.
+  signal a_req_v   : std_logic_vector(0 downto 0);
+  -- Toggle de pedido do mestre A sincronizado por dois estágios.
+  signal a_s       : std_logic_vector(0 downto 0);
+  -- Toggle de pedido do mestre I como vetor de um bit, entrada do sincronizador.
+  signal ins_req_v : std_logic_vector(0 downto 0);
+  -- Toggle de pedido do mestre I sincronizado por dois estágios.
+  signal ins_s     : std_logic_vector(0 downto 0);
   -- Toggle de confirmação do mestre A (registrado).
   signal a_ack_i   : std_logic := '0';
   -- Toggle de confirmação do mestre B (registrado).
@@ -175,22 +179,29 @@ begin
   o_ins_rdata_x <= ins_rdx_i;
   o_c_req_tog <= c_req_i;
 
-  a_pend <= '1' when a_s(1) /= a_ack_i else '0';
+  a_req_v(0)   <= i_a_req_tog;
+  ins_req_v(0) <= i_ins_req_tog;
+
+  -- Cruzam os toggles de pedido dos mestres A e I para o clock do árbitro.
+  u_sync_a : entity work.synchronizer
+    generic map (stages => 2, data_width => 1)
+    port map (i_clk => i_clk, i_rst => i_rst, i_d => a_req_v, o_d => a_s);
+
+  u_sync_ins : entity work.synchronizer
+    generic map (stages => 2, data_width => 1)
+    port map (i_clk => i_clk, i_rst => i_rst, i_d => ins_req_v, o_d => ins_s);
+
+  a_pend <= '1' when a_s(0) /= a_ack_i else '0';
   b_pend <= '1' when i_b_req_tog /= b_ack_i else '0';
-  ins_pend <= '1' when ins_s(1) /= ins_ack_i else '0';
+  ins_pend <= '1' when ins_s(0) /= ins_ack_i else '0';
 
   process (i_clk)
     -- Mestre escolhido: 0 = A, 1 = B, 2 = I, 3 = nenhum.
     variable pick : integer range 0 to 3;
   begin
     if rising_edge(i_clk) then
-      a_s <= a_s(0) & i_a_req_tog;
-      ins_s <= ins_s(0) & i_ins_req_tog;
-
       if i_rst = '1' then
         st      <= ST_IDLE;
-        a_s     <= "00";
-        ins_s     <= "00";
         a_ack_i <= '0';
         b_ack_i <= '0';
         ins_ack_i <= '0';
@@ -219,7 +230,7 @@ begin
               o_c_line    <= i_a_line;
               o_c_wdata_x <= i_a_wdata_x;
               o_c_be_x    <= i_a_be_x;
-              a_tog_l   <= a_s(1);
+              a_tog_l   <= a_s(0);
               grant_b   <= '0';
               grant_i   <= '0';
               c_req_i   <= not c_req_i;
@@ -232,7 +243,7 @@ begin
               o_c_line    <= i_ins_line;
               o_c_wdata_x <= i_ins_wdata_x;
               o_c_be_x    <= i_ins_be_x;
-              ins_tog_l   <= ins_s(1);
+              ins_tog_l   <= ins_s(0);
               grant_b   <= '0';
               grant_i   <= '1';
               c_req_i   <= not c_req_i;

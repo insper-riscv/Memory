@@ -24,10 +24,13 @@ entity onchip_ram_system is
     write_through : boolean  := false;
     -- Tamanho da memória em bytes, uma potência de dois.
     size_bytes    : positive := 4096;
-    -- Onde a memória começa dentro dos 64 MB da região, em KiB.
+    -- Onde a memória começa dentro dos 64 MB da região, em KiB. Origem: o espaço de endereços da
+    -- região da memória que o Memory enxerga (26 bits baixos), não o mapa do Core.
     base_kib      : natural  := 0;
     -- Latência emulada em bordas, a mesma no ram_chip e no adaptador (0 deixa ao ram_chip o padrão e ao adaptador a estrutural).
-    latency       : natural  := 0
+    latency       : natural  := 0;
+    -- Tamanho da cache de dados em bits, uma potência de dois (usado só com with_cache).
+    cache_size_bits : positive := 4096
   );
   port (
     -- Clock do sistema.
@@ -130,7 +133,7 @@ begin
   -- Com cache, o requisitante fala com a dcache e o lado da memória dela chega à memória.
   g_cache : if with_cache generate
     u_cache : entity work.dcache
-      generic map (size_bits => 4096, write_through => write_through)
+      generic map (size_bits => cache_size_bits, write_through => write_through)
       port map (
         i_clk => i_clk, i_rst => i_rst,
         i_addr => i_addr, i_wdata => i_wdata, i_byteena => i_byteena, i_rden => i_rden, i_wren => i_wren,

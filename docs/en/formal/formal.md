@@ -12,7 +12,7 @@ Three masters send requests to one controller: A (the core's data bridge, on ano
 2. Yosys reads the netlist together with the properties, written in SystemVerilog around it.
 3. SymbiYosys runs an engine on the result: an SMT solver (`yices`, `bitwuzla` or `boolector`, through `smtbmc`) or the bounded model checker of ABC (`abc bmc3`). Section 9 says what each engine runs and how the CI decides across them.
 
-A copy of the netlist exposes nine internal registers (the state, the served master and the last served master, as two flags each, and the latched toggle and the synchronizer of A and of I) as outputs. The logic is the same; the registers let the proof state invariants of the arbiter, which the induction needs to rule out states that cannot occur.
+A copy of the netlist exposes nine internal registers (the state, the served master and the last served master, as two flags each, and the latched toggle and the chain of the synchronizer of A and of I, which the netlist exposes through the `synchronizer` module and the arbiter passes on) as outputs. The logic is the same; the registers let the proof state invariants of the arbiter, which the induction needs to rule out states that cannot occur.
 
 ## 3. Assumptions about the environment
 
@@ -21,7 +21,7 @@ A copy of the netlist exposes nine internal registers (the state, the served mas
 | reset | one reset clock at the start, with every toggle at its reset value |
 | a master | flips its toggle only after the previous request was answered, and holds the buses from the flip until the answer (A, I and B alike) |
 | the controller | answers only a pending request, with the toggle of that request, within 4 clocks |
-| clocks | one clock for all; the synchronizers of A and I are the arbiter's own two flops |
+| clocks | one clock for all; the synchronizers of A and I are the arbiter's own two instances of the two-stage `synchronizer` |
 
 ## 4. Properties
 
@@ -113,6 +113,21 @@ Follow this procedure when changing a list.
 4. Update the table above when the list changes.
 
 In `nor_flash_ctrl`, `yices` closes both proofs (773 s and 62 s), `boolector` closes the second and `bitwuzla` finishes neither within 1500 s.
+
+### 10.1. Proof with its own time limit
+
+The `long_tags` list in the `run.sh` of the block gives a proof the `FORMAL_TIMEOUT_LONG` limit, in place of `FORMAL_TIMEOUT`, in every engine. Follow this procedure when adding a proof to the list.
+
+1. Measure the proof alone in each engine, with `FORMAL_JOBS=1`, and record the time.
+2. Choose a `FORMAL_TIMEOUT_LONG` with a margin of at least five times the longest time measured and below the limit of the job (120 minutes), keeping in mind that the other proofs share the same slots.
+3. Keep the depth of the proof: it is the depth that reaches the end of the operation of the scenario.
+4. Update the table below when the list changes.
+
+| Block | Proof | Depth | Limit | Time alone |
+| :--- | :--- | :--- | :--- | :--- |
+| `nor_flash_ctrl` | `safety_a_program`, configuration A, scenario `program` | 80 | 4800 s | `abc-bmc3` 149 s, `yices` 773 s |
+
+The proof of the `program` scenario is the deepest of the block and closes in `abc-bmc3` and in `yices`. On the CI, with the other proofs running in parallel, it went past the 1500 s limit in every engine and was left without an answer; with 4800 s there is a margin of more than six times over `yices` and thirty times over `abc-bmc3`.
 
 ## 11. Warnings are errors
 

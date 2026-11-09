@@ -76,7 +76,7 @@ async def settle(dut: Dut):
     raise AssertionError(
         f"the debug command never finished (status {status:#x}): "
         f"cmd_s={d.cmd_s.value} done_i={d.done_i.value} "
-        f"st={d.st.value} done_s={dut.u_jtag.done_s.value} "
+        f"st={d.st.value} done_s={dut.u_jtag.done_sync.value} "
         f"ir={dut.u_jtag.ir.value} sr={dut.u_jtag.sr.value} "
         f"cmd_tog={dut.u_jtag.cmd_i.value} "
         f"cmd_tog_in={d.cmd_tog.value} rst={d.rst.value}"

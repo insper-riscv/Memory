@@ -27,7 +27,7 @@ A 1-bit signal that changes level can cross safely through a chain of flip-flops
 
 The first flip-flop can go metastable when the input changes near the destination clock edge. The second flip-flop samples the first one's output a period later, and only it drives logic. With $N$ stages, the destination logic sees the signal after $N$ destination clock edges, counted from the first edge that captures the transition, and the failure probability falls exponentially with the time available to resolve.
 
-The `synchronizer` entity from Common-Components implements the chain with $N$ stages (minimum 2) and marks the registers for Quartus, which keeps them unmerged and unremoved and includes them in the MTBF report. The arbiter implements the same two-flip-flop chain in its own process (`a_s` for the data master and `ins_s` for the instruction master), without those attributes.
+The `synchronizer` entity from Common-Components implements the chain with $N$ stages (minimum 2) and marks the registers for Quartus, which keeps them unmerged and unremoved and includes them in the MTBF report. The arbiter instantiates the `synchronizer` with two stages and one bit for each request toggle (`u_sync_a` for the data master and `u_sync_ins` for the instruction master), with the arbiter reset wired to `i_rst`. The `sdram_jtag_core` and the `flash_jtag_core` instantiate it, also with two stages, as `u_sync_done`, for the acknowledge that arrives at `i_tck`, and the `flash_loader` instantiates it as `u_sync_cmd` for the command that arrives at `i_clk`.
 
 ### 2.2. Toggle handshake
 

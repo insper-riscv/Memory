@@ -90,12 +90,14 @@ Todos os identificadores de código devem ser escritos em **inglês**, enquanto 
 | Tipos e subtipos (`type`, `subtype`) | `snake_case` com sufixo `_t` | `state_t`, `data_t`, `tag_t` |
 | Sinais e variáveis internas | `snake_case` | `data_ram`, `tag_ram`, `valid` |
 | Rótulos de instância | Prefixo `u_` + `snake_case` | `u_sync_req` |
+| Rótulos de generate | Prefixo `gen_` + `snake_case` | `gen_has_m`, `gen_lanes` |
+| Rótulos de processo | Prefixo `p_` + `snake_case`, obrigatório em todo processo e repetido em `end process` | `p_regs`, `p_next_state`, `p_sync_done` |
 
 ## 4. Cabeçalhos (Headers) e Docstrings em VHDL
 
 ### 4.1. Cabeçalho Obrigatório de Arquivo
 
-Todo arquivo `.vhd` deve iniciar com um bloco de cabeçalho de 72 colunas (`-- ====...====`) em português descrevendo a responsabilidade arquitetural do pacote ou da entidade:
+Todo arquivo `.vhd` deve iniciar com um bloco de cabeçalho (`-- ====...====`) em português descrevendo a responsabilidade arquitetural do pacote ou da entidade. Nenhuma linha de VHDL passa de 120 caracteres, o padrão do VSG, e nenhum arquivo passa de 2000 linhas nem processo de 500:
 
 ```vhdl
 -- ============================================================================
@@ -106,7 +108,7 @@ Todo arquivo `.vhd` deve iniciar com um bloco de cabeçalho de 72 colunas (`-- =
 -- ============================================================================
 ```
 
-Seções internas de uma arquitetura devem utilizar separadores de 72 colunas com hífens simples (`-- ----...----`).
+Seções internas de uma arquitetura devem utilizar separadores com hífens simples (`-- ----...----`).
 
 ### 4.2. Docstring Individual Acima de Cada Declaração
 

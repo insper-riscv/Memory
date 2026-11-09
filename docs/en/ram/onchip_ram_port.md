@@ -105,7 +105,7 @@ Debug reads the block through the same port, in the cycles when the adapter is f
 
 ## 5. Verification
 
-The simulation top `onchip_ram_system` wires the adapter to `ram_simulation`, with the `dcache` in front or not. With the `use_chip` generic, the `ram_chip` takes the place of the adapter and the model, and the same test runs on both, so the `ram_chip` is the reference of the contract.
+The simulation top `onchip_ram_system` wires the adapter to `ram_simulation`, with the `dcache` in front or not. With the `use_chip` generic, the `ram_chip` takes the place of the adapter and the model, and the same test runs on both, so the `ram_chip` is the reference of the contract. The `cache_size_bits` generic (4096 by default) gives the size of the `dcache` in the top.
 
 | `tests/python/tests.json` entry | Test module | Parameters |
 | :--- | :--- | :--- |

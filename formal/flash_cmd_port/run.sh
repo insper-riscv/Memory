@@ -19,7 +19,7 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name>: the netlist and a copy that exposes the latch, the protection and the operation
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/ROM/SoC/chip_timing_pkg.vhd" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gsize_bytes=64 -gsector_bytes=16 -gpage_bytes=8 \
     -gerase_latency=1 -gprogram_latency=1 flash_cmd_port > "$2.v"
   cp "$2.v" "$2_dbg.v"

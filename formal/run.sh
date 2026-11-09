@@ -17,15 +17,22 @@ fail=0
 source "$root/formal/common.sh"
 
 # netlist <vhdl> <name>: the GHDL netlist of sdram_arbiter, and a copy of it that exposes the
-# registers the invariants need as outputs (the logic is the same).
+# registers the invariants need as outputs (the logic is the same). The chains of the two synchronizers
+# (u_sync_a and u_sync_ins) are registers of the synchronizer module, so that module gets an output with
+# the chain, in the order the invariants read it (bit 1 is the last stage), and the arbiter passes it on.
 netlist() {
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$(formal_vhdl "$root/src/common/src/synchronizer.vhd" "synchronizer_$2")" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog sdram_arbiter > "$2.v"
-  sed -e 's/input  \[95:0\] i_c_rdata_x);/input  [95:0] i_c_rdata_x,\n  output dbg_st, output dbg_grant_b, output dbg_last_b, output dbg_a_tog_l, output [1:0] dbg_a_s, output dbg_grant_i, output dbg_last_i, output dbg_i_tog_l, output [1:0] dbg_i_s);/' \
-      -e 's/^endmodule/  assign dbg_st = st;\n  assign dbg_grant_b = grant_b;\n  assign dbg_last_b = last_b;\n  assign dbg_a_tog_l = a_tog_l;\n  assign dbg_a_s = a_s;\n  assign dbg_grant_i = grant_i;\n  assign dbg_last_i = last_i;\n  assign dbg_i_tog_l = ins_tog_l;\n  assign dbg_i_s = ins_s;\nendmodule/' \
+  sed -e 's/^   output o_d);/   output o_d,\n   output [1:0] dbg_chain);/' \
+      -e 's/^\(  assign o_d = .*\)$/\1\n  assign dbg_chain = {chain[0], chain[1]};/' \
+      -e 's/^    \.o_d(a_s));/    .o_d(a_s),\n    .dbg_chain(dbg_a_s));/' \
+      -e 's/^    \.o_d(ins_s));/    .o_d(ins_s),\n    .dbg_chain(dbg_i_s));/' \
+      -e 's/input  \[95:0\] i_c_rdata_x);/input  [95:0] i_c_rdata_x,\n  output dbg_st, output dbg_grant_b, output dbg_last_b, output dbg_a_tog_l, output [1:0] dbg_a_s, output dbg_grant_i, output dbg_last_i, output dbg_i_tog_l, output [1:0] dbg_i_s);/' \
+      -e '/^module sdram_arbiter/,$ s/^endmodule/  assign dbg_st = st;\n  assign dbg_grant_b = grant_b;\n  assign dbg_last_b = last_b;\n  assign dbg_a_tog_l = a_tog_l;\n  assign dbg_grant_i = grant_i;\n  assign dbg_last_i = last_i;\n  assign dbg_i_tog_l = ins_tog_l;\nendmodule/' \
       "$2.v" > "$2_dbg.v"
   grep -q dbg_st "$2_dbg.v" || { echo "the netlist has no register named st: the exposure did not apply"; exit 1; }
+  grep -q dbg_chain "$2_dbg.v" || { echo "the netlist has no synchronizer chain: the exposure did not apply"; exit 1; }
 }
 
 echo "sdram_arbiter"

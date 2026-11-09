@@ -108,7 +108,7 @@ In mode 3 the address is made of the low 24 bits of a 32-bit xorshift generator,
 
 | Item | Description |
 | :--- | :--- |
-| Instantiated in | `src/tests/teste_sdram_system.vhd`, which connects the self test to the SDRAM controller and to the chip model on a single clock (the bring-up configuration) |
+| Instantiated in | `src/tests/sdram_bist_system.vhd`, which connects the self test to the SDRAM controller and to the chip model on a single clock (the bring-up configuration) |
 | Talks to | the SDRAM controller (`sdram_ctrl`) through the request and acknowledge toggle protocol, the same port the core bridge uses through the arbiter |
 | Does not go through | arbiter, core bridge, debug master |
 

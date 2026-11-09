@@ -56,6 +56,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.cache_pkg.all;
 use work.utils_pkg.all;
 
 entity icache is
@@ -69,8 +70,12 @@ entity icache is
     -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
     base_flash : std_logic_vector(5 downto 0) := "001000";
     -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão).
+    -- Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa
+    -- do Core, por isso o padrão difere dos defaults do Core.
     rom_base_kib : natural := 524288;
-    -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão).
+    -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão). Origem: o espaço de
+    -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
+    -- padrão difere dos defaults do Core.
     rom_end_kib  : natural := 1048576;
     -- Com valor não negativo, a seleção da cache sai do endereço registrado (selecionado a partir deste endereço, em KiB), e a porta i_sel é ignorada; -1 usa i_sel. Tira a decodificação do PC do caminho até a cache.
     sel_from_kib : integer := -1;
@@ -141,13 +146,6 @@ architecture rtl of icache is
   -- Primeiro endereço de byte selecionado (sel_from_kib não negativo).
   constant SEL_FROM_ADDR : unsigned(31 downto 0) := sel_from_addr_of(sel_from_kib);
 
-  -- Bits do índice da linha: o tamanho em bits dividido pelos 128 bits de uma linha, em logaritmo exato (falha se o tamanho não for uma potência de dois).
-  function index_bits_of (bits : positive) return natural is
-  begin
-    assert bits >= 256 report "size_bits must hold at least two lines of 128 bits" severity failure;
-    return log2_exact(bits) - 7;
-  end function index_bits_of;
-
   -- Bits do índice da linha.
   constant INDEX_BITS : natural := index_bits_of(size_bits);
   -- Linhas da cache.
@@ -215,6 +213,10 @@ architecture rtl of icache is
 
   -- A tag lida bate com a do endereço registrado.
   signal tag_match : std_logic;
+  -- O endereço registrado da busca está na região da ROM.
+  signal rom_q     : std_logic;
+  -- O endereço da falha em andamento está na região da ROM.
+  signal rom_miss  : std_logic;
   -- A instrução pedida está na cache.
   signal hit       : std_logic;
 
@@ -261,19 +263,12 @@ architecture rtl of icache is
   -- Endereço do pedido ao lado da memória (registrado).
   signal d_addr_i : std_logic_vector(31 downto 0) := (others => '0');
 
-  -- A região da ROM: o endereço está em [rom_base_kib, rom_end_kib) KiB.
-  function in_rom(addr : std_logic_vector(31 downto 0)) return std_logic is
-  begin
-    if unsigned(addr) >= shift_left(to_unsigned(rom_base_kib, 32), 10) and
-       unsigned(addr) < shift_left(to_unsigned(rom_end_kib, 32), 10) then
-      return '1';
-    end if;
-    return '0';
-  end function in_rom;
-
 begin
 
-  tag_match <= '1' when tag_rd = (in_rom(addr_q) & addr_q(window_bits - 1 downto TAG_LOW)) else '0';
+  rom_q    <= in_window(addr_q, rom_base_kib, rom_end_kib);
+  rom_miss <= in_window(miss_a, rom_base_kib, rom_end_kib);
+
+  tag_match <= '1' when tag_rd = (rom_q & addr_q(window_bits - 1 downto TAG_LOW)) else '0';
   sel_eff   <= sel_q when sel_from_kib < 0 else
                '1' when unsigned(addr_q) >= SEL_FROM_ADDR else '0';
   hit       <= sel_eff and valid_rd and tag_match and (not blocked);
@@ -411,7 +406,7 @@ begin
               end if;
             -- uma falha registrada no ciclo anterior (a decisão sai da leitura da tag em um registrador): traz a sua linha
             elsif miss_q = '1' and i_invalidate = '0' then
-              fill_tag <= in_rom(miss_a) & miss_a(window_bits - 1 downto TAG_LOW);
+              fill_tag <= rom_miss & miss_a(window_bits - 1 downto TAG_LOW);
               fill_idx <= miss_a(INDEX_BITS + 3 downto 4);
               st       <= S_FILL_REQ;
             end if;

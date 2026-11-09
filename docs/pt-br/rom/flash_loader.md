@@ -118,7 +118,7 @@ Uma varredura de $32N + 1$ bits escreve $N$ palavras seguidas, a partir do curso
 
 ### 5.1. Sincronização
 
-O comando atravessa de `i_tck` para `i_clk` pela inversão de `i_cmd_tog`, sincronizada por três estágios de registradores. `i_op`, `i_addr` e `i_data` ficam estáveis da inversão até a resposta, que é uma inversão de `o_done_tog`. `o_rsp_*` ficam estáveis desde antes dessa inversão até o próximo comando aceito.
+O comando atravessa de `i_tck` para `i_clk` pela inversão de `i_cmd_tog`, sincronizada por uma instância `u_sync_cmd` do `synchronizer` de dois estágios, mais um registrador que guarda o valor anterior e mostra a inversão (três registradores em série ao todo). O sincronizador amostra a cada borda de `i_clk`, também durante o reset, e o reset espera que o toggle esteja parado, o que vale com o reset mais longo que três bordas de `i_clk`. `i_op`, `i_addr` e `i_data` ficam estáveis da inversão até a resposta, que é uma inversão de `o_done_tog`. `o_rsp_*` ficam estáveis desde antes dessa inversão até o próximo comando aceito.
 
 ### 5.2. Temporização das portas
 

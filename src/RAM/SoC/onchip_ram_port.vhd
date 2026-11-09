@@ -46,12 +46,15 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.utils_pkg.all;
+use work.ram_pkg.all;
 
 entity onchip_ram_port is
   generic (
     -- Tamanho da janela da RAM em bytes, uma potência de dois de 16 bytes a 32 MB (1048576 é 1 MB).
     size_bytes : positive := 1048576;
-    -- Onde a RAM começa dentro dos 64 MB da região, em KiB: o endereço da RAM é o da região menos esta base.
+    -- Onde a RAM começa dentro dos 64 MB da região, em KiB: o endereço da RAM é o da região menos
+    -- esta base. Origem: o espaço de endereços da região da memória que o Memory enxerga (26 bits
+    -- baixos), não o mapa do Core.
     base_kib   : natural  := 0;
     -- Bordas mínimas entre o pedido e a conclusão do acesso, como a latência do ram_chip (0 usa só a estrutural).
     latency    : natural  := 0
@@ -221,7 +224,7 @@ begin
           when S_IDLE =>
             if i_rden = '1' or i_wren = '1' then
               inside := unsigned(i_addr(25 downto 0)) >= to_unsigned(BASE_BYTES, 26);
-              offset := unsigned(i_addr(25 downto 0)) - to_unsigned(BASE_BYTES, 26);
+              offset := window_offset(i_addr, base_kib);
               if offset(25 downto WINDOW_BITS) /= 0 then
                 inside := false;
               end if;

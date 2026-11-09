@@ -43,6 +43,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.utils_pkg.all;
 use work.chip_timing_pkg.all;
+use work.sim_util_pkg.all;
 
 entity nor_flash_model is
   generic (
@@ -107,6 +108,9 @@ end entity nor_flash_model;
 
 architecture sim of nor_flash_model is
 
+  -- Nome do modelo, prefixo das mensagens de violação.
+  constant MODEL_NAME : string := "nor_flash_model";
+
   -- Bits de endereço da janela do chip (falha se size_bytes não for uma potência de dois).
   constant WINDOW_BITS : natural := log2_exact(size_bytes);
   -- Bits de endereço dentro de um setor.
@@ -120,16 +124,14 @@ architecture sim of nor_flash_model is
   -- Estados do decodificador de comandos do chip.
   type cmd_state_t is (C_READ, C_U1, C_U2, C_PROG, C_E1, C_E2, C_E3);
 
-  -- Padrão determinístico do conteúdo inicial do byte de endereço a: os bits 31 a 24 de (a x 0x9E3779B1) xor 0x5A5A1234.
+  -- Padrão determinístico do conteúdo inicial do byte de endereço a: o byte 3 da palavra de
+  -- pattern_word(a).
   function pattern_byte (a : natural) return byte_t is
-    -- Produto de 64 bits do endereço pela constante.
-    variable p : unsigned(63 downto 0);
-    -- Os 32 bits baixos do produto, misturados com a constante de xor.
-    variable x : unsigned(31 downto 0);
+    -- Palavra do padrão no endereço do byte.
+    variable w : std_logic_vector(31 downto 0);
   begin
-    p := to_unsigned(a, 32) * unsigned'(x"9E3779B1");
-    x := p(31 downto 0) xor x"5A5A1234";
-    return to_integer(x(31 downto 24));
+    w := pattern_word(std_logic_vector(to_unsigned(a, 32)));
+    return to_integer(unsigned(w(31 downto 24)));
   end function pattern_byte;
 
 begin
@@ -199,24 +201,6 @@ begin
     -- Endereço do ciclo de escrita, 12 bits baixos.
     variable a12          : natural;
 
-    -- Registra uma violação: pulsa o_violation e falha ou avisa conforme abort_on_violation.
-    procedure violate (msg : in string) is
-    begin
-      o_violation <= '1';
-      o_violation <= transport '0' after 1 ns;
-      if abort_on_violation then
-        report "nor_flash_model: " & msg severity failure;
-      else
-        report "nor_flash_model: " & msg severity warning;
-      end if;
-    end procedure violate;
-
-    -- Tempo em ns.
-    function tns (n : natural) return time is
-    begin
-      return n * 1 ns;
-    end function tns;
-
     -- Endereço de byte do chip como natural, dentro da janela.
     function idx (a : unsigned(22 downto 0)) return natural is
     begin
@@ -273,7 +257,8 @@ begin
           o_fl_ry    <= '1';
         elsif i_fl_rst_n = '1' then
           if now - t_rst_fall < tns(t_rp_ns) then
-            violate("RESET# em nivel baixo por menos de t_rp");
+            violate(o_violation, MODEL_NAME, abort_on_violation,
+                     "RESET# em nivel baixo por menos de t_rp");
           end if;
           t_rst_rise := now;
           seen_rst   := true;
@@ -297,14 +282,16 @@ begin
           avail := t_oe + tns(t_oe_ns);
         end if;
         if now < avail then
-          violate("leitura encerrada antes do tempo de acesso");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "leitura encerrada antes do tempo de acesso");
         end if;
       end if;
 
       -- Endereço: tempo de espera depois da descida de WE# e escrita em curso.
       if i_fl_addr'event then
         if seen_we and i_fl_ce_n = '0' and now - t_we_fall < tns(t_ah_ns) and not is_x(i_fl_addr) then
-          violate("endereco mudou antes de t_ah depois da descida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "endereco mudou antes de t_ah depois da descida de WE#");
         end if;
         if unsigned(i_fl_addr(22 downto 4)) /= prev_addr(22 downto 4) then
           rand := true;
@@ -321,7 +308,8 @@ begin
         t_ce := now;
         rand := true;
         if seen_rst and now - t_rst_rise < tns(t_rh_ns) then
-          violate("CE# baixo antes de t_rh depois de RESET#");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "CE# baixo antes de t_rh depois de RESET#");
         end if;
       end if;
       if i_fl_oe_n'event and i_fl_oe_n = '0' then
@@ -336,16 +324,17 @@ begin
       -- Escrita: descida de WE#.
       if i_fl_we_n'event and i_fl_we_n = '0' and i_fl_rst_n = '1' then
         if i_fl_ce_n /= '0' then
-          violate("WE# baixo sem CE# baixo");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "WE# baixo sem CE# baixo");
         end if;
         if i_fl_oe_n /= '1' then
-          violate("WE# e OE# baixos juntos");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "WE# e OE# baixos juntos");
         end if;
         if seen_we and now - t_we_fall < tns(t_wc_ns) then
-          violate("ciclo de escrita menor que t_wc");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "ciclo de escrita menor que t_wc");
         end if;
         if seen_we and now - t_we_rise < tns(t_wph_ns) then
-          violate("WE# em nivel alto por menos de t_wph");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "WE# em nivel alto por menos de t_wph");
         end if;
         t_we_fall := now;
         seen_we   := true;
@@ -354,31 +343,37 @@ begin
         -- Escrita: subida de WE#. O ciclo vale.
         t_we_rise := now;
         if now - t_we_fall < tns(t_wp_ns) then
-          violate("pulso de WE# menor que t_wp");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "pulso de WE# menor que t_wp");
         end if;
         if now - t_dq < tns(t_ds_ns) then
-          violate("dado estavel por menos de t_ds antes da subida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation,
+                   "dado estavel por menos de t_ds antes da subida de WE#");
         end if;
         if is_x(i_fl_dq) then
-          violate("dado indefinido na subida de WE#");
+          violate(o_violation, MODEL_NAME, abort_on_violation, "dado indefinido na subida de WE#");
         elsif i_fl_rst_n = '1' and i_fl_ce_n = '0' then
           wr_data := to_integer(unsigned(i_fl_dq));
           a12     := to_integer(wr_addr(11 downto 0));
           if op_active then
-            violate("ciclo de escrita durante a operacao interna");
+            violate(o_violation, MODEL_NAME, abort_on_violation,
+                     "ciclo de escrita durante a operacao interna");
           else
             case cs is
               when C_READ =>
                 if a12 = 16#AAA# and wr_data = 16#AA# then
                   cs := C_U1;
                 elsif wr_data /= 16#F0# then
-                  violate("ciclo de escrita fora da sequencia de comando (endereco " & natural'image(a12) & ", dado " & natural'image(wr_data) & ")");
+                  violate(o_violation, MODEL_NAME, abort_on_violation,
+                           "ciclo de escrita fora da sequencia de comando (endereco "
+                          & natural'image(a12)
+                          & ", dado " & natural'image(wr_data) & ")");
                 end if;
               when C_U1 =>
                 if a12 = 16#555# and wr_data = 16#55# then
                   cs := C_U2;
                 else
-                  violate("segundo ciclo de desbloqueio invalido");
+                  violate(o_violation, MODEL_NAME, abort_on_violation,
+                           "segundo ciclo de desbloqueio invalido");
                   cs := C_READ;
                 end if;
               when C_U2 =>
@@ -387,7 +382,8 @@ begin
                 elsif a12 = 16#AAA# and wr_data = 16#80# then
                   cs := C_E1;
                 else
-                  violate("comando invalido depois do desbloqueio");
+                  violate(o_violation, MODEL_NAME, abort_on_violation,
+                           "comando invalido depois do desbloqueio");
                   cs := C_READ;
                 end if;
               when C_PROG =>
@@ -407,20 +403,23 @@ begin
                 if a12 = 16#AAA# and wr_data = 16#AA# then
                   cs := C_E2;
                 else
-                  violate("primeiro ciclo de desbloqueio do apagar invalido");
+                  violate(o_violation, MODEL_NAME, abort_on_violation,
+                           "primeiro ciclo de desbloqueio do apagar invalido");
                   cs := C_READ;
                 end if;
               when C_E2 =>
                 if a12 = 16#555# and wr_data = 16#55# then
                   cs := C_E3;
                 else
-                  violate("segundo ciclo de desbloqueio do apagar invalido");
+                  violate(o_violation, MODEL_NAME, abort_on_violation,
+                           "segundo ciclo de desbloqueio do apagar invalido");
                   cs := C_READ;
                 end if;
               when C_E3 =>
                 cs := C_READ;
                 if wr_data /= 16#30# then
-                  violate("apagar sem o comando de setor 30 (apagar o chip nao e modelado)");
+                  violate(o_violation, MODEL_NAME, abort_on_violation,
+                           "apagar sem o comando de setor 30 (apagar o chip nao e modelado)");
                 elsif i_fl_wp_n = '0' and idx(wr_addr) / sector_bytes = size_bytes / sector_bytes - 1 then
                   null;
                 else

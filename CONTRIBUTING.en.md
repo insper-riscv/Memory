@@ -90,12 +90,14 @@ All code identifiers must be written in **English**, whereas all comments and fi
 | Types and subtypes (`type`, `subtype`) | `snake_case` with `_t` suffix | `state_t`, `data_t`, `tag_t` |
 | Internal signals and variables | `snake_case` | `data_ram`, `tag_ram`, `valid` |
 | Instance labels | `u_` prefix + `snake_case` | `u_sync_req` |
+| Generate labels | `gen_` prefix + `snake_case` | `gen_has_m`, `gen_lanes` |
+| Process labels | `p_` prefix + `snake_case`, mandatory on every process and repeated on `end process` | `p_regs`, `p_next_state`, `p_sync_done` |
 
 ## 4. VHDL File Headers and Docstrings
 
 ### 4.1. Mandatory File Header
 
-Every `.vhd` file must begin with a 72-column header block (`-- ====...====`) in Portuguese describing the architectural responsibility of the package or entity:
+Every `.vhd` file must begin with a header block (`-- ====...====`) in Portuguese describing the architectural responsibility of the package or entity. No VHDL line is longer than 120 characters (the VSG default), no file exceeds 2000 lines and no process exceeds 500:
 
 ```vhdl
 -- ============================================================================
@@ -106,7 +108,7 @@ Every `.vhd` file must begin with a 72-column header block (`-- ====...====`) in
 -- ============================================================================
 ```
 
-Internal sections within an architecture must use 72-column single-hyphen dividers (`-- ----...----`).
+Internal sections within an architecture must use single-hyphen dividers (`-- ----...----`).
 
 ### 4.2. Individual Docstring Above Every Declaration
 

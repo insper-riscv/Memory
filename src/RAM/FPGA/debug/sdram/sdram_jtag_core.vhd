@@ -81,8 +81,10 @@ architecture rtl of sdram_jtag_core is
   signal bypass   : std_logic := '0';
   -- Toggle de comando ao mestre de debug (registrado).
   signal cmd_i    : std_logic := '0';
-  -- Sincronizador de dois estágios de done_tog em tck.
-  signal done_s   : std_logic_vector(1 downto 0) := "00";
+  -- done_tog como vetor de um bit, entrada do sincronizador.
+  signal done_tog_v : std_logic_vector(0 downto 0);
+  -- done_tog sincronizado em tck por dois estágios.
+  signal done_sync  : std_logic_vector(0 downto 0);
   -- Um comando chegou com o mestre ocupado e foi descartado.
   signal overrun  : std_logic := '0';
   -- O comando anterior ainda não terminou.
@@ -98,7 +100,14 @@ architecture rtl of sdram_jtag_core is
 
 begin
 
-  busy    <= '1' when cmd_i /= done_s(1) else '0';
+  done_tog_v(0) <= i_done_tog;
+
+  -- Cruza o toggle de confirmação do domínio da porta B para tck.
+  u_sync_done : entity work.synchronizer
+    generic map (stages => 2, data_width => 1)
+    port map (i_clk => i_tck, i_d => done_tog_v, o_d => done_sync);
+
+  busy    <= '1' when cmd_i /= done_sync(0) else '0';
   o_cmd_tog <= cmd_i;
   o_op      <= op_r;
   o_be      <= be_r;
@@ -109,7 +118,6 @@ begin
   process (i_tck)
   begin
     if rising_edge(i_tck) then
-      done_s <= done_s(0) & i_done_tog;
 
       if i_state_uir = '1' then
         ir <= i_ir_in;

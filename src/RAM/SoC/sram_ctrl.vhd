@@ -43,6 +43,7 @@ use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.utils_pkg.all;
 use work.chip_timing_pkg.all;
+use work.ram_pkg.all;
 
 entity sram_ctrl is
   generic (
@@ -52,7 +53,8 @@ entity sram_ctrl is
     margin_ns     : natural  := 0;
     -- Tamanho do chip em bytes, uma potência de dois de 16 bytes a 2 MB.
     size_bytes    : positive := 2097152;
-    -- Onde o chip começa dentro dos 64 MB da região, em KiB.
+    -- Onde o chip começa dentro dos 64 MB da região, em KiB. Origem: o espaço de endereços da
+    -- região da memória que o Memory enxerga (26 bits baixos), não o mapa do Core.
     base_kib      : natural  := 0;
     -- Acesso por endereço, em ns.
     t_aa_ns       : natural  := SRAM_T_AA_NS;
@@ -207,7 +209,7 @@ begin
 
   -- O endereço está fora da janela quando fica abaixo da base ou além do tamanho do chip.
   acc_outw <= '1' when unsigned(i_addr(25 downto 0)) < base_kib * 1024
-                    or unsigned(i_addr(25 downto 0)) - base_kib * 1024 >= size_bytes else '0';
+                    or window_offset(i_addr, base_kib) >= size_bytes else '0';
   -- Uma leitura de chip começa com o controlador livre, sem pedido de escrita e com o pedido na janela.
   rd_start <= '1' when st = S_IDLE and i_rden = '1' and i_wren = '0' and acc_outw = '0' else '0';
 
@@ -251,7 +253,7 @@ begin
                 a      := unsigned(i_addr(31 downto 2)) & "00";
                 last_h <= 1;
               end if;
-              offset := a(25 downto 0) - to_unsigned(base_kib * 1024, 26);
+              offset := window_offset(std_logic_vector(a), base_kib);
               is_wr   <= i_wren;
               half_n  <= 0;
               wdata_q <= i_wdata_x & i_wdata;

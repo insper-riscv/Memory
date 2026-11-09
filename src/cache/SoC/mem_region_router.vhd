@@ -27,12 +27,17 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.cache_pkg.all;
 
 entity mem_region_router is
   generic (
-    -- Base, em KiB, da região da FLASH (0x20000000 por padrão).
+    -- Base, em KiB, da região da FLASH (0x20000000 por padrão). Origem: o espaço de endereços da
+    -- região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o padrão
+    -- difere dos defaults do Core.
     rom_base_kib   : natural := 524288;
-    -- Fim exclusivo, em KiB, da região da FLASH (0x40000000 por padrão).
+    -- Fim exclusivo, em KiB, da região da FLASH (0x40000000 por padrão). Origem: o espaço de
+    -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
+    -- padrão difere dos defaults do Core.
     rom_end_kib    : natural := 1048576;
     -- Tamanho, em KiB, da janela que o chip da FLASH atende a partir da base; a leitura além dela devolve zero.
     rom_window_kib : natural := 1024;
@@ -127,8 +132,7 @@ architecture rtl of mem_region_router is
 
 begin
 
-  is_flash <= '1' when (unsigned(i_addr) >= shift_left(to_unsigned(rom_base_kib, 32), 10) and
-                        unsigned(i_addr) < shift_left(to_unsigned(rom_end_kib, 32), 10)) else '0';
+  is_flash <= in_window(i_addr, rom_base_kib, rom_end_kib);
   beyond   <= '1' when unsigned(i_addr) >= shift_left(to_unsigned(rom_base_kib + rom_window_kib, 32), 10) else '0';
   is_local <= is_flash and (i_wren or (i_rden and beyond));
 

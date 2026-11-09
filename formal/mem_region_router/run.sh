@@ -18,7 +18,7 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name>: the netlist and a copy that exposes the register of the local answer
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/cache/SoC/cache_pkg.vhd" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog mem_region_router > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v" local_ready
@@ -33,7 +33,7 @@ start prove router_dbg.v cover 12 '-DCOVER' cover
 
 # Mutants of the VHDL: each defect must make the safety proof fail.
 export MUT_DEPTH=12
-start_mutant end_inclusive    "s/unsigned(i_addr) < shift_left(to_unsigned(rom_end_kib, 32), 10)/unsigned(i_addr) <= shift_left(to_unsigned(rom_end_kib, 32), 10)/"
+start_mutant end_inclusive    "s/is_flash <= in_window(i_addr, rom_base_kib, rom_end_kib);/is_flash <= in_window(i_addr, rom_base_kib, rom_end_kib + 1) when i_addr(9 downto 0) = \"0000000000\" else in_window(i_addr, rom_base_kib, rom_end_kib);/"
 start_mutant write_not_local  "s/is_local <= is_flash and (i_wren or (i_rden and beyond));/is_local <= is_flash and (i_rden and beyond);/"
 start_mutant slave_sees_flash "s/o_s_rden    <= i_rden and not is_flash;/o_s_rden    <= i_rden;/"
 start_mutant local_not_zero   "s/o_rdata <= (others => '0') when rd_local = '1' else/o_rdata <= i_f_rdata when rd_local = '1' else/"
