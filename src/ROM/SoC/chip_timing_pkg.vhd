@@ -19,80 +19,91 @@
 
 package chip_timing_pkg is
 
-  -- FLASH NOR S29GL064N90 (inferido): acesso aleatório e de chip habilitado, em ns.
-  constant NOR_T_ACC_NS   : natural := 90;
-  -- FLASH NOR: acesso dentro da página de 8 palavras (16 bytes em modo byte), em ns (inferido).
-  constant NOR_T_PACC_NS  : natural := 25;
-  -- FLASH NOR: saída habilitada até o dado válido, em ns (inferido).
-  constant NOR_T_OE_NS    : natural := 35;
-  -- FLASH NOR: tempo de ciclo de escrita, em ns (inferido).
-  constant NOR_T_WC_NS    : natural := 90;
-  -- FLASH NOR: largura mínima do pulso de WE#, em ns (inferido).
-  constant NOR_T_WP_NS    : natural := 35;
-  -- FLASH NOR: largura mínima de WE# em nível alto entre dois pulsos, em ns (inferido).
-  constant NOR_T_WPH_NS   : natural := 30;
-  -- FLASH NOR: dado estável antes da subida de WE#, em ns (inferido).
-  constant NOR_T_DS_NS    : natural := 45;
-  -- FLASH NOR: endereço estável depois da descida de WE#, em ns (inferido).
-  constant NOR_T_AH_NS    : natural := 45;
-  -- FLASH NOR: da subida de WE# à descida de RY#, em ns (inferido).
-  constant NOR_T_BUSY_NS  : natural := 90;
-  -- FLASH NOR: largura mínima do pulso de RESET#, em ns (inferido).
-  constant NOR_T_RP_NS    : natural := 500;
-  -- FLASH NOR: da subida de RESET# à primeira leitura, em ns (inferido).
-  constant NOR_T_RH_NS    : natural := 50;
-  -- FLASH NOR: gravação de um byte, valor típico em ns (inferido; 60 us).
-  constant NOR_T_PROG_NS  : natural := 60000;
-  -- FLASH NOR: apagar de um setor de 64 KB, valor típico em ns (inferido; 0,5 s).
-  constant NOR_T_ERASE_NS : natural := 500000000;
+    -- FLASH NOR S29GL064N90 (inferido): acesso aleatório e de chip habilitado, em ns.
+    constant NOR_T_ACC_NS   : natural := 90;
+    -- FLASH NOR: acesso dentro da página de 8 palavras (16 bytes em modo byte), em ns (inferido).
+    constant NOR_T_PACC_NS  : natural := 25;
+    -- FLASH NOR: saída habilitada até o dado válido, em ns (inferido).
+    constant NOR_T_OE_NS    : natural := 35;
+    -- FLASH NOR: tempo de ciclo de escrita, em ns (inferido).
+    constant NOR_T_WC_NS    : natural := 90;
+    -- FLASH NOR: largura mínima do pulso de WE#, em ns (inferido).
+    constant NOR_T_WP_NS    : natural := 35;
+    -- FLASH NOR: largura mínima de WE# em nível alto entre dois pulsos, em ns (inferido).
+    constant NOR_T_WPH_NS   : natural := 30;
+    -- FLASH NOR: dado estável antes da subida de WE#, em ns (inferido).
+    constant NOR_T_DS_NS    : natural := 45;
+    -- FLASH NOR: endereço estável depois da descida de WE#, em ns (inferido).
+    constant NOR_T_AH_NS    : natural := 45;
+    -- FLASH NOR: da subida de WE# à descida de RY#, em ns (inferido).
+    constant NOR_T_BUSY_NS  : natural := 90;
+    -- FLASH NOR: largura mínima do pulso de RESET#, em ns (inferido).
+    constant NOR_T_RP_NS    : natural := 500;
+    -- FLASH NOR: da subida de RESET# à primeira leitura, em ns (inferido).
+    constant NOR_T_RH_NS    : natural := 50;
+    -- FLASH NOR: gravação de um byte, valor típico em ns (inferido; 60 us).
+    constant NOR_T_PROG_NS  : natural := 60000;
+    -- FLASH NOR: apagar de um setor de 64 KB, valor típico em ns (inferido; 0,5 s).
+    constant NOR_T_ERASE_NS : natural := 500000000;
 
-  -- SRAM IS61WV102416BLL-10 (inferido): acesso por endereço, em ns.
-  constant SRAM_T_AA_NS  : natural := 10;
-  -- SRAM: tempo de ciclo de leitura, em ns (inferido).
-  constant SRAM_T_RC_NS  : natural := 10;
-  -- SRAM: tempo de ciclo de escrita, em ns (inferido).
-  constant SRAM_T_WC_NS  : natural := 10;
-  -- SRAM: CE# até o fim da escrita, em ns (inferido).
-  constant SRAM_T_SCE_NS : natural := 8;
-  -- SRAM: endereço válido até o fim da escrita, em ns (inferido).
-  constant SRAM_T_AW_NS  : natural := 8;
-  -- SRAM: largura mínima do pulso de WE#, em ns (inferido).
-  constant SRAM_T_PWE_NS : natural := 8;
-  -- SRAM: dado válido antes da subida de WE#, em ns (inferido).
-  constant SRAM_T_SD_NS  : natural := 6;
-  -- SRAM: endereço mantido depois da subida de WE#, em ns (inferido).
-  constant SRAM_T_HA_NS  : natural := 0;
-  -- SRAM: dado mantido depois da subida de WE#, em ns (inferido).
-  constant SRAM_T_HD_NS  : natural := 0;
+    -- SRAM IS61WV102416BLL-10 (inferido): acesso por endereço, em ns.
+    constant SRAM_T_AA_NS  : natural := 10;
+    -- SRAM: tempo de ciclo de leitura, em ns (inferido).
+    constant SRAM_T_RC_NS  : natural := 10;
+    -- SRAM: tempo de ciclo de escrita, em ns (inferido).
+    constant SRAM_T_WC_NS  : natural := 10;
+    -- SRAM: CE# até o fim da escrita, em ns (inferido).
+    constant SRAM_T_SCE_NS : natural := 8;
+    -- SRAM: endereço válido até o fim da escrita, em ns (inferido).
+    constant SRAM_T_AW_NS  : natural := 8;
+    -- SRAM: largura mínima do pulso de WE#, em ns (inferido).
+    constant SRAM_T_PWE_NS : natural := 8;
+    -- SRAM: dado válido antes da subida de WE#, em ns (inferido).
+    constant SRAM_T_SD_NS  : natural := 6;
+    -- SRAM: endereço mantido depois da subida de WE#, em ns (inferido).
+    constant SRAM_T_HA_NS  : natural := 0;
+    -- SRAM: dado mantido depois da subida de WE#, em ns (inferido).
+    constant SRAM_T_HD_NS  : natural := 0;
 
-  -- Maior de dois naturais (o Quartus Lite não traz a função maximum do VHDL-2008 para natural).
-  pure function max_natural (a : natural; b : natural) return natural;
+    -- Maior de dois naturais (o Quartus Lite não traz a função maximum do VHDL-2008 para natural).
 
-  -- Número de ciclos de período period_ns que cobrem t_ns mais margin_ns, no mínimo um: piso de t sobre T somado
-  -- de um, ou seja, o teto de (t + margem) / T.
-  pure function cycles_of (t_ns : natural; period_ns : positive; margin_ns : natural) return positive;
+    pure function max_natural (a : natural; b : natural) return natural;
+
+    -- Número de ciclos de período period_ns que cobrem t_ns mais margin_ns, no mínimo um: piso de t sobre T somado
+    -- de um, ou seja, o teto de (t + margem) / T.
+
+    pure function cycles_of (t_ns : natural; period_ns : positive; margin_ns : natural) return positive;
 
 end package chip_timing_pkg;
 
 package body chip_timing_pkg is
 
-  pure function max_natural (a : natural; b : natural) return natural is
-  begin
-    if a > b then
-      return a;
-    end if;
-    return b;
-  end function max_natural;
+    pure function max_natural (a : natural; b : natural) return natural is
+    begin
 
-  pure function cycles_of (t_ns : natural; period_ns : positive; margin_ns : natural) return positive is
-    -- Teto da divisão do tempo com a margem pelo período.
-    variable n : natural;
-  begin
-    n := (t_ns + margin_ns + period_ns - 1) / period_ns;
-    if n < 1 then
-      return 1;
-    end if;
-    return n;
-  end function cycles_of;
+        if a > b then
+            return a;
+        end if;
+
+        return b;
+
+    end function max_natural;
+
+    pure function cycles_of (t_ns : natural; period_ns : positive; margin_ns : natural) return positive is
+
+        -- Teto da divisão do tempo com a margem pelo período.
+        variable n : natural;
+
+    begin
+
+        n := (t_ns + margin_ns + period_ns - 1) / period_ns;
+
+        if n < 1 then
+            return 1;
+        end if;
+
+        return n;
+
+    end function cycles_of;
 
 end package body chip_timing_pkg;

@@ -32,156 +32,176 @@ use ieee.numeric_std.all;
 use work.utils_pkg.all;
 
 entity flash_chip is
-  generic (
-    -- Bordas até a primeira palavra do pedido estar capturada (mínimo 2).
-    first_latency : natural := 24;
-    -- Bordas entre duas palavras seguidas da mesma linha (mínimo 2).
-    next_latency  : natural := 4;
-    -- Tamanho do chip em bytes, uma potência de dois de 16 bytes a 32 MB (1048576 é 1 MB).
-    size_bytes    : positive := 1048576
-  );
-  port (
-    -- Clock do módulo.
-    i_clk       : in  std_logic;
-    -- Reset, ativo em '1'.
-    i_rst       : in  std_logic;
+    generic (
+        -- Bordas até a primeira palavra do pedido estar capturada (mínimo 2).
+        first_latency : natural  := 24;
+        -- Bordas entre duas palavras seguidas da mesma linha (mínimo 2).
+        next_latency  : natural  := 4;
+        -- Tamanho do chip em bytes, uma potência de dois de 16 bytes a 32 MB (1048576 é 1 MB).
+        size_bytes    : positive := 1048576
+    );
+    port (
+        -- Clock do módulo.
+        i_clk : in    std_logic;
+        -- Reset, ativo em '1'.
+        i_rst : in    std_logic;
 
-    -- Endereço do pedido.
-    i_addr      : in  std_logic_vector(31 downto 0);
-    -- Pedido de leitura ('1' = lê).
-    i_rden      : in  std_logic;
-    -- Pedido de linha de quatro palavras ('1') ou de uma palavra ('0').
-    i_line      : in  std_logic;
-    -- O pedido foi consumido neste ciclo, o chip pode aceitar outro.
-    i_advance   : in  std_logic;
-    -- Pedido concluído, o dado lido é válido ('1').
-    o_ready     : out std_logic;
-    -- O chip está esperando a palavra de um pedido ('1' em cada ciclo de latência).
-    o_busy      : out std_logic;
-    -- Palavra pedida (a palavra 0 da linha).
-    o_rdata     : out std_logic_vector(31 downto 0);
-    -- Palavras 1 a 3 da linha, a palavra 1 nos bits mais baixos.
-    o_rdata_x   : out std_logic_vector(95 downto 0);
+        -- Endereço do pedido.
+        i_addr    : in    std_logic_vector(31 downto 0);
+        -- Pedido de leitura ('1' = lê).
+        i_rden    : in    std_logic;
+        -- Pedido de linha de quatro palavras ('1') ou de uma palavra ('0').
+        i_line    : in    std_logic;
+        -- O pedido foi consumido neste ciclo, o chip pode aceitar outro.
+        i_advance : in    std_logic;
+        -- Pedido concluído, o dado lido é válido ('1').
+        o_ready   : out   std_logic;
+        -- O chip está esperando a palavra de um pedido ('1' em cada ciclo de latência).
+        o_busy    : out   std_logic;
+        -- Palavra pedida (a palavra 0 da linha).
+        o_rdata   : out   std_logic_vector(31 downto 0);
+        -- Palavras 1 a 3 da linha, a palavra 1 nos bits mais baixos.
+        o_rdata_x : out   std_logic_vector(95 downto 0);
 
-    -- Endereço de byte entregue à memória de armazenamento (registrado).
-    o_mem_addr  : out std_logic_vector(31 downto 0);
-    -- Palavra lida da memória de armazenamento (leitura registrada).
-    i_mem_data  : in  std_logic_vector(31 downto 0)
-  );
+        -- Endereço de byte entregue à memória de armazenamento (registrado).
+        o_mem_addr : out   std_logic_vector(31 downto 0);
+        -- Palavra lida da memória de armazenamento (leitura registrada).
+        i_mem_data : in    std_logic_vector(31 downto 0)
+    );
 end entity flash_chip;
 
 architecture rtl of flash_chip is
 
-  -- Bits de endereço da janela do chip (falha se size_bytes não for uma potência de dois).
-  constant WINDOW_BITS : natural := log2_exact(size_bytes);
+    -- Bits de endereço da janela do chip (falha se size_bytes não for uma potência de dois).
+    constant WINDOW_BITS : natural := log2_exact(size_bytes);
 
-  -- Estados do chip: livre, esperando a palavra, pedido concluído.
-  type state_t is (S_IDLE, S_WAIT, S_DONE);
-  -- Estado atual.
-  signal st      : state_t := S_IDLE;
-  -- Pedido de uma contagem de latência ('1' carrega).
-  signal lat_load  : std_logic;
-  -- Bordas da contagem pedida: a primeira latência num pedido novo, a seguinte entre palavras.
-  signal lat_count : natural range 0 to first_latency + next_latency;
-  -- A contagem de latência termina nesta borda.
-  signal lat_last  : std_logic;
-  -- Palavra da linha em andamento (0 a 3).
-  signal word_n  : natural range 0 to 3 := 0;
-  -- Último índice de palavra do pedido (3 para uma linha, 0 para uma palavra).
-  signal last_w  : natural range 0 to 3 := 0;
-  -- Endereço de byte da palavra pedida, ou o início da linha.
-  signal base    : unsigned(31 downto 0) := (others => '0');
-  -- Endereço registrado entregue à memória.
-  signal addr_q  : std_logic_vector(31 downto 0) := (others => '0');
-  -- O pedido em andamento está fora da janela do chip.
-  signal out_win : std_logic := '0';
-  -- Palavra 0 capturada.
-  signal w0      : std_logic_vector(31 downto 0) := (others => '0');
-  -- Palavras 1 a 3 capturadas.
-  signal wx      : std_logic_vector(95 downto 0) := (others => '0');
+    -- Estados do chip: livre, esperando a palavra, pedido concluído.
+    type state_t is (S_IDLE, S_WAIT, S_DONE);
+
+    -- Estado atual.
+    signal st        : state_t                       := S_IDLE;
+    -- Pedido de uma contagem de latência ('1' carrega).
+    signal lat_load  : std_logic;
+    -- Bordas da contagem pedida: a primeira latência num pedido novo, a seguinte entre palavras.
+    signal lat_count : natural range 0 to first_latency + next_latency;
+    -- A contagem de latência termina nesta borda.
+    signal lat_last  : std_logic;
+    -- Palavra da linha em andamento (0 a 3).
+    signal word_n    : natural range 0 to 3          := 0;
+    -- Último índice de palavra do pedido (3 para uma linha, 0 para uma palavra).
+    signal last_w    : natural range 0 to 3          := 0;
+    -- Endereço de byte da palavra pedida, ou o início da linha.
+    signal base      : unsigned(31 downto 0)         := (others => '0');
+    -- Endereço registrado entregue à memória.
+    signal addr_q    : std_logic_vector(31 downto 0) := (others => '0');
+    -- O pedido em andamento está fora da janela do chip.
+    signal out_win   : std_logic                     := '0';
+    -- Palavra 0 capturada.
+    signal w0        : std_logic_vector(31 downto 0) := (others => '0');
+    -- Palavras 1 a 3 capturadas.
+    signal wx        : std_logic_vector(95 downto 0) := (others => '0');
 
 begin
 
-  o_mem_addr <= addr_q;
-  o_rdata    <= w0;
-  o_rdata_x  <= wx;
-  o_ready    <= '1' when st = S_DONE else '0';
-  o_busy     <= '1' when st = S_WAIT else '0';
+    o_mem_addr <= addr_q;
+    o_rdata    <= w0;
+    o_rdata_x  <= wx;
+    o_ready    <= '1' when st = S_DONE else '0';
+    o_busy     <= '1' when st = S_WAIT else '0';
 
-  -- Um pedido novo em repouso carrega a primeira latência, e uma palavra capturada que não é a última carrega a seguinte.
-  lat_load  <= '1' when (st = S_IDLE and i_rden = '1')
-                         or (st = S_WAIT and lat_last = '1' and word_n /= last_w) else '0';
-  lat_count <= first_latency when st = S_IDLE else next_latency;
+    -- Um pedido novo em repouso carrega a primeira latência, e uma palavra capturada que não é a última carrega a seguinte.
+    lat_load  <= '1' when (st = S_IDLE and i_rden = '1')
+                          or (st = S_WAIT and lat_last = '1' and word_n /= last_w) else
+                 '0';
+    lat_count <= first_latency when st = S_IDLE else next_latency;
 
-  u_latency : entity work.latency_counter
-    generic map (max_count => first_latency + next_latency)
-    port map (i_clk => i_clk, i_rst => i_rst, i_load => lat_load, i_count => lat_count, o_last => lat_last, o_wait => open);
+    u_latency : entity work.latency_counter
+        generic map (
+            max_count => first_latency + next_latency
+        )
+        port map (
+            i_clk   => i_clk,
+            i_rst   => i_rst,
+            i_load  => lat_load,
+            i_count => lat_count,
+            o_last  => lat_last,
+            o_wait  => open
+        );
 
-  process (i_clk)
-    -- Endereço-base da linha em andamento.
-    variable next_base : unsigned(31 downto 0);
-    -- Palavra capturada do armazenamento no ciclo corrente.
-    variable captured  : std_logic_vector(31 downto 0);
-  begin
-    if rising_edge(i_clk) then
-      if i_rst = '1' then
-        st     <= S_IDLE;
-        word_n <= 0;
-      else
-        case st is
+    process (i_clk) is
 
-          when S_IDLE =>
-            if i_rden = '1' then
-              if i_line = '1' then
-                next_base := unsigned(i_addr(31 downto 4)) & "0000";
-                last_w    <= 3;
-              else
-                next_base := unsigned(i_addr(31 downto 2)) & "00";
-                last_w    <= 0;
-              end if;
-              if unsigned(next_base(25 downto WINDOW_BITS)) /= 0 then
-                out_win <= '1';
-              else
-                out_win <= '0';
-              end if;
-              base   <= next_base;
-              addr_q <= std_logic_vector(next_base);
-              word_n <= 0;
-              st     <= S_WAIT;
+        -- Endereço-base da linha em andamento.
+        variable next_base : unsigned(31 downto 0);
+        -- Palavra capturada do armazenamento no ciclo corrente.
+        variable captured  : std_logic_vector(31 downto 0);
+
+    begin
+
+        if rising_edge(i_clk) then
+            if i_rst = '1' then
+                st     <= S_IDLE;
+                word_n <= 0;
+            else
+
+                case st is
+
+                    when S_IDLE =>
+
+                        if i_rden = '1' then
+                            if i_line = '1' then
+                                next_base := unsigned(i_addr(31 downto 4)) & "0000";
+                                last_w    <= 3;
+                            else
+                                next_base := unsigned(i_addr(31 downto 2)) & "00";
+                                last_w    <= 0;
+                            end if;
+                            if unsigned(next_base(25 downto WINDOW_BITS)) /= 0 then
+                                out_win <= '1';
+                            else
+                                out_win <= '0';
+                            end if;
+                            base   <= next_base;
+                            addr_q <= std_logic_vector(next_base);
+                            word_n <= 0;
+                            st     <= S_WAIT;
+                        end if;
+
+                    when S_WAIT =>
+
+                        if lat_last = '1' then
+                            if out_win = '1' then
+                                captured := (others => '0');
+                            else
+                                captured := i_mem_data;
+                            end if;
+                            if word_n = 0 then
+                                w0 <= captured;
+                            elsif word_n = 1 then
+                                wx(31 downto 0) <= captured;
+                            elsif word_n = 2 then
+                                wx(63 downto 32) <= captured;
+                            else
+                                wx(95 downto 64) <= captured;
+                            end if;
+                            if word_n = last_w then
+                                st <= S_DONE;
+                            else
+                                word_n <= word_n + 1;
+                                addr_q <= std_logic_vector(base + to_unsigned(4 * (word_n + 1), 32));
+                            end if;
+                        end if;
+
+                    when S_DONE =>
+
+                        if i_advance = '1' then
+                            st <= S_IDLE;
+                        end if;
+
+                end case;
+
             end if;
+        end if;
 
-          when S_WAIT =>
-            if lat_last = '1' then
-              if out_win = '1' then
-                captured := (others => '0');
-              else
-                captured := i_mem_data;
-              end if;
-              if word_n = 0 then
-                w0 <= captured;
-              elsif word_n = 1 then
-                wx(31 downto 0) <= captured;
-              elsif word_n = 2 then
-                wx(63 downto 32) <= captured;
-              else
-                wx(95 downto 64) <= captured;
-              end if;
-              if word_n = last_w then
-                st <= S_DONE;
-              else
-                word_n <= word_n + 1;
-                addr_q <= std_logic_vector(base + to_unsigned(4 * (word_n + 1), 32));
-              end if;
-            end if;
-
-          when S_DONE =>
-            if i_advance = '1' then
-              st <= S_IDLE;
-            end if;
-
-        end case;
-      end if;
-    end if;
-  end process;
+    end process;
 
 end architecture rtl;

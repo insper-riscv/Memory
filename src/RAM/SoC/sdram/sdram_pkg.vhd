@@ -14,113 +14,141 @@ use ieee.std_logic_1164.all;
 
 package sdram_pkg is
 
-  -- Período do clock que as contagens de ciclos assumem (142,857 MHz).
-  constant T_CK_PS    : natural := 7000;
-  -- ACTIVE até READ/WRITE.
-  constant T_RCD_PS   : natural := 15000;
-  -- PRECHARGE até ACTIVE.
-  constant T_RP_PS    : natural := 15000;
-  -- ACTIVE até PRECHARGE.
-  constant T_RAS_PS   : natural := 42000;
-  -- ACTIVE até ACTIVE no mesmo banco.
-  constant T_RC_PS    : natural := 60000;
-  -- AUTO REFRESH até qualquer comando (o REF até REF do datasheet: tRC).
-  constant T_RFC_PS   : natural := 63000;
-  -- Último dado de escrita até PRECHARGE.
-  constant T_WR_PS    : natural := 14000;
-  -- LOAD MODE REGISTER até qualquer comando, em clocks.
-  constant T_MRD_CK   : natural := 2;
-  -- Espera com clock estável antes do primeiro comando (datasheet: 100 us).
-  constant T_INIT_PS  : natural := 200_000_000;
-  -- Intervalo entre refreshes: 64 ms / 8192 linhas.
-  constant T_REFI_PS  : natural := 7_812_500;
-  -- Comandos AUTO REFRESH da sequência de energização (datasheet: pelo menos 2).
-  constant INIT_REFRESHES : natural := 8;
+    -- Período do clock que as contagens de ciclos assumem (142,857 MHz).
+    constant T_CK_PS        : natural := 7000;
+    -- ACTIVE até READ/WRITE.
+    constant T_RCD_PS       : natural := 15000;
+    -- PRECHARGE até ACTIVE.
+    constant T_RP_PS        : natural := 15000;
+    -- ACTIVE até PRECHARGE.
+    constant T_RAS_PS       : natural := 42000;
+    -- ACTIVE até ACTIVE no mesmo banco.
+    constant T_RC_PS        : natural := 60000;
+    -- AUTO REFRESH até qualquer comando (o REF até REF do datasheet: tRC).
+    constant T_RFC_PS       : natural := 63000;
+    -- Último dado de escrita até PRECHARGE.
+    constant T_WR_PS        : natural := 14000;
+    -- LOAD MODE REGISTER até qualquer comando, em clocks.
+    constant T_MRD_CK       : natural := 2;
+    -- Espera com clock estável antes do primeiro comando (datasheet: 100 us).
+    constant T_INIT_PS      : natural := 200_000_000;
+    -- Intervalo entre refreshes: 64 ms / 8192 linhas.
+    constant T_REFI_PS      : natural := 7_812_500;
+    -- Comandos AUTO REFRESH da sequência de energização (datasheet: pelo menos 2).
+    constant INIT_REFRESHES : natural := 8;
 
-  -- Latência CAS em clocks.
-  constant CAS_LATENCY : natural := 3;
-  -- Registrador de modo: rajada de 2 (uma palavra de 32 bits), sequencial, latência CAS 3, escritas em rajada.
-  constant MODE_REG : std_logic_vector(12 downto 0) := "0000000110001";
+    -- Latência CAS em clocks.
+    constant CAS_LATENCY : natural                       := 3;
+    -- Registrador de modo: rajada de 2 (uma palavra de 32 bits), sequencial, latência CAS 3, escritas em rajada.
+    constant MODE_REG    : std_logic_vector(12 downto 0) := "0000000110001";
 
-  -- Comando NOP, codificado como cs_n & ras_n & cas_n & we_n.
-  constant CMD_NOP       : std_logic_vector(3 downto 0) := "0111";
-  -- Comando ACTIVE.
-  constant CMD_ACTIVE    : std_logic_vector(3 downto 0) := "0011";
-  -- Comando READ.
-  constant CMD_READ      : std_logic_vector(3 downto 0) := "0101";
-  -- Comando WRITE.
-  constant CMD_WRITE     : std_logic_vector(3 downto 0) := "0100";
-  -- Comando PRECHARGE.
-  constant CMD_PRECHARGE : std_logic_vector(3 downto 0) := "0010";
-  -- Comando AUTO REFRESH.
-  constant CMD_REFRESH   : std_logic_vector(3 downto 0) := "0001";
-  -- Comando LOAD MODE REGISTER.
-  constant CMD_LOAD_MODE : std_logic_vector(3 downto 0) := "0000";
+    -- Comando NOP, codificado como cs_n & ras_n & cas_n & we_n.
+    constant CMD_NOP       : std_logic_vector(3 downto 0) := "0111";
+    -- Comando ACTIVE.
+    constant CMD_ACTIVE    : std_logic_vector(3 downto 0) := "0011";
+    -- Comando READ.
+    constant CMD_READ      : std_logic_vector(3 downto 0) := "0101";
+    -- Comando WRITE.
+    constant CMD_WRITE     : std_logic_vector(3 downto 0) := "0100";
+    -- Comando PRECHARGE.
+    constant CMD_PRECHARGE : std_logic_vector(3 downto 0) := "0010";
+    -- Comando AUTO REFRESH.
+    constant CMD_REFRESH   : std_logic_vector(3 downto 0) := "0001";
+    -- Comando LOAD MODE REGISTER.
+    constant CMD_LOAD_MODE : std_logic_vector(3 downto 0) := "0000";
 
-  -- Ciclos de clock que cobrem um tempo (arredondado para cima).
-  function cycles(ps : natural; tck_ps : natural) return natural;
+    -- Ciclos de clock que cobrem um tempo (arredondado para cima).
 
-  -- Beats de dados que movem uma palavra de 32 bits no barramento DQ de dq_width bits (rajada programada no registrador de modo).
-  function dram_beats(dq_width : natural) return natural;
-  -- Bits do endereço de palavra de 32 bits: linha, banco e coluna da palavra (a coluna do chip menos os bits que a rajada percorre).
-  function dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width : natural) return natural;
-  -- Largura do barramento de endereço do chip: cabe a linha, e a coluna mais o bit A10 de auto-precharge.
-  function dram_a_bits(row_bits, col_bits : natural) return natural;
-  -- Valor do registrador de modo para a rajada da largura dq_width (latência CAS e modo sequencial de MODE_REG).
-  function dram_mode_register(dq_width : natural) return std_logic_vector;
-  -- Valor de 13 bits no barramento de endereço do chip de a_bits bits: zeros acima e corte do que não cabe.
-  function dram_fit_a(v : std_logic_vector(12 downto 0); a_bits : natural) return std_logic_vector;
+    function cycles (ps : natural; tck_ps : natural) return natural;
+
+    -- Beats de dados que movem uma palavra de 32 bits no barramento DQ de dq_width bits (rajada programada no registrador de modo).
+
+    function dram_beats (dq_width : natural) return natural;
+    -- Bits do endereço de palavra de 32 bits: linha, banco e coluna da palavra (a coluna do chip menos os bits que a rajada percorre).
+
+    function dram_word_addr_bits (row_bits, bank_bits, col_bits, dq_width : natural) return natural;
+    -- Largura do barramento de endereço do chip: cabe a linha, e a coluna mais o bit A10 de auto-precharge.
+
+    function dram_a_bits (row_bits, col_bits : natural) return natural;
+    -- Valor do registrador de modo para a rajada da largura dq_width (latência CAS e modo sequencial de MODE_REG).
+
+    function dram_mode_register (dq_width : natural) return std_logic_vector;
+    -- Valor de 13 bits no barramento de endereço do chip de a_bits bits: zeros acima e corte do que não cabe.
+
+    function dram_fit_a (v : std_logic_vector(12 downto 0); a_bits : natural) return std_logic_vector;
 
 end package sdram_pkg;
 
 package body sdram_pkg is
 
-  function cycles(ps : natural; tck_ps : natural) return natural is
-  begin
-    return (ps + tck_ps - 1) / tck_ps;
-  end function;
+    function cycles (ps : natural; tck_ps : natural) return natural is
+    begin
 
-  function dram_beats(dq_width : natural) return natural is
-  begin
-    return 32 / dq_width;
-  end function;
+        return (ps + tck_ps - 1) / tck_ps;
 
-  function dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width : natural) return natural is
-  begin
-    if dram_beats(dq_width) = 2 then
-      return row_bits + bank_bits + col_bits - 1;
-    end if;
-    return row_bits + bank_bits + col_bits;
-  end function;
+    end function cycles;
 
-  function dram_a_bits(row_bits, col_bits : natural) return natural is
-  begin
-    if row_bits > col_bits + 1 then
-      return row_bits;
-    end if;
-    return col_bits + 1;
-  end function;
+    function dram_beats (dq_width : natural) return natural is
+    begin
 
-  function dram_mode_register(dq_width : natural) return std_logic_vector is
-    -- Registrador de modo montado.
-    variable mode : std_logic_vector(12 downto 0) := MODE_REG;
-  begin
-    if dram_beats(dq_width) = 1 then
-      mode(2 downto 0) := "000";
-    end if;
-    return mode;
-  end function;
+        return 32 / dq_width;
 
-  function dram_fit_a(v : std_logic_vector(12 downto 0); a_bits : natural) return std_logic_vector is
-    -- Valor ajustado ao barramento.
-    variable r : std_logic_vector(a_bits - 1 downto 0) := (others => '0');
-  begin
-    for i in 0 to 12 loop
-      if i < a_bits then
-        r(i) := v(i);
-      end if;
-    end loop;
-    return r;
-  end function;
+    end function dram_beats;
+
+    function dram_word_addr_bits (row_bits, bank_bits, col_bits, dq_width : natural) return natural is
+    begin
+
+        if dram_beats(dq_width) = 2 then
+            return row_bits + bank_bits + col_bits - 1;
+        end if;
+
+        return row_bits + bank_bits + col_bits;
+
+    end function dram_word_addr_bits;
+
+    function dram_a_bits (row_bits, col_bits : natural) return natural is
+    begin
+
+        if row_bits > col_bits + 1 then
+            return row_bits;
+        end if;
+
+        return col_bits + 1;
+
+    end function dram_a_bits;
+
+    function dram_mode_register (dq_width : natural) return std_logic_vector is
+
+        -- Registrador de modo montado.
+        variable mode : std_logic_vector(12 downto 0) := MODE_REG;
+
+    begin
+
+        if dram_beats(dq_width) = 1 then
+            mode(2 downto 0) := "000";
+        end if;
+
+        return mode;
+
+    end function dram_mode_register;
+
+    function dram_fit_a (v : std_logic_vector(12 downto 0); a_bits : natural) return std_logic_vector is
+
+        -- Valor ajustado ao barramento.
+        variable r : std_logic_vector(a_bits - 1 downto 0) := (others => '0');
+
+    begin
+
+        for i in 0 to 12 loop
+
+            if i < a_bits then
+                r(i) := v(i);
+            end if;
+
+        end loop;
+
+        return r;
+
+    end function dram_fit_a;
 
 end package body sdram_pkg;

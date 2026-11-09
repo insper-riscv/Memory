@@ -13,19 +13,20 @@ use ieee.numeric_std.all;
 use work.ram_pkg.all;
 
 entity ram_pkg_tb is
-  port (
-    -- Endereço de byte do acesso.
-    i_addr      : in  std_logic_vector(31 downto 0);
-    -- Base da janela do chip dentro da região, em KiB.
-    i_base_kib  : in  std_logic_vector(15 downto 0);
-    -- Resultado de window_offset(i_addr, i_base_kib).
-    o_offset    : out std_logic_vector(25 downto 0)
-  );
+    port (
+        -- Endereço de byte do acesso.
+        i_addr     : in    std_logic_vector(31 downto 0);
+        -- Base da janela do chip dentro da região, em KiB.
+        i_base_kib : in    std_logic_vector(15 downto 0);
+        -- Resultado de window_offset(i_addr, i_base_kib).
+        o_offset   : out   std_logic_vector(25 downto 0)
+    );
 end entity ram_pkg_tb;
 
 architecture sim of ram_pkg_tb is
+
 begin
 
-  o_offset <= std_logic_vector(window_offset(i_addr, to_integer(unsigned(i_base_kib))));
+    o_offset <= std_logic_vector(window_offset(i_addr, to_integer(unsigned(i_base_kib))));
 
 end architecture sim;
