@@ -37,7 +37,7 @@ start prove bridge_dbg.v cover 40 '-DCOVER'                 cover
 
 # Mutants of the VHDL: each defect must make the safety proof fail.
 start_mutant read_over_write "s/ and i_s_awvalid = '0' else '0';/ else '0';/"
-start_mutant aw_twice       "s/awr <= '1' when st = ST_IDLE else '0';/awr <= '1';/"
+start_mutant aw_twice       "s/awr[[:space:]]*<= '1' when st = ST_IDLE else '0';/awr <= '1';/"
 start_mutant rlast_early    "s/(fast_l = '1' and k = 3) or (fast_l = '0' and left_l = 0)) else '0'/(fast_l = '1' and k = 2) or (fast_l = '0' and left_l = 0)) else '0'/"
 start_mutant serves_unaligned "s/ or a(1 downto 0) \\/= \"00\" then/ then/"
 start_mutant no_wait_resp   "s/            if i_s_bready = '1' then/            if true then/"

@@ -41,10 +41,10 @@ done
 
 # Mutants of the VHDL: each defect must make a proof fail.
 export MUT_DEPTH=24 MUT_DEFS='-DDATA'
-start_mutant hit_store_not_cached "/ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1' and is_rom = '0'/{N;s/.*/  ram_we <= '1' when st = S_FILL_GET else '0';/}"
+start_mutant hit_store_not_cached "/ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1' and is_rom = '0'/{N;N;s/.*/  ram_we <= '1' when st = S_FILL_GET else '0';/}"
 start_mutant write_back_on_hit    "s/elsif (write_through or is_rom = '1' or i_bypass = '1') and i_wren = '1' then/elsif (is_rom = '1' or i_bypass = '1') and i_wren = '1' then/"
 start_mutant byteena_lost         "s/d_be_i    <= i_byteena;/d_be_i    <= \"1111\";/"
-start_mutant fill_word_swapped    "s/i_d_rdata_x(31 downto 0)  when cnt = \"01\" else/i_d_rdata_x(63 downto 32) when cnt = \"01\" else/"
+start_mutant fill_word_swapped    "s/i_d_rdata_x(31 downto 0)[[:space:]]*when cnt = \"01\" else/i_d_rdata_x(63 downto 32) when cnt = \"01\" else/"
 start_mutant hit_ignores_tag      "s/hit     <= valid(to_integer(unsigned(cur_idx))) when tag_rd = req_tag else '0';/hit     <= valid(to_integer(unsigned(cur_idx)));/"
 start_mutant store_acked_early    "s/            st        <= S_WT_WAIT;/            st        <= S_DONE;/"
 start_mutant store_data_lost      "s/d_wdata_i <= i_wdata;/d_wdata_i <= (others => '0');/"
