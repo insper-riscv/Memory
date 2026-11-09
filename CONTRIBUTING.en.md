@@ -13,7 +13,7 @@ All hardware code in the project is written and validated under the **IEEE 1076-
 | Language standard | VHDL-2008 (`--std=08`) across all `.vhd` files |
 | Permitted IEEE packages | Only `ieee.std_logic_1164.all` and `ieee.numeric_std.all` |
 | Prohibited packages | `std_logic_arith`, `std_logic_unsigned`, and `std_logic_signed` must never be used |
-| Module instantiation | Use direct entity instantiation (`u_name : entity work.entity_name`), without redundant `component` declarations |
+| Module instantiation | Direct entity instantiation (`u_name : entity work.entity_name`) for all project code, without exception and without a `component` declaration. The only exception is the narrow list of vendor primitives with no entity visible to VHDL, defined in `vendor_primitives.yaml` of `riscv-tools`; `altsyncram` and `sld_virtual_jtag` (they require `library altera_mf;`) and `sdram_platform_pll` (no library) use `component`, because Quartus Lite 25.1 rejects direct instantiation of them (error 10481). A generated and documented PLL goes in `tree.vhdl_style.exclude` of `paths.yaml` |
 | Port mapping (`port map`) | Always associate by name (`i_port => signal`) and use intermediate signals for logical expressions or dynamic slices, because GHDL requires globally static expressions in port map actuals |
 | Latch prevention | Every signal assigned in a combinational process or conditional assignment must receive an explicit default value across all branches (`else` / `when others =>`) |
 

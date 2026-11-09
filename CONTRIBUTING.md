@@ -13,7 +13,7 @@ Todo código de hardware do projeto é escrito e validado sob a norma **IEEE 107
 | Norma da linguagem | VHDL-2008 (`--std=08`) em todos os arquivos `.vhd` |
 | Pacotes IEEE permitidos | Apenas `ieee.std_logic_1164.all` e `ieee.numeric_std.all` |
 | Pacotes proibidos | `std_logic_arith`, `std_logic_unsigned` e `std_logic_signed` nunca devem ser utilizados |
-| Instanciação de módulos | Usar instanciação direta de entidade (`u_nome : entity work.nome_da_entidade`), sem declarações `component` redundantes |
+| Instanciação de módulos | Instanciação direta de entidade (`u_nome : entity work.nome_da_entidade`) para todo código do projeto, sem exceção e sem declaração `component`. A única exceção é a lista estreita de primitivas de fabricante sem entidade visível ao VHDL, definida em `vendor_primitives.yaml` do `riscv-tools`; `altsyncram` e `sld_virtual_jtag` (exigem `library altera_mf;`) e `sdram_platform_pll` (sem biblioteca) levam `component`, porque o Quartus Lite 25.1 recusa a instanciação direta delas (erro 10481). PLL gerado e documentado entra em `tree.vhdl_style.exclude` do `paths.yaml` |
 | Mapeamento de portas (`port map`) | Associar sempre por nome (`i_porta => sinal`) e utilizar sinais intermediários para expressões lógicas ou fatias dinâmicas, pois o GHDL exige expressões globalmente estáticas nos formais/atuais de porta |
 | Inferência de latches | Todo sinal atribuído em processo combinacional ou atribuição condicional deve receber valor padrão explícito em todos os ramos (`else` / `when others =>`) |
 
