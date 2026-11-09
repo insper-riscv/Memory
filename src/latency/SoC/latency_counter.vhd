@@ -22,54 +22,56 @@ library ieee;
 use ieee.std_logic_1164.all;
 
 entity latency_counter is
-  generic (
-    -- Maior valor de i_count, em bordas.
-    max_count : positive := 255
-  );
-  port (
-    -- Clock do módulo.
-    i_clk   : in  std_logic;
-    -- Reset, ativo em '1'.
-    i_rst   : in  std_logic;
+    generic (
+        -- Maior valor de i_count, em bordas.
+        max_count : positive := 255
+    );
+    port (
+        -- Clock do módulo.
+        i_clk : in    std_logic;
+        -- Reset, ativo em '1'.
+        i_rst : in    std_logic;
 
-    -- Pulso de um ciclo que inicia uma contagem de i_count bordas.
-    i_load  : in  std_logic;
-    -- Bordas até o término da contagem, lido junto com i_load (0 conta como 1).
-    i_count : in  natural range 0 to max_count;
-    -- A contagem termina nesta borda ('1' só na última).
-    o_last  : out std_logic;
-    -- Ainda falta mais de uma borda para o término ('1').
-    o_wait  : out std_logic
-  );
+        -- Pulso de um ciclo que inicia uma contagem de i_count bordas.
+        i_load  : in    std_logic;
+        -- Bordas até o término da contagem, lido junto com i_load (0 conta como 1).
+        i_count : in    natural range 0 to max_count;
+        -- A contagem termina nesta borda ('1' só na última).
+        o_last  : out   std_logic;
+        -- Ainda falta mais de uma borda para o término ('1').
+        o_wait  : out   std_logic
+    );
 end entity latency_counter;
 
 architecture rtl of latency_counter is
 
-  -- Bordas que faltam, contando a atual; zero com o bloco livre.
-  signal cnt : natural range 0 to max_count := 0;
+    -- Bordas que faltam, contando a atual; zero com o bloco livre.
+    signal cnt : natural range 0 to max_count := 0;
 
 begin
 
-  o_last <= '1' when cnt = 1 else '0';
-  o_wait <= '1' when cnt > 1 else '0';
+    o_last <= '1' when cnt = 1 else '0';
+    o_wait <= '1' when cnt > 1 else '0';
 
-  process (i_clk)
-  begin
-    if rising_edge(i_clk) then
-      if i_rst = '1' then
-        cnt <= 0;
-      elsif i_load = '1' then
-        if i_count = 0 then
-          cnt <= 1;
-        else
-          cnt <= i_count;
+    p_counter : process (i_clk) is
+    begin
+
+        if rising_edge(i_clk) then
+            if i_rst = '1' then
+                cnt <= 0;
+            elsif i_load = '1' then
+                if i_count = 0 then
+                    cnt <= 1;
+                else
+                    cnt <= i_count;
+                end if;
+            elsif cnt > 1 then
+                cnt <= cnt - 1;
+            else
+                cnt <= 0;
+            end if;
         end if;
-      elsif cnt > 1 then
-        cnt <= cnt - 1;
-      else
-        cnt <= 0;
-      end if;
-    end if;
-  end process;
+
+    end process p_counter;
 
 end architecture rtl;

@@ -39,9 +39,9 @@ export MUT_DEPTH=40 MUT_DEFS='-DFAIRNESS'
 start_mutant a_always_first   "s/if i_a_rden = '1' and (i_b_rden = '0' or last_a = '0') then/if i_a_rden = '1' then/"
 start_mutant ready_to_both    "s/o_b_ready   <= i_ready when owner = O_B else '0';/o_b_ready   <= i_ready;/"
 start_mutant b_release_wrong "s/if i_b_advance = '1' and i_ready = '1' then/if i_a_advance = '1' and i_ready = '1' then/"
-start_mutant owner_b_gets_a   "s/o_addr    <= i_a_addr    when owner = O_A else i_b_addr;/o_addr    <= i_a_addr;/"
+start_mutant owner_b_gets_a   "s/o_addr[[:space:]]*<= i_a_addr[[:space:]]*when owner = O_A else i_b_addr;/o_addr <= i_a_addr;/"
 start_mutant data_swapped     "s/o_b_rdata   <= i_rdata;/o_b_rdata   <= not i_rdata;/"
-start_mutant rden_without_owner "s/i_b_rden    when owner = O_B else '0';/i_b_rden;/"
+start_mutant rden_without_owner "/i_b_rden[[:space:]]*when owner = O_B else$/{N;s/.*/                 i_b_rden;/}"
 wait
 
 expect "safety, unbounded (k-induction)"                    PASS safety

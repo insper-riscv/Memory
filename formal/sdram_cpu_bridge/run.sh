@@ -38,9 +38,9 @@ start_mutant rdata_x_zero    "s/pending_x <= i_c_rdata_x;/pending_x <= (others =
 start_mutant init_ignored    "s/ and init_sync(0) = '1' then/ then/"
 start_mutant ack_unsynced    "s/if ack_sync(0) = req_i then/if i_ack_tog = req_i then/"
 start_mutant no_advance_wait "s/            if i_mem_advance = '1' then/            if true then/"
-start_mutant write_as_read   "s/we_l    <= i_wren;/we_l    <= '0';/"
-start_mutant address_shifted "s/o_c_addr  <= i_addr(addr_bits + 1 downto 2);/o_c_addr  <= i_addr(addr_bits downto 1);/"
-start_mutant request_lost    "s/req_i   <= not req_i;/req_i   <= req_i;/"
+start_mutant write_as_read   "s/we_l[[:space:]]*<= i_wren;/we_l <= '0';/"
+start_mutant address_shifted "s/o_c_addr[[:space:]]*<= i_addr(addr_bits + 1 downto 2);/o_c_addr <= i_addr(addr_bits downto 1);/"
+start_mutant request_lost    "s/req_i[[:space:]]*<= not req_i;/req_i <= req_i;/"
 start_mutant write_updates_rdata "s/if we_l = '0' then/if true then/"
 wait
 

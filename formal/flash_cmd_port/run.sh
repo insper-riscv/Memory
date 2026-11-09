@@ -46,7 +46,7 @@ start_mutant short_by_one       "s/if word_n = last_n then/if word_n = last_n - 
 start_mutant stride_of_eight    "s/addr_q  <= addr_q + 4;/addr_q  <= addr_q + 8;/"
 start_mutant unprotect_all      "s/prot(sec) <= '0';/prot <= (others => '0');/"
 start_mutant region_one_short   "s/first_a + to_unsigned(4 \* (last_n + 1) - 1, 32)/first_a + to_unsigned(4 * (last_n + 1) - 2, 32)/"
-start_mutant page_unaligned     "s/base_off <= off(WINDOW_BITS - 1 downto PAGE_BITS) \& (PAGE_BITS - 1 downto 0 => '0');/base_off <= off;/"
+start_mutant page_unaligned     "/base_off <= off(WINDOW_BITS - 1 downto PAGE_BITS)$/{N;s/.*/base_off <= off;/}"
 wait
 
 expect "writes, latch, protection, region and bounds (bounded, 40 clocks)" PASS safety

@@ -61,7 +61,7 @@ mutant A READ  24 data_early        "s/o_rdata      <= rdata_q(31 downto 0);/o_r
 mutant A READ  24 window_ignored    "s/if acc_outw = '1' then/if false then/"
 mutant A READ  24 data_bus_in_read  "/ub_n_q  <= '0';/{n;s/dq_oe_q <= '0';/dq_oe_q <= '1';/}"
 mutant A WRITE 44 oe_with_we        "s/we_n_q <= '0';/we_n_q <= '0'; oe_n_q <= '0';/"
-mutant B WRITE 34 we_pulse_dropped  "s/N_WL : positive := max_natural(cycles_of(t_pwe_ns, clk_period_ns, margin_ns),/N_WL : positive := max_natural(1,/"
+mutant B WRITE 34 we_pulse_dropped  "s/N_WL[[:space:]]*: positive := max_natural(cycles_of(t_pwe_ns, clk_period_ns, margin_ns),/N_WL : positive := max_natural(1,/"
 mutant B WRITE 34 we_high_wc_dropped "s/max_natural(cycles_of(t_wc_ns, clk_period_ns, margin_ns), N_WL + 2) - N_WL - 1/1/"
 mutant B READ  40 read_wait_rc_only "s/cycles_of(max_natural(t_aa_ns, t_rc_ns), clk_period_ns, margin_ns)/cycles_of(t_rc_ns, clk_period_ns, margin_ns)/"
 wait
