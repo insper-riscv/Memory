@@ -179,7 +179,7 @@ begin
 
     -- Lado da busca com a cache de instruções.
 
-    g_icache : if not use_bridge generate
+    gen_icache : if not use_bridge generate
 
         u_icache : entity work.icache
             port map (
@@ -201,11 +201,11 @@ begin
             );
 
         o_miss <= '0';
-    end generate g_icache;
+    end generate gen_icache;
 
     -- Lado da busca com a ponte de busca, sem cache.
 
-    g_bridge : if use_bridge generate
+    gen_bridge : if use_bridge generate
 
         u_bridge : entity work.ifetch_bridge
             generic map (
@@ -229,7 +229,7 @@ begin
                 i_d_rdata_x  => ic_rdata_x
             );
 
-    end generate g_bridge;
+    end generate gen_bridge;
 
     u_router_i : entity work.mem_region_router
         port map (
@@ -343,17 +343,17 @@ begin
         );
 
     -- Armazenamento de leitura registrada: a palavra do endereço da borda anterior.
-    process (i_clk) is
+    p_read_storage : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
             mem_data <= pattern_word(mem_addr(31 downto 2) & "00");
         end if;
 
-    end process;
+    end process p_read_storage;
 
     -- Conta os pedidos que o chip aceita (uma subida de rden com o chip livre).
-    process (i_clk) is
+    p_count_requests : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -370,7 +370,7 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_count_requests;
 
     o_chip_reqs <= std_logic_vector(reqs);
 

@@ -87,7 +87,7 @@ architecture rtl of flash_dual_system is
     constant WINDOW_BITS : natural := log2_exact(size_bytes);
 
     -- Buffer de página: vetor de palavras.
-    type page_t is array (0 to page_bytes / 4 - 1) of std_logic_vector(31 downto 0);
+    type page_t is array(0 to page_bytes / 4 - 1) of std_logic_vector(31 downto 0);
 
     -- Palavras do buffer de página.
     signal page     : page_t                        := (others => (others => '1'));
@@ -173,7 +173,7 @@ begin
         );
 
     -- Buffer de página: escrita pelo teste e leitura registrada pela porta de comandos.
-    process (i_clk) is
+    p_page_buffer : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -183,6 +183,6 @@ begin
             buf_data <= page(to_integer(unsigned(buf_idx)));
         end if;
 
-    end process;
+    end process p_page_buffer;
 
 end architecture rtl;

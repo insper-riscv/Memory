@@ -56,7 +56,7 @@ mutant_run inv_inverted "s/if inv_run = '1' then/if inv_run = '0' then/"
 export MUT_DEPTH=22 MUT_DEFS='-DREGION'
 start_mutant region_ignored   "s/if in_region(i, rq_first, rq_off, rq_all) and dirty(i) = '0' then/if false then/"
 start_mutant fill_stays_valid "s/valid(ci) <= not stale;/valid(ci) <= '1';/"
-start_mutant fill_not_marked  "s/if (st = S_FILL_REQ or st = S_FILL_WAIT or st = S_FILL_GET) and in_region(to_integer(unsigned(req_idx)), rq_first, rq_off, rq_all) then/if false then/"
+start_mutant fill_not_marked  "/if (st = S_FILL_REQ or st = S_FILL_WAIT or st = S_FILL_GET)$/{N;s/.*/                    if false then/}"
 start_mutant region_one_short "s/return all_lines = '1' or (to_unsigned(i, first'length) - first) <= off;/return all_lines = '1' or (to_unsigned(i, first'length) - first) < off;/"
 wait
 

@@ -189,7 +189,7 @@ begin
     o_inval_first <= std_logic_vector(first_q);
     o_inval_last  <= std_logic_vector(last_q);
 
-    process (i_clk) is
+    p_cmd_port : process (i_clk) is
 
         -- Deslocamento do endereço do comando dentro do chip.
         variable off     : unsigned(WINDOW_BITS - 1 downto 0);
@@ -237,12 +237,14 @@ begin
                                         is_erase <= '1';
                                         last_n   <= SECTOR_WORDS - 1;
                                         cnt      <= erase_latency;
-                                        base_off <= off(WINDOW_BITS - 1 downto SECTOR_BITS) & (SECTOR_BITS - 1 downto 0 => '0');
+                                        base_off <= off(WINDOW_BITS - 1 downto SECTOR_BITS)
+                                                    & (SECTOR_BITS - 1 downto 0 => '0');
                                     else
                                         is_erase <= '0';
                                         last_n   <= PAGE_WORDS - 1;
                                         cnt      <= program_latency;
-                                        base_off <= off(WINDOW_BITS - 1 downto PAGE_BITS) & (PAGE_BITS - 1 downto 0 => '0');
+                                        base_off <= off(WINDOW_BITS - 1 downto PAGE_BITS)
+                                                    & (PAGE_BITS - 1 downto 0 => '0');
                                     end if;
                                     st <= S_WAIT;
                                 end if;
@@ -302,6 +304,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_cmd_port;
 
 end architecture rtl;

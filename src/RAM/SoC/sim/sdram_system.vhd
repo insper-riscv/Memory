@@ -85,13 +85,17 @@ entity sdram_system is
         -- A inicialização da SDRAM terminou ('1').
         o_init_done     : out   std_logic;
         -- Endereço de palavra lido diretamente do modelo do chip, para depuração.
-        i_dbg_word_addr : in    std_logic_vector(dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0);
+        i_dbg_word_addr : in    std_logic_vector(
+            dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0
+        );
         -- Palavra do modelo do chip no endereço de dbg_word_addr.
         o_dbg_word_data : out   std_logic_vector(31 downto 0);
         -- Pulso que inverte um bit de uma palavra armazenada, para provar que uma verificação nota a corrupção.
         i_dbg_flip      : in    std_logic;
         -- Endereço de palavra cujo bit é invertido.
-        i_dbg_flip_addr : in    std_logic_vector(dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0);
+        i_dbg_flip_addr : in    std_logic_vector(
+            dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0
+        );
         -- Posição do bit invertido na palavra.
         i_dbg_flip_bit  : in    std_logic_vector(4 downto 0);
         -- Contagem de comandos AUTO REFRESH recebidos pelo chip.
@@ -212,7 +216,8 @@ architecture rtl of sdram_system is
 
     end function dbg_bits_of;
 
-    -- Bits do endereço do mestre de depuração: 24 pelo protocolo JTAG, e 25 (o bit 24 vai no bit 3 de op) quando o chip tem mais palavras.
+    -- Bits do endereço do mestre de depuração: 24 pelo protocolo JTAG, e 25 (o bit 24 vai no bit 3 de op) quando o chip
+    -- tem mais palavras.
     constant DBG_BITS : natural := dbg_bits_of(ADDR_BITS);
     -- Endereço do mestre de depuração.
     signal   dbg_addr : std_logic_vector(DBG_BITS - 1 downto 0);

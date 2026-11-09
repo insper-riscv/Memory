@@ -160,7 +160,7 @@ begin
     o_wren_b    <= wren_r and halt;
     o_data_b    <= data_r;
 
-    process (i_clk) is
+    p_loader_fsm : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -257,6 +257,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_loader_fsm;
 
 end architecture rtl;

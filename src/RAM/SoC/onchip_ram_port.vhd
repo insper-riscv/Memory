@@ -119,7 +119,8 @@ architecture rtl of onchip_ram_port is
     -- Base da janela dentro da região, em bytes.
     constant BASE_BYTES  : natural := base_kib * 1024;
 
-    -- Estados do acesso: livre, falando com o bloco, esperando o resto da latência emulada, concluído à espera do avanço.
+    -- Estados do acesso: livre, falando com o bloco, esperando o resto da latência emulada, concluído à espera do
+    -- avanço.
     type state_t is (S_IDLE, S_ACCESS, S_HOLD, S_DONE);
 
     -- Estado do acesso.
@@ -219,7 +220,7 @@ begin
                      acc_wdx(95 downto 64);
 
     -- Máquina do acesso: captura o pedido, emite as palavras ao bloco, recolhe as lidas e espera o avanço.
-    access_fsm : process (i_clk) is
+    p_access_fsm : process (i_clk) is
 
         -- Endereço do pedido dentro da região, menos a base da janela.
         variable offset : unsigned(25 downto 0);
@@ -308,10 +309,10 @@ begin
             end if;
         end if;
 
-    end process access_fsm;
+    end process p_access_fsm;
 
     -- Porta de depuração: recolhe a palavra da leitura emitida no ciclo anterior.
-    debug_port : process (i_clk) is
+    p_debug_port : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -336,6 +337,6 @@ begin
             end if;
         end if;
 
-    end process debug_port;
+    end process p_debug_port;
 
 end architecture rtl;

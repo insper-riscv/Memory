@@ -120,7 +120,7 @@ architecture sim of nor_flash_model is
     subtype byte_t is natural range 0 to 255;
 
     -- O conteúdo do chip.
-    type mem_t is array (0 to size_bytes - 1) of byte_t;
+    type mem_t is array(0 to size_bytes - 1) of byte_t;
 
     -- Estados do decodificador de comandos do chip.
     type cmd_state_t is (C_READ, C_U1, C_U2, C_PROG, C_E1, C_E2, C_E3);
@@ -146,7 +146,7 @@ begin
         report "size_bytes must be between 8 KB and 8 MB"
         severity failure;
 
-    process is
+    p_chip_model : process is
 
         -- O conteúdo do chip.
         variable mem        : mem_t;
@@ -290,7 +290,8 @@ begin
 
             cur_active := i_fl_ce_n = '0' and i_fl_oe_n = '0' and i_fl_we_n = '1' and i_fl_rst_n = '1';
 
-            -- A leitura que estava em curso termina por mudança de endereço ou por perder CE#/OE#: o dado já tinha de estar válido.
+            -- A leitura que estava em curso termina por mudança de endereço ou por perder CE#/OE#: o dado já tinha de
+            -- estar válido.
             if was_active and i_fl_rst_n = '1' and (i_fl_addr'event or not cur_active) then
                 if rand then
                     req := tns(t_acc_ns);
@@ -459,7 +460,8 @@ begin
                                 if wr_data /= 16#30# then
                                     violate(o_violation, MODEL_NAME, abort_on_violation,
                                             "apagar sem o comando de setor 30 (apagar o chip nao e modelado)");
-                                elsif i_fl_wp_n = '0' and idx(wr_addr) / sector_bytes = size_bytes / sector_bytes - 1 then
+                                elsif i_fl_wp_n = '0'
+                                      and idx(wr_addr) / sector_bytes = size_bytes / sector_bytes - 1 then
                                     null;
                                 else
                                     op_active  := true;
@@ -514,6 +516,6 @@ begin
 
         end loop;
 
-    end process;
+    end process p_chip_model;
 
 end architecture sim;

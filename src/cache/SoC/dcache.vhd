@@ -36,16 +36,21 @@
 -- ainda podem estar mais velhas que a memória quando o hospedeiro a escreve; um
 -- invalidate (veja flush) antes de o hospedeiro carregar algo novo as derruba.
 --
--- Divisão do endereço (janela de 2**window_bits bytes por região, 64 MiB por padrão): região (1 = ROM, pelos genéricos rom_base_kib e rom_end_kib), bits window_bits-1:12
+-- Divisão do endereço (janela de 2**window_bits bytes por região, 64 MiB por padrão): região (1 = ROM, pelos genéricos
+-- rom_base_kib e rom_end_kib), bits window_bits-1:12
 -- tag, 11:4 linha, 3:2 palavra. Os demais bits a partir de window_bits não são guardados; o
 -- lado da memória acrescenta a base da região neles (base_flash ou base_sdram).
 --
--- i_inval_region: um pulso derruba as linhas limpas da região de i_inval_first a i_inval_last (endereços de byte, o último
--- incluído), como o controlador de FLASH pede depois de apagar ou gravar. A cache derruba por índice (guarda a tag, não o
+-- i_inval_region: um pulso derruba as linhas limpas da região de i_inval_first a i_inval_last (endereços de byte, o
+-- último
+-- incluído), como o controlador de FLASH pede depois de apagar ou gravar. A cache derruba por índice (guarda a tag, não
+-- o
 -- endereço completo): toda linha limpa cujo índice cai em algum endereço da região, mesmo a de outra região com o mesmo
 -- índice. Uma linha suja nunca é derrubada, porque só a SDRAM tem linhas sujas e a FLASH nunca é escrita pela cache. Um
--- preenchimento em andamento cuja linha cai na região não valida a linha, e o acesso que o pediu a traz de novo. O pedido
--- é registrado e aplicado no ciclo seguinte, então nenhuma linha da região acerta a partir do segundo ciclo depois do pulso.
+-- preenchimento em andamento cuja linha cai na região não valida a linha, e o acesso que o pediu a traz de novo. O
+-- pedido
+-- é registrado e aplicado no ciclo seguinte, então nenhuma linha da região acerta a partir do segundo ciclo depois do
+-- pulso.
 -- Um pedido com i_inval_last menor que i_inval_first não tem efeito.
 --
 -- FLASH: os loads trazem e guardam a linha como na SDRAM. Um store à FLASH nunca
@@ -62,11 +67,14 @@ use work.utils_pkg.all;
 
 entity dcache is
     generic (
-        -- Tamanho da cache em bits, uma potência de dois de pelo menos 256 (duas linhas de 128 bits): 32768 é 4 KB e 4096 é 4 kbit.
+        -- Tamanho da cache em bits, uma potência de dois de pelo menos 256 (duas linhas de 128 bits): 32768 é 4 KB e
+        -- 4096 é 4 kbit.
         size_bits     : positive                     := 32768;
-        -- Largura do endereço que a janela da cache cobre, de 2**window_bits bytes (26 é 64 MiB, 27 é 128 MiB): a tag guarda os bits abaixo dela e a base da região, do lado da memória, completa os de cima.
+        -- Largura do endereço que a janela da cache cobre, de 2**window_bits bytes (26 é 64 MiB, 27 é 128 MiB): a tag
+        -- guarda os bits abaixo dela e a base da região, do lado da memória, completa os de cima.
         window_bits   : natural range 26 to 29       := 26;
-        -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória; só os bits de 31 até window_bits entram, os de baixo são da tag.
+        -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória; só os bits de 31 até
+        -- window_bits entram, os de baixo são da tag.
         base_sdram    : std_logic_vector(5 downto 0) := "010000";
         -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
         base_flash    : std_logic_vector(5 downto 0) := "001000";
@@ -175,10 +183,10 @@ architecture rtl of dcache is
     constant TAG_LOW    : natural := INDEX_BITS + 4;
 
     -- Memória de dados: quatro palavras por linha, um byte por faixa.
-    type lane_t is array (0 to 4 * LINES - 1) of std_logic_vector(7 downto 0);
+    type lane_t is array(0 to 4 * LINES - 1) of std_logic_vector(7 downto 0);
 
     -- Memória de tags: uma tag por linha.
-    type tag_t is array (0 to LINES - 1) of std_logic_vector(TAG_BITS - 1 downto 0);
+    type tag_t is array(0 to LINES - 1) of std_logic_vector(TAG_BITS - 1 downto 0);
 
     -- Palavras das 256 linhas.
     -- Tag de cada linha.
@@ -267,7 +275,8 @@ architecture rtl of dcache is
     -- O preenchimento em andamento cai numa região invalidada e não pode validar a linha.
     signal stale     : std_logic                         := '0';
 
-    -- Uma linha de índice i pertence à região de invalidação que começa na linha first e tem off + 1 linhas (módulo o número de linhas), ou à região inteira (all_lines).
+    -- Uma linha de índice i pertence à região de invalidação que começa na linha first e tem off + 1 linhas (módulo o
+    -- número de linhas), ou à região inteira (all_lines).
 
     function in_region (i : natural; first : unsigned; off : unsigned; all_lines : std_logic) return boolean is
     begin
@@ -304,7 +313,7 @@ begin
     tag_wa <= req_idx;
     tag_wd <= req_tag;
 
-    process (i_clk) is
+    p_tag_ram : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -314,7 +323,7 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_tag_ram;
 
     -- Uma RAM por byte do dado, cada uma com a sua habilitação de escrita: é o que a síntese reconhece como bloco de
     -- RAM (uma RAM de 32 bits escrita byte a byte num laço viraria um vetor de registradores).
@@ -324,7 +333,7 @@ begin
         signal lane : lane_t := (others => (others => '0'));
     begin
 
-        process (i_clk) is
+        p_lane_ram : process (i_clk) is
         begin
 
             if rising_edge(i_clk) then
@@ -334,7 +343,7 @@ begin
                 end if;
             end if;
 
-        end process;
+        end process p_lane_ram;
 
     end generate gen_lane;
 
@@ -353,7 +362,7 @@ begin
     o_d_wdata_x <= wb_q(127 downto 32);
     o_d_advance <= i_d_ready;
 
-    process (i_clk) is
+    p_cache_fsm : process (i_clk) is
 
         -- Índice de linha usado no processo.
         variable ci      : integer range 0 to LINES - 1;
@@ -380,7 +389,8 @@ begin
             else
                 ci   := to_integer(unsigned(cur_idx));
                 rq_v <= '0';
-                if i_inval_region = '1' and unsigned(i_inval_last(31 downto 4)) >= unsigned(i_inval_first(31 downto 4)) then
+                if i_inval_region = '1'
+                   and unsigned(i_inval_last(31 downto 4)) >= unsigned(i_inval_first(31 downto 4)) then
                     span_m1  := unsigned(i_inval_last(31 downto 4)) - unsigned(i_inval_first(31 downto 4));
                     rq_v     <= '1';
                     rq_first <= unsigned(i_inval_first(INDEX_BITS + 3 downto 4));
@@ -508,9 +518,11 @@ begin
                     when S_WB_REQ =>
 
                         if tag_rd(TAG_BITS - 1) = '1' then
-                            d_addr_i <= base_flash(5 downto window_bits - 26) & tag_rd(TAG_BITS - 2 downto 0) & cur_idx & "0000";
+                            d_addr_i <= base_flash(5 downto window_bits - 26) & tag_rd(TAG_BITS - 2 downto 0)
+                                        & cur_idx & "0000";
                         else
-                            d_addr_i <= base_sdram(5 downto window_bits - 26) & tag_rd(TAG_BITS - 2 downto 0) & cur_idx & "0000";
+                            d_addr_i <= base_sdram(5 downto window_bits - 26) & tag_rd(TAG_BITS - 2 downto 0)
+                                        & cur_idx & "0000";
                         end if;
                         d_wdata_i <= wb_q(31 downto 0);
                         d_line_i  <= '1';
@@ -535,9 +547,11 @@ begin
                     when S_FILL_REQ =>
 
                         if req_tag(TAG_BITS - 1) = '1' then
-                            d_addr_i <= base_flash(5 downto window_bits - 26) & req_tag(TAG_BITS - 2 downto 0) & req_idx & "0000";
+                            d_addr_i <= base_flash(5 downto window_bits - 26) & req_tag(TAG_BITS - 2 downto 0)
+                                        & req_idx & "0000";
                         else
-                            d_addr_i <= base_sdram(5 downto window_bits - 26) & req_tag(TAG_BITS - 2 downto 0) & req_idx & "0000";
+                            d_addr_i <= base_sdram(5 downto window_bits - 26) & req_tag(TAG_BITS - 2 downto 0)
+                                        & req_idx & "0000";
                         end if;
                         d_line_i <= '1';
                         d_rden_i <= '1';
@@ -604,13 +618,14 @@ begin
 
                     end loop;
 
-                    if (st = S_FILL_REQ or st = S_FILL_WAIT or st = S_FILL_GET) and in_region(to_integer(unsigned(req_idx)), rq_first, rq_off, rq_all) then
+                    if (st = S_FILL_REQ or st = S_FILL_WAIT or st = S_FILL_GET)
+                       and in_region(to_integer(unsigned(req_idx)), rq_first, rq_off, rq_all) then
                         stale <= '1';
                     end if;
                 end if;
             end if;
         end if;
 
-    end process;
+    end process p_cache_fsm;
 
 end architecture rtl;

@@ -40,7 +40,8 @@ entity block_ram is
         address_width  : positive := 10;
         -- Largura da palavra, em bits.
         data_width     : positive := 32;
-        -- Bytes habilitáveis por palavra na escrita da porta A (1 = a palavra inteira; maior que 1 só no modo de uma porta).
+        -- Bytes habilitáveis por palavra na escrita da porta A (1 = a palavra inteira; maior que 1 só no modo de uma
+        -- porta).
         byte_lanes     : positive := 1;
         -- Arquivo .mif de inicialização, ou "UNUSED" para memória sem conteúdo inicial.
         init_file      : string   := "UNUSED";
@@ -110,9 +111,10 @@ begin
         report "block_ram: byte enables are only supported in single-port mode"
         severity failure;
 
-    -- Uma porta, escrita da palavra inteira: o Quartus rejeita o clock1 ligado e o byteena_a e o byte_size com um só byte.
+    -- Uma porta, escrita da palavra inteira: o Quartus rejeita o clock1 ligado e o byteena_a e o byte_size com um só
+    -- byte.
 
-    g_single : if operation_mode = "SINGLE_PORT" and byte_lanes = 1 generate
+    gen_single : if operation_mode = "SINGLE_PORT" and byte_lanes = 1 generate
 
         u_altsyncram : component altsyncram
             generic map (
@@ -143,11 +145,11 @@ begin
             );
 
         o_q_b <= (others => '0');
-    end generate g_single;
+    end generate gen_single;
 
     -- Uma porta, escrita por byte: o byte_size é de 8 bits.
 
-    g_single_bytes : if operation_mode = "SINGLE_PORT" and byte_lanes > 1 generate
+    gen_single_bytes : if operation_mode = "SINGLE_PORT" and byte_lanes > 1 generate
 
         u_altsyncram : component altsyncram
             generic map (
@@ -180,11 +182,11 @@ begin
             );
 
         o_q_b <= (others => '0');
-    end generate g_single_bytes;
+    end generate gen_single_bytes;
 
     -- Duas portas verdadeiras, cada uma no seu clock (sem escrita por byte).
 
-    g_dual : if operation_mode = "BIDIR_DUAL_PORT" generate
+    gen_dual : if operation_mode = "BIDIR_DUAL_PORT" generate
 
         u_altsyncram : component altsyncram
             generic map (
@@ -231,6 +233,6 @@ begin
                 q_b       => o_q_b
             );
 
-    end generate g_dual;
+    end generate gen_dual;
 
 end architecture rtl;

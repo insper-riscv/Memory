@@ -136,14 +136,18 @@ architecture rtl of sram_ctrl is
     constant N_RD    : positive := cycles_of(max_natural(t_aa_ns, t_rc_ns), clk_period_ns, margin_ns);
     -- Ciclos de WE# baixo: cobrem t_pwe e, junto com o ciclo de preparação, t_aw, t_sd e t_sce.
     constant N_WL    : positive := max_natural(cycles_of(t_pwe_ns, clk_period_ns, margin_ns),
-            max_natural(cycles_of(max_natural(t_sd_ns, max_natural(t_aw_ns, t_sce_ns)), clk_period_ns, margin_ns), 2) - 1);
+            max_natural(
+                cycles_of(max_natural(t_sd_ns, max_natural(t_aw_ns, t_sce_ns)), clk_period_ns, margin_ns),
+                2
+            ) - 1);
     -- Ciclos de WE# alto: cobrem t_ha e t_hd e completam t_wc.
     constant N_WH    : positive := max_natural(cycles_of(max_natural(t_ha_ns, t_hd_ns), clk_period_ns, margin_ns),
             max_natural(cycles_of(t_wc_ns, clk_period_ns, margin_ns), N_WL + 2) - N_WL - 1);
     -- Maior valor de contagem.
     constant CNT_MAX : natural  := max_natural(N_RD, max_natural(N_WL, N_WH));
 
-    -- Estados: livre, espera da leitura, escolha da meia palavra a escrever, preparação, WE# baixo, WE# alto e concluído.
+    -- Estados: livre, espera da leitura, escolha da meia palavra a escrever, preparação, WE# baixo, WE# alto e
+    -- concluído.
     type state_t is (S_IDLE, S_RD, S_WSEL, S_WSETUP, S_WLOW, S_WHIGH, S_DONE);
 
     -- Estado atual.
@@ -239,7 +243,7 @@ begin
             o_wait  => open
         );
 
-    process (i_clk) is
+    p_ctrl_fsm : process (i_clk) is
 
         -- Endereço de byte do acesso, alinhado a palavra ou a linha.
         variable a      : unsigned(31 downto 0);
@@ -384,6 +388,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_ctrl_fsm;
 
 end architecture rtl;

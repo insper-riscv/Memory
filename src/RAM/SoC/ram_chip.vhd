@@ -111,7 +111,7 @@ architecture rtl of ram_chip is
     constant WORDS       : natural := size_bytes / 4;
 
     -- Vetor de palavras do chip.
-    type word_array_t is array (0 to WORDS - 1) of std_logic_vector(31 downto 0);
+    type word_array_t is array(0 to WORDS - 1) of std_logic_vector(31 downto 0);
 
     -- O vetor, compartilhado pelas duas portas e pela porta de depuração.
     type store_t is protected
@@ -330,7 +330,7 @@ begin
         );
 
     -- Grava a imagem inicial no instante zero.
-    load : process is
+    p_load : process is
 
         file     f  : text;
         -- Linha de texto lida do arquivo.
@@ -363,18 +363,18 @@ begin
 
         wait;
 
-    end process load;
+    end process p_load;
 
     -- Porta de depuração: a palavra pedida, atualizada a cada borda e a cada troca de índice.
-    debug : process (i_clk, i_dbg_word_addr) is
+    p_debug : process (i_clk, i_dbg_word_addr) is
     begin
 
         o_dbg_word_data <= store.read_word(to_integer(unsigned(i_dbg_word_addr)));
 
-    end process debug;
+    end process p_debug;
 
     -- Porta de dados.
-    data_port : process (i_clk) is
+    p_data_port : process (i_clk) is
 
         -- Índice da primeira palavra do acesso da porta de dados.
         variable base : natural;
@@ -419,7 +419,8 @@ begin
                             else
                                 d_pending <= store.read_word(base);
                                 if d_line = '1' then
-                                    d_pend_x <= store.read_word(base + 3) & store.read_word(base + 2) & store.read_word(base + 1);
+                                    d_pend_x <= store.read_word(base + 3) & store.read_word(base + 2)
+                                                & store.read_word(base + 1);
                                 end if;
                             end if;
                             d_st <= S_DONE;
@@ -440,10 +441,10 @@ begin
             end if;
         end if;
 
-    end process data_port;
+    end process p_data_port;
 
     -- Porta de instruções.
-    instruction_port : process (i_clk) is
+    p_instruction_port : process (i_clk) is
 
         -- Índice da primeira palavra do acesso da porta de instruções.
         variable base : natural;
@@ -471,7 +472,8 @@ begin
                             base      := word_index(i_addr_q);
                             i_pending <= store.read_word(base);
                             if i_line_q = '1' then
-                                i_pend_x <= store.read_word(base + 3) & store.read_word(base + 2) & store.read_word(base + 1);
+                                i_pend_x <= store.read_word(base + 3) & store.read_word(base + 2)
+                                            & store.read_word(base + 1);
                             end if;
                             i_st <= S_DONE;
                         end if;
@@ -489,6 +491,6 @@ begin
             end if;
         end if;
 
-    end process instruction_port;
+    end process p_instruction_port;
 
 end architecture rtl;

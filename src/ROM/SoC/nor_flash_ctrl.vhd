@@ -187,7 +187,8 @@ architecture rtl of nor_flash_ctrl is
     -- Ciclos até o dado de um byte seguinte da mesma página.
     constant N_NEXT  : positive := cycles_of(t_pacc_ns, clk_period_ns, margin_ns);
     -- Ciclos de WE# em nível baixo: o maior entre t_wp, t_ah e t_ds.
-    constant N_WL    : positive := cycles_of(max_natural(t_wp_ns, max_natural(t_ah_ns, t_ds_ns)), clk_period_ns, margin_ns);
+    constant N_WL    : positive :=
+        cycles_of(max_natural(t_wp_ns, max_natural(t_ah_ns, t_ds_ns)), clk_period_ns, margin_ns);
     -- Ciclos de WE# em nível alto: cobrem t_wph e completam t_wc.
     constant N_WH    : positive := max_natural(cycles_of(t_wph_ns, clk_period_ns, margin_ns),
             max_natural(cycles_of(t_wc_ns, clk_period_ns, margin_ns), N_WL + 2) - N_WL - 1);
@@ -422,7 +423,7 @@ begin
             o_wait  => open
         );
 
-    process (i_clk) is
+    p_ctrl_fsm : process (i_clk) is
 
         -- Deslocamento do endereço do comando dentro do chip.
         variable off      : unsigned(WINDOW_BITS - 1 downto 0);
@@ -688,6 +689,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_ctrl_fsm;
 
 end architecture rtl;

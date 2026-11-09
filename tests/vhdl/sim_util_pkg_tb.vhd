@@ -39,7 +39,7 @@ begin
     o_word <= pattern_word(i_addr);
 
     -- Mede tns: o_tick sobe depois do atraso pedido.
-    process is
+    p_tick : process is
     begin
 
         o_tick <= '0';
@@ -48,10 +48,10 @@ begin
         o_tick <= '1';
         wait until falling_edge(i_start);
 
-    end process;
+    end process p_tick;
 
     -- Registra uma violação a cada subida de i_violate.
-    process is
+    p_violation : process is
     begin
 
         o_violation <= '0';
@@ -63,6 +63,6 @@ begin
 
         end loop;
 
-    end process;
+    end process p_violation;
 
 end architecture sim;

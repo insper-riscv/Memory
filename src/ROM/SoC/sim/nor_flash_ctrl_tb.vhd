@@ -118,7 +118,7 @@ architecture rtl of nor_flash_ctrl_tb is
     constant PAGE_WORDS : natural := page_bytes / 4;
 
     -- Tipo do buffer de página.
-    type buf_t is array (0 to PAGE_WORDS - 1) of std_logic_vector(31 downto 0);
+    type buf_t is array(0 to PAGE_WORDS - 1) of std_logic_vector(31 downto 0);
 
     -- Buffer de página de leitura registrada, que faz o papel do buffer do controlador de FLASH.
     signal buf      : buf_t                         := (others => (others => '1'));
@@ -137,12 +137,17 @@ architecture rtl of nor_flash_ctrl_tb is
     signal chip_dq    : std_logic_vector(7 downto 0);
     -- O fio do barramento de dados, resolvido.
     signal fl_dq      : std_logic_vector(7 downto 0);
-    -- Pinos de controle.
+    -- Habilitação do chip (ativa em '0').
     signal ce_n       : std_logic;
+    -- Habilitação da saída (ativa em '0').
     signal oe_n       : std_logic;
+    -- Habilitação de escrita (ativa em '0').
     signal we_n       : std_logic;
+    -- Reset do chip (ativo em '0').
     signal rst_n      : std_logic;
+    -- Proteção contra escrita (ativa em '0').
     signal wp_n       : std_logic;
+    -- Pronto/ocupado do chip ('1' = pronto).
     signal ry         : std_logic;
 
 begin
@@ -152,7 +157,7 @@ begin
     fl_dq <= chip_dq;
 
     -- Buffer de página.
-    process (i_clk) is
+    p_page_buffer : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -162,7 +167,7 @@ begin
             buf_data <= buf(to_integer(unsigned(buf_idx)));
         end if;
 
-    end process;
+    end process p_page_buffer;
 
     u_ctrl : entity work.nor_flash_ctrl
         generic map (

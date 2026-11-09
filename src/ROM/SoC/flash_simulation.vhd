@@ -49,13 +49,14 @@ end entity flash_simulation;
 architecture rtl of flash_simulation is
 
     -- Vetor de palavras da FLASH.
-    type words_t is array (0 to size_bytes / 4 - 1) of std_logic_vector(31 downto 0);
+    type words_t is array(0 to size_bytes / 4 - 1) of std_logic_vector(31 downto 0);
 
     -- Lê o conteúdo inicial do arquivo; as palavras que faltam ficam zeradas.
 
     impure function load_words (path : string) return words_t is
 
-        -- Ponteiro para o vetor, alocado no heap: um vetor de centenas de KB como variável local estoura o limite de pilha do GHDL.
+        -- Ponteiro para o vetor, alocado no heap: um vetor de centenas de KB como variável local estoura o limite de
+        -- pilha do GHDL.
         type words_ptr_t is access words_t;
 
         -- Arquivo de entrada.
@@ -109,7 +110,7 @@ begin
     o_q_b <= q_b_r;
 
     -- Porta A: só lê.
-    process (i_clk_a) is
+    p_port_a : process (i_clk_a) is
     begin
 
         if rising_edge(i_clk_a) then
@@ -118,10 +119,10 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_port_a;
 
     -- Porta B: lê e escreve.
-    process (i_clk_b) is
+    p_port_b : process (i_clk_b) is
     begin
 
         if rising_edge(i_clk_b) then
@@ -133,6 +134,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_port_b;
 
 end architecture rtl;

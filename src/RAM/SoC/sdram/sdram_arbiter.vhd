@@ -32,7 +32,8 @@ entity sdram_arbiter is
 
         -- Porta do mestre A (ponte de dados do core): alternância que pede um acesso, cada inversão é um pedido novo.
         i_a_req_tog : in    std_logic;
-        -- Porta do mestre A (ponte de dados do core): alternância que confirma o acesso, igual a req_tog quando o pedido foi atendido.
+        -- Porta do mestre A (ponte de dados do core): alternância que confirma o acesso, igual a req_tog quando o
+        -- pedido foi atendido.
         o_a_ack_tog : out   std_logic;
         -- Porta do mestre A (ponte de dados do core): escrita ('1') ou leitura ('0').
         i_a_we      : in    std_logic;
@@ -53,9 +54,11 @@ entity sdram_arbiter is
         -- Porta do mestre A (ponte de dados do core): palavras 1 a 3 do dado lido da linha.
         o_a_rdata_x : out   std_logic_vector(95 downto 0);
 
-        -- Porta do mestre I (ponte de instruções do core): alternância que pede um acesso, cada inversão é um pedido novo.
+        -- Porta do mestre I (ponte de instruções do core): alternância que pede um acesso, cada inversão é um pedido
+        -- novo.
         i_ins_req_tog : in    std_logic                                := '0';
-        -- Porta do mestre I (ponte de instruções do core): alternância que confirma o acesso, igual a req_tog quando o pedido foi atendido.
+        -- Porta do mestre I (ponte de instruções do core): alternância que confirma o acesso, igual a req_tog quando o
+        -- pedido foi atendido.
         o_ins_ack_tog : out   std_logic;
         -- Porta do mestre I (ponte de instruções do core): escrita ('1') ou leitura ('0').
         i_ins_we      : in    std_logic                                := '0';
@@ -78,7 +81,8 @@ entity sdram_arbiter is
 
         -- Porta do mestre B (porta de debug): alternância que pede um acesso, cada inversão é um pedido novo.
         i_b_req_tog : in    std_logic;
-        -- Porta do mestre B (porta de debug): alternância que confirma o acesso, igual a req_tog quando o pedido foi atendido.
+        -- Porta do mestre B (porta de debug): alternância que confirma o acesso, igual a req_tog quando o pedido foi
+        -- atendido.
         o_b_ack_tog : out   std_logic;
         -- Porta do mestre B (porta de debug): escrita ('1') ou leitura ('0').
         i_b_we      : in    std_logic;
@@ -210,7 +214,7 @@ begin
     b_pend   <= '1' when i_b_req_tog /= b_ack_i else '0';
     ins_pend <= '1' when ins_s(0) /= ins_ack_i else '0';
 
-    process (i_clk) is
+    p_arbiter : process (i_clk) is
 
         -- Mestre escolhido: 0 = A, 1 = B, 2 = I, 3 = nenhum.
         variable pick : integer range 0 to 3;
@@ -325,6 +329,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_arbiter;
 
 end architecture rtl;

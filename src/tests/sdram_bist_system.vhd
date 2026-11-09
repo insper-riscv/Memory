@@ -180,14 +180,14 @@ begin
 
     gen_registered : if capture_extra = 1 generate
 
-        process (i_clk) is
+        p_capture_dq : process (i_clk) is
         begin
 
             if rising_edge(i_clk) then
                 dq_in_r <= dq;
             end if;
 
-        end process;
+        end process p_capture_dq;
 
     end generate gen_registered;
 

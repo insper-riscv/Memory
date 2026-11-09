@@ -27,7 +27,8 @@ entity onchip_ram_system is
         -- Onde a memória começa dentro dos 64 MB da região, em KiB. Origem: o espaço de endereços da
         -- região da memória que o Memory enxerga (26 bits baixos), não o mapa do Core.
         base_kib        : natural  := 0;
-        -- Latência emulada em bordas, a mesma no ram_chip e no adaptador (0 deixa ao ram_chip o padrão e ao adaptador a estrutural).
+        -- Latência emulada em bordas, a mesma no ram_chip e no adaptador (0 deixa ao ram_chip o padrão e ao adaptador a
+        -- estrutural).
         latency         : natural  := 0;
         -- Tamanho da cache de dados em bits, uma potência de dois (usado só com with_cache).
         cache_size_bits : positive := 4096
@@ -136,7 +137,7 @@ begin
 
     -- Com cache, o requisitante fala com a dcache e o lado da memória dela chega à memória.
 
-    g_cache : if with_cache generate
+    gen_cache : if with_cache generate
 
         u_cache : entity work.dcache
             generic map (
@@ -170,11 +171,11 @@ begin
 
         m_bex     <= (others => '1');
         o_rdata_x <= (others => '0');
-    end generate g_cache;
+    end generate gen_cache;
 
     -- Sem cache, o requisitante fala direto com a memória.
 
-    g_direct : if not with_cache generate
+    gen_direct : if not with_cache generate
         m_addr       <= i_addr;
         m_wdata      <= i_wdata;
         m_be         <= i_byteena;
@@ -188,11 +189,11 @@ begin
         o_rdata      <= m_rdata;
         o_rdata_x    <= m_rdx;
         o_flush_done <= '0';
-    end generate g_direct;
+    end generate gen_direct;
 
     -- O modelo ram_chip como referência do contrato.
 
-    g_chip : if use_chip generate
+    gen_chip : if use_chip generate
 
         u_chip : entity work.ram_chip
             generic map (
@@ -217,11 +218,11 @@ begin
                 o_dbg_word_data => o_dbg_word_data
             );
 
-    end generate g_chip;
+    end generate gen_chip;
 
     -- O adaptador sobre o modelo de simulação do bloco de RAM.
 
-    g_onchip : if not use_chip generate
+    gen_onchip : if not use_chip generate
 
         u_port : entity work.onchip_ram_port
             generic map (
@@ -267,6 +268,6 @@ begin
                 i_mask     => b_be
             );
 
-    end generate g_onchip;
+    end generate gen_onchip;
 
 end architecture rtl;

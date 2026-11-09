@@ -163,15 +163,15 @@ begin
 
     -- O dado lido segue o endereço atual.
 
-    g_live : if not hold_rdata generate
+    gen_live : if not hold_rdata generate
     begin
         rd_flash <= is_flash;
         rd_local <= is_local;
-    end generate g_live;
+    end generate gen_live;
 
     -- O dado lido segue a região do último pedido concluído, guardada na borda em que o chip troca o dado.
 
-    g_hold : if hold_rdata generate
+    gen_hold : if hold_rdata generate
         -- O dado lido que o mestre vê vem da FLASH.
         signal held_flash : std_logic := '0';
         -- O dado lido que o mestre vê é zero (o último pedido concluído foi local).
@@ -183,7 +183,7 @@ begin
         rd_flash  <= held_flash;
         rd_local  <= held_local;
 
-        process (i_clk) is
+        p_hold_regs : process (i_clk) is
         begin
 
             if rising_edge(i_clk) then
@@ -196,11 +196,11 @@ begin
                 end if;
             end if;
 
-        end process;
+        end process p_hold_regs;
 
-    end generate g_hold;
+    end generate gen_hold;
 
-    process (i_clk) is
+    p_local_ready : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -215,6 +215,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_local_ready;
 
 end architecture rtl;

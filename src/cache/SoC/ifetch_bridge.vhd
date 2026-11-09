@@ -53,9 +53,11 @@ entity ifetch_bridge is
     generic (
         -- Pede à memória a linha de quatro palavras que contém o endereço (true) ou só a palavra dele (false).
         fetch_line   : boolean                      := true;
-        -- Largura do endereço que a janela da cache cobre, de 2**window_bits bytes (26 é 64 MiB, 27 é 128 MiB): a tag guarda os bits abaixo dela e a base da região, do lado da memória, completa os de cima.
+        -- Largura do endereço que a janela da cache cobre, de 2**window_bits bytes (26 é 64 MiB, 27 é 128 MiB): a tag
+        -- guarda os bits abaixo dela e a base da região, do lado da memória, completa os de cima.
         window_bits  : natural range 26 to 29       := 26;
-        -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória; só os bits de 31 até window_bits entram, os de baixo são da tag.
+        -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória; só os bits de 31 até
+        -- window_bits entram, os de baixo são da tag.
         base_sdram   : std_logic_vector(5 downto 0) := "010000";
         -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
         base_flash   : std_logic_vector(5 downto 0) := "001000";
@@ -165,7 +167,8 @@ architecture rtl of ifetch_bridge is
     -- O endereço de busca é o do registrador de busca.
     signal match : std_logic;
 
-    -- Endereço do pedido à memória: a base da região nos bits 31 até window_bits, os bits abaixo dele do núcleo alinhados ao que se pede.
+    -- Endereço do pedido à memória: a base da região nos bits 31 até window_bits, os bits abaixo dele do núcleo
+    -- alinhados ao que se pede.
 
     function mem_addr_of (addr : std_logic_vector(31 downto 0)) return std_logic_vector is
 
@@ -189,14 +192,14 @@ begin
     match   <= '1' when i_addr(31 downto LOW_BIT) = fetch_addr(31 downto LOW_BIT) else '0';
     o_ready <= fetch_ok and match and i_sel;
 
-    g_line : if fetch_line generate
+    gen_line : if fetch_line generate
         o_data <= fetch_data(32 * to_integer(unsigned(i_addr(3 downto 2))) + 31 downto
                              32 * to_integer(unsigned(i_addr(3 downto 2))));
-    end generate g_line;
+    end generate gen_line;
 
-    g_word : if not fetch_line generate
+    gen_word : if not fetch_line generate
         o_data <= fetch_data;
-    end generate g_word;
+    end generate gen_word;
 
     o_miss      <= miss_i;
     o_d_addr    <= d_addr_i;
@@ -204,7 +207,7 @@ begin
     o_d_line    <= d_line_i;
     o_d_advance <= i_d_ready;
 
-    process (i_clk) is
+    p_bridge_fsm : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -264,6 +267,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_bridge_fsm;
 
 end architecture rtl;

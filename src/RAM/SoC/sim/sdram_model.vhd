@@ -66,17 +66,22 @@ entity sdram_model is
         i_dqm    : in    std_logic_vector(dq_width / 8 - 1 downto 0);
         -- Pinos de dados DQ.
         io_dq    : inout std_logic_vector(dq_width - 1 downto 0);
-        -- Em '1' enquanto o controlador está em reset: o chip começa uma nova sequência de energização (espera, PRECHARGE ALL, refreshes e registrador de modo).
+        -- Em '1' enquanto o controlador está em reset: o chip começa uma nova sequência de energização (espera,
+        -- PRECHARGE ALL, refreshes e registrador de modo).
         i_reinit : in    std_logic;
 
         -- Endereço de palavra lido diretamente do modelo do chip, para depuração.
-        i_dbg_word_addr : in    std_logic_vector(dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0);
+        i_dbg_word_addr : in    std_logic_vector(
+            dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0
+        );
         -- Palavra do modelo do chip no endereço de dbg_word_addr.
         o_dbg_word_data : out   std_logic_vector(31 downto 0);
         -- Pulso que inverte um bit de uma palavra armazenada, para provar que uma verificação nota a corrupção.
         i_dbg_flip      : in    std_logic;
         -- Endereço de palavra cujo bit é invertido.
-        i_dbg_flip_addr : in    std_logic_vector(dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0);
+        i_dbg_flip_addr : in    std_logic_vector(
+            dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0
+        );
         -- Posição do bit invertido na palavra.
         i_dbg_flip_bit  : in    std_logic_vector(4 downto 0);
         -- Contagem de comandos AUTO REFRESH recebidos pelo chip.
@@ -114,7 +119,7 @@ architecture rtl of sdram_model is
     constant BUCKET_COUNT : natural := 65536;
 
     -- Vetor de baldes da tabela esparsa.
-    type bucket_array_t is array (0 to BUCKET_COUNT - 1) of node_ptr_t;
+    type bucket_array_t is array(0 to BUCKET_COUNT - 1) of node_ptr_t;
 
     -- Tabela esparsa de meias-palavras de 16 bits, indexada por linha, banco e coluna.
     type sparse_t is protected
@@ -153,7 +158,8 @@ architecture rtl of sdram_model is
 
             end loop;
 
-            p                             := new node_t'(key => key, val => val, next_node => buckets(key mod BUCKET_COUNT));
+            p                             :=
+                new node_t'(key => key, val => val, next_node => buckets(key mod BUCKET_COUNT));
             buckets(key mod BUCKET_COUNT) := p;
 
         end procedure write;
@@ -188,13 +194,13 @@ architecture rtl of sdram_model is
     constant TCK : time := tck_ps * 1 ps;
 
     -- Um tempo por banco.
-    type time_arr_t is array (0 to 3) of time;
+    type time_arr_t is array(0 to 3) of time;
 
     -- Um booleano por banco.
-    type bool_arr_t is array (0 to 3) of boolean;
+    type bool_arr_t is array(0 to 3) of boolean;
 
     -- Uma linha aberta por banco.
-    type row_arr_t is array (0 to 3) of natural;
+    type row_arr_t is array(0 to 3) of natural;
 
     -- Posição do pipeline de leitura: validade e dado de 16 bits.
     type rd_slot_t is record
@@ -203,7 +209,7 @@ architecture rtl of sdram_model is
     end record rd_slot_t;
 
     -- Pipeline que atrasa o dado lido pela latência CAS.
-    type rd_pipe_t is array (1 to 6) of rd_slot_t;
+    type rd_pipe_t is array(1 to 6) of rd_slot_t;
 
     -- Valor que o chip coloca nos pinos DQ.
     signal dq_drv        : unit_t    := (others => 'Z');
@@ -246,7 +252,7 @@ begin
 
     io_dq <= dq_drv when dq_oe = '1' else (others => 'Z');
 
-    load_image : process is
+    p_load_image : process is
 
         file     f   : text;
         -- Linha lida do arquivo de imagem.
@@ -287,12 +293,12 @@ begin
 
         wait;
 
-    end process load_image;
+    end process p_load_image;
 
     o_dbg_refreshes <= std_logic_vector(to_unsigned(refresh_count, 32));
     o_dbg_init_ok   <= init_ok;
 
-    dbg_read : process (i_clk) is
+    p_dbg_read : process (i_clk) is
 
         -- Palavra lida do arquivo ou índice de palavra.
         variable w    : natural;
@@ -313,9 +319,9 @@ begin
             o_dbg_word_data <= word;
         end if;
 
-    end process dbg_read;
+    end process p_dbg_read;
 
-    dbg_flipper : process (i_dbg_flip) is
+    p_dbg_flipper : process (i_dbg_flip) is
 
         -- Palavra lida do arquivo ou índice de palavra.
         variable w : natural;
@@ -334,9 +340,9 @@ begin
             mem.write(BEATS * w + k / dq_width, v);
         end if;
 
-    end process dbg_flipper;
+    end process p_dbg_flipper;
 
-    chip : process (i_clk) is
+    p_chip : process (i_clk) is
 
         -- Comando de quatro bits (cs_n & ras_n & cas_n & we_n) visto neste clock.
         variable cmd         : std_logic_vector(3 downto 0);
@@ -445,7 +451,8 @@ begin
                 wr_pending           := false;
             end if;
 
-            -- 3. intervalo de refresh: depois de o registrador de modo ser carregado, um refresh pelo menos a cada tREFI
+            -- 3. intervalo de refresh: depois de o registrador de modo ser carregado, um refresh pelo menos a cada
+            -- tREFI
             if ref_check then
                 assert (now - last_ref) <= T_REFI_PS * 1 ps
                     report "SDRAM model: no AUTO REFRESH within tREFI"
@@ -618,6 +625,6 @@ begin
             end if;
         end if;
 
-    end process chip;
+    end process p_chip;
 
 end architecture rtl;

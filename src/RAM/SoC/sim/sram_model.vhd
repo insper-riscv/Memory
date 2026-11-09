@@ -92,7 +92,7 @@ architecture sim of sram_model is
     subtype half_t is natural range 0 to 65535;
 
     -- O conteúdo do chip.
-    type mem_t is array (0 to HALVES - 1) of half_t;
+    type mem_t is array(0 to HALVES - 1) of half_t;
 
 begin
 
@@ -100,7 +100,7 @@ begin
         report "size_bytes must be between 16 bytes and 2 MB"
         severity failure;
 
-    process is
+    p_chip_model : process is
 
         -- O conteúdo do chip.
         variable mem          : mem_t     := (others => 0);
@@ -145,7 +145,8 @@ begin
 
             cur_active := i_sram_ce_n = '0' and i_sram_oe_n = '0' and i_sram_we_n = '1';
 
-            -- A leitura em curso termina por mudança de endereço ou por perder CE#/OE#/WE#: o dado já tinha de estar válido.
+            -- A leitura em curso termina por mudança de endereço ou por perder CE#/OE#/WE#: o dado já tinha de estar
+            -- válido.
             if was_active and (i_sram_addr'event or not cur_active) then
                 avail := t_addr + tns(t_aa_ns);
                 if t_ce + tns(t_aa_ns) > avail then
@@ -282,6 +283,6 @@ begin
 
         end loop;
 
-    end process;
+    end process p_chip_model;
 
 end architecture sim;

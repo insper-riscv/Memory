@@ -53,7 +53,7 @@ begin
     o_last <= '1' when cnt = 1 else '0';
     o_wait <= '1' when cnt > 1 else '0';
 
-    process (i_clk) is
+    p_counter : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -72,6 +72,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_counter;
 
 end architecture rtl;

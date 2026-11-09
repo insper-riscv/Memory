@@ -63,14 +63,15 @@ architecture rtl of ram_simulation is
 
 begin
 
-    -- O índice da palavra são os MEMORY_ADDR_WIDTH bits baixos do endereço, de modo que toda a faixa do vetor é acessível.
+    -- O índice da palavra são os MEMORY_ADDR_WIDTH bits baixos do endereço, de modo que toda a faixa do vetor é
+    -- acessível.
     widx <= i_addr(MEMORY_ADDR_WIDTH - 1 downto 0);
 
     -- O mesmo processo carrega a imagem inicial e depois escreve o vetor, então
     -- o vetor tem um único driver. A imagem passa pelo sinal, não por
     -- um resultado de função, porque o GHDL aloca o vetor de uma função na
     -- pilha e uma RAM de 2**16 palavras ou mais excede o limite dela.
-    process is
+    p_load_image : process is
 
         file     f   : text;
         -- Linha lida do arquivo de imagem.
@@ -125,10 +126,10 @@ begin
 
         end loop;
 
-    end process;
+    end process p_load_image;
 
     -- leitura síncrona: captura mem(...) na subida do clock se eRAM='1' e reRAM='1'
-    sync_read : process (i_clk) is
+    p_sync_read : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -138,7 +139,7 @@ begin
         -- caso contrário, mantém o valor anterior (nenhuma alteração)
         end if;
 
-    end process sync_read;
+    end process p_sync_read;
 
     o_data_out <= data_out_reg;
 

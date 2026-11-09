@@ -205,7 +205,7 @@ begin
                   i_rdata_x(63 downto 32) when k = 2 else
                   i_rdata_x(95 downto 64);
 
-    process (i_clk) is
+    p_bridge_fsm : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -227,7 +227,8 @@ begin
                             left_l <= unsigned(i_s_awlen);
                             we_l   <= '1';
                             bad_l  <= is_bad(i_s_awaddr, i_s_awsize, i_s_awburst);
-                            if is_bad(i_s_awaddr, i_s_awsize, i_s_awburst) = '0' and is_line(i_s_awaddr, i_s_awlen) = '1' then
+                            if is_bad(i_s_awaddr, i_s_awsize, i_s_awburst) = '0'
+                               and is_line(i_s_awaddr, i_s_awlen) = '1' then
                                 fast_l <= '1';
                             else
                                 fast_l <= '0';
@@ -240,7 +241,8 @@ begin
                             left_l <= unsigned(i_s_arlen);
                             we_l   <= '0';
                             bad_l  <= is_bad(i_s_araddr, i_s_arsize, i_s_arburst);
-                            if is_bad(i_s_araddr, i_s_arsize, i_s_arburst) = '0' and is_line(i_s_araddr, i_s_arlen) = '1' then
+                            if is_bad(i_s_araddr, i_s_arsize, i_s_arburst) = '0'
+                               and is_line(i_s_araddr, i_s_arlen) = '1' then
                                 fast_l <= '1';
                             else
                                 fast_l <= '0';
@@ -337,6 +339,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_bridge_fsm;
 
 end architecture rtl;

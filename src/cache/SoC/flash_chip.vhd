@@ -109,7 +109,8 @@ begin
     o_ready    <= '1' when st = S_DONE else '0';
     o_busy     <= '1' when st = S_WAIT else '0';
 
-    -- Um pedido novo em repouso carrega a primeira latência, e uma palavra capturada que não é a última carrega a seguinte.
+    -- Um pedido novo em repouso carrega a primeira latência, e uma palavra capturada que não é a última carrega a
+    -- seguinte.
     lat_load  <= '1' when (st = S_IDLE and i_rden = '1')
                           or (st = S_WAIT and lat_last = '1' and word_n /= last_w) else
                  '0';
@@ -128,7 +129,7 @@ begin
             o_wait  => open
         );
 
-    process (i_clk) is
+    p_chip_fsm : process (i_clk) is
 
         -- Endereço-base da linha em andamento.
         variable next_base : unsigned(31 downto 0);
@@ -202,6 +203,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_chip_fsm;
 
 end architecture rtl;

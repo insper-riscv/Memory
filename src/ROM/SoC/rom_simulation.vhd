@@ -171,7 +171,7 @@ architecture rtl of rom_simulation is
 
 begin
 
-    init : process is
+    p_init : process is
 
         file     f    : text open read_mode is rom_file;
         -- Linha lida do arquivo.
@@ -213,12 +213,12 @@ begin
 
         wait;
 
-    end process init;
+    end process p_init;
 
     local_addr  <= i_addr(MEMORY_ADDR_WIDTH - 1 downto 0);
     local_addr2 <= i_addr2(MEMORY_ADDR_WIDTH - 1 downto 0);
 
-    sync_read : process (i_clk) is
+    p_sync_read : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -227,9 +227,9 @@ begin
             end if;
         end if;
 
-    end process sync_read;
+    end process p_sync_read;
 
-    sync_read2 : process (i_clk2) is
+    p_sync_read2 : process (i_clk2) is
     begin
 
         if rising_edge(i_clk2) then
@@ -238,7 +238,7 @@ begin
             end if;
         end if;
 
-    end process sync_read2;
+    end process p_sync_read2;
 
     o_data  <= data_reg;
     o_data2 <= data_reg2;

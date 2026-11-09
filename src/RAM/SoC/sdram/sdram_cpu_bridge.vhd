@@ -142,7 +142,7 @@ begin
     o_rdata_x <= rdx_q;
     o_c_line  <= line_l;
 
-    process (i_clk_cpu) is
+    p_bridge_fsm : process (i_clk_cpu) is
     begin
 
         if rising_edge(i_clk_cpu) then
@@ -191,6 +191,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_bridge_fsm;
 
 end architecture rtl;

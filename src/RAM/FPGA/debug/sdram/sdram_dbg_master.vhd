@@ -35,7 +35,8 @@ entity sdram_dbg_master is
     generic (
         -- Ciclos de espera pela resposta do controlador antes de descartar o comando.
         timeout_cycles : natural                := 1 * 2 ** 16;
-        -- Bits do endereço de palavra da SDRAM (23, 24 ou 25: 32 MB, 64 MB ou 128 MB); com 25, o bit 3 de i_op é o bit 24 do endereço.
+        -- Bits do endereço de palavra da SDRAM (23, 24 ou 25: 32 MB, 64 MB ou 128 MB); com 25, o bit 3 de i_op é o bit
+        -- 24 do endereço.
         addr_bits      : natural range 23 to 25 := 24
     );
     port (
@@ -68,7 +69,8 @@ entity sdram_dbg_master is
 
         -- Porta do mestre B (porta de debug): alternância que pede um acesso, cada inversão é um pedido novo.
         o_b_req_tog : out   std_logic;
-        -- Porta do mestre B (porta de debug): alternância que confirma o acesso, igual a req_tog quando o pedido foi atendido.
+        -- Porta do mestre B (porta de debug): alternância que confirma o acesso, igual a req_tog quando o pedido foi
+        -- atendido.
         i_b_ack_tog : in    std_logic;
         -- Porta do mestre B (porta de debug): escrita ('1') ou leitura ('0').
         o_b_we      : out   std_logic;
@@ -152,7 +154,7 @@ begin
     o_rsp_status <= "00000" & init_sync(0) & err & '0';
     pending      <= '1' when cmd_sync(0) /= done_i else '0';
 
-    process (i_clk) is
+    p_dbg_master : process (i_clk) is
 
         procedure issue (
             a  : unsigned(addr_bits - 1 downto 0);
@@ -265,6 +267,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_dbg_master;
 
 end architecture rtl;

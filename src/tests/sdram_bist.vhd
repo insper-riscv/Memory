@@ -163,7 +163,8 @@ architecture rtl of sdram_bist is
 
                 return not h;
 
-            -- os bytes 1 e 3 mantêm h, os bytes 0 e 2 receberam o complemento (uma escrita do padrão 7 com máscara 0101 sobre o 6)
+            -- os bytes 1 e 3 mantêm h, os bytes 0 e 2 receberam o complemento (uma escrita do padrão 7 com máscara 0101
+            -- sobre o 6)
             when 8 =>
 
                 return (h and x"FF00FF00") or ((not h) and x"00FF00FF");
@@ -351,7 +352,7 @@ begin
     o_ops_done   <= std_logic_vector(ops);
     o_c_req_tog  <= req_i;
 
-    process (i_clk) is
+    p_bist_fsm : process (i_clk) is
 
         -- Próximo valor do gerador de endereços aleatórios.
         variable next_lf : unsigned(31 downto 0);
@@ -476,6 +477,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_bist_fsm;
 
 end architecture rtl;

@@ -220,7 +220,7 @@ begin
     o_rdata_x <= rdx_q;
     o_err     <= err_l when st = ST_DONE else '0';
 
-    process (i_clk) is
+    p_bridge_fsm : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -239,7 +239,8 @@ begin
                     when ST_IDLE =>
 
                         if i_rden = '1' or i_wren = '1' then
-                            addr_l  <= i_addr(31 downto 2) & "00"; -- palavras inteiras; o habilita de bytes escolhe os bytes
+                            -- palavras inteiras; o habilita de bytes escolhe os bytes
+                            addr_l  <= i_addr(31 downto 2) & "00";
                             wdata_l <= i_wdata;
                             strb_l  <= i_byteena;
                             wdx_l   <= i_wdata_x;
@@ -295,7 +296,8 @@ begin
                                 err_l <= '1';
                             end if;
                             if (i_m_rlast = '1') /= (beat = last_b) then
-                                err_l <= '1';                                                 -- a rajada tem comprimento diferente do pedido
+                                -- a rajada tem comprimento diferente do pedido
+                                err_l <= '1';
                             end if;
                             if beat = last_b or i_m_rlast = '1' then
                                 st <= ST_DONE;
@@ -319,6 +321,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_bridge_fsm;
 
 end architecture rtl;

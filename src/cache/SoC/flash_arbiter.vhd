@@ -95,7 +95,7 @@ begin
     o_a_rdata_x <= i_rdata_x;
     o_b_rdata_x <= i_rdata_x;
 
-    process (i_clk) is
+    p_arbiter : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -133,6 +133,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_arbiter;
 
 end architecture rtl;

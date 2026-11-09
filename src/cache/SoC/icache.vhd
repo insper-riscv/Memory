@@ -4,7 +4,8 @@
 -- Mapeamento direto, linhas de 16 bytes (quatro palavras), somente leitura. O tamanho é o genérico
 -- size_bits, uma potência de dois: 32768 bits (4 KB, 256 linhas) por padrão e 4096 bits (4 kbit, 32 linhas).
 -- Fica no caminho de busca dos endereços da SDRAM (0x40000000) e da FLASH
--- (0x20000000); a BOOT_MEMORY não passa por ela. A tag leva a região do endereço (dentro de [rom_base_kib, rom_end_kib)),
+-- (0x20000000); a BOOT_MEMORY não passa por ela. A tag leva a região do endereço (dentro de [rom_base_kib,
+-- rom_end_kib)),
 -- que distingue as duas regiões: sem ele, uma linha da FLASH e uma da SDRAM com os
 -- mesmos bits de tag se confundiriam.
 --
@@ -35,11 +36,14 @@
 -- guarda é mais velho que o invalidate.
 --
 -- i_inval_region: um pulso derruba as linhas da região de i_inval_first a i_inval_last (endereços de byte, o último
--- incluído), como o controlador de FLASH pede depois de apagar ou gravar. Cada linha da cache guarda a tag, não o endereço
+-- incluído), como o controlador de FLASH pede depois de apagar ou gravar. Cada linha da cache guarda a tag, não o
+-- endereço
 -- completo, então a cache derruba por índice: toda linha cujo índice cai em algum endereço da região, mesmo a de outra
--- região com o mesmo índice (uma região de tantas linhas quantas a cache tem derruba tudo). Um preenchimento em andamento
+-- região com o mesmo índice (uma região de tantas linhas quantas a cache tem derruba tudo). Um preenchimento em
+-- andamento
 -- cuja linha cai na região é descartado. O pedido é registrado e aplicado no ciclo seguinte; o bit de validade lido tem
--- mais um ciclo de atraso, então nenhuma linha da região acerta a partir do terceiro ciclo depois do pulso. Um pedido com
+-- mais um ciclo de atraso, então nenhuma linha da região acerta a partir do terceiro ciclo depois do pulso. Um pedido
+-- com
 -- i_inval_last menor que i_inval_first não tem efeito.
 --
 -- Nada escreve na SDRAM por trás da cache exceto a porta de debug, que o faz com
@@ -47,7 +51,8 @@
 -- stores do core, que a cache não observa: só um fence.i os torna visíveis à
 -- busca.
 --
--- Divisão do endereço (janela de 2**window_bits bytes por região, 64 MiB por padrão): região (1 = ROM, pelos genéricos rom_base_kib e rom_end_kib), bits window_bits-1:12
+-- Divisão do endereço (janela de 2**window_bits bytes por região, 64 MiB por padrão): região (1 = ROM, pelos genéricos
+-- rom_base_kib e rom_end_kib), bits window_bits-1:12
 -- tag, 11:4 linha, 3:2 palavra (com 256 linhas; o índice ocupa log2 do número de linhas bits a partir do
 -- bit 4 e a tag o que sobra até o bit window_bits-1). Os demais bits a partir de window_bits não são guardados; o
 -- lado da memória acrescenta a base da região neles (base_flash ou base_sdram).
@@ -61,11 +66,14 @@ use work.utils_pkg.all;
 
 entity icache is
     generic (
-        -- Tamanho da cache em bits, uma potência de dois de pelo menos 256 (duas linhas de 128 bits): 32768 é 4 KB e 4096 é 4 kbit.
+        -- Tamanho da cache em bits, uma potência de dois de pelo menos 256 (duas linhas de 128 bits): 32768 é 4 KB e
+        -- 4096 é 4 kbit.
         size_bits    : positive                     := 32768;
-        -- Largura do endereço que a janela da cache cobre, de 2**window_bits bytes (26 é 64 MiB, 27 é 128 MiB): a tag guarda os bits abaixo dela e a base da região, do lado da memória, completa os de cima.
+        -- Largura do endereço que a janela da cache cobre, de 2**window_bits bytes (26 é 64 MiB, 27 é 128 MiB): a tag
+        -- guarda os bits abaixo dela e a base da região, do lado da memória, completa os de cima.
         window_bits  : natural range 26 to 29       := 26;
-        -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória; só os bits de 31 até window_bits entram, os de baixo são da tag.
+        -- Bits 31:26 dos endereços da SDRAM (0x40000000), acrescentados do lado da memória; só os bits de 31 até
+        -- window_bits entram, os de baixo são da tag.
         base_sdram   : std_logic_vector(5 downto 0) := "010000";
         -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
         base_flash   : std_logic_vector(5 downto 0) := "001000";
@@ -77,9 +85,12 @@ entity icache is
         -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
         -- padrão difere dos defaults do Core.
         rom_end_kib  : natural                      := 1048576;
-        -- Com valor não negativo, a seleção da cache sai do endereço registrado (selecionado a partir deste endereço, em KiB), e a porta i_sel é ignorada; -1 usa i_sel. Tira a decodificação do PC do caminho até a cache.
+        -- Com valor não negativo, a seleção da cache sai do endereço registrado (selecionado a partir deste endereço,
+        -- em KiB), e a porta i_sel é ignorada; -1 usa i_sel. Tira a decodificação do PC do caminho até a cache.
         sel_from_kib : integer                      := -1;
-        -- Confere, a cada consulta, que o endereço registrado ainda é o de i_addr. Com os dois clocks defasados (a borda de i_clk sempre antes da próxima do core) o endereço não muda entre as duas bordas, e a conferência de 32 bits sai do caminho da tag ao PC (false).
+        -- Confere, a cada consulta, que o endereço registrado ainda é o de i_addr. Com os dois clocks defasados (a
+        -- borda de i_clk sempre antes da próxima do core) o endereço não muda entre as duas bordas, e a conferência de
+        -- 32 bits sai do caminho da tag ao PC (false).
         check_addr   : boolean                      := true
     );
     port (
@@ -161,22 +172,24 @@ architecture rtl of icache is
     constant TAG_LOW    : natural := INDEX_BITS + 4;
 
     -- Memória de dados: quatro palavras por linha.
-    type data_t is array (0 to 4 * LINES - 1) of std_logic_vector(31 downto 0);
+    type data_t is array(0 to 4 * LINES - 1) of std_logic_vector(31 downto 0);
 
     -- Memória de tags: uma tag por linha (região e bits window_bits-1 até o fim do índice).
-    type tag_t is array (0 to LINES - 1) of std_logic_vector(TAG_BITS - 1 downto 0);
+    type tag_t is array(0 to LINES - 1) of std_logic_vector(TAG_BITS - 1 downto 0);
 
     -- Palavras das linhas.
     signal data_ram : data_t := (others => (others => '0'));
     -- Tag de cada linha.
     signal tag_ram  : tag_t  := (others => (others => '0'));
 
-    -- Memória de validade: um bit por linha, em RAM como as de dados e de tags, lida no mesmo endereço (a leitura de um vetor de registradores era o pior caminho do PC até a cache).
-    type valid_t is array (0 to LINES - 1) of std_logic;
+    -- Memória de validade: um bit por linha, em RAM como as de dados e de tags, lida no mesmo endereço (a leitura de um
+    -- vetor de registradores era o pior caminho do PC até a cache).
+    type valid_t is array(0 to LINES - 1) of std_logic;
 
     -- Bit de validade de cada linha.
     signal valid_ram  : valid_t                                   := (others => '0');
-    -- Uma invalidação (pedido ou reset) está pendente ou em andamento: nenhuma consulta acerta e nenhum preenchimento começa até a varredura zerar as linhas.
+    -- Uma invalidação (pedido ou reset) está pendente ou em andamento: nenhuma consulta acerta e nenhum preenchimento
+    -- começa até a varredura zerar as linhas.
     signal blocked    : std_logic                                 := '1';
     -- Linha que a varredura de invalidação zera neste ciclo.
     signal sw_idx     : unsigned(INDEX_BITS - 1 downto 0)         := (others => '0');
@@ -298,8 +311,10 @@ begin
     valid_wa <= std_logic_vector(sw_idx) when st = S_SWEEP else fill_idx;
     valid_wd <= '0' when st = S_SWEEP else '1';
 
-    -- Os controles, o endereço e o dado das escritas saem de registradores do clock do core: o caminho até as RAMs (no clock de busca) deixa de passar pela lógica da máquina e pelo roteador da memória. A escrita acontece um ciclo depois do estado que a pede.
-    process (i_clk_cpu) is
+    -- Os controles, o endereço e o dado das escritas saem de registradores do clock do core: o caminho até as RAMs (no
+    -- clock de busca) deixa de passar pela lógica da máquina e pelo roteador da memória. A escrita acontece um ciclo
+    -- depois do estado que a pede.
+    p_write_regs : process (i_clk_cpu) is
     begin
 
         if rising_edge(i_clk_cpu) then
@@ -320,9 +335,9 @@ begin
             w_valid_wd <= valid_wd;
         end if;
 
-    end process;
+    end process p_write_regs;
 
-    process (i_clk) is
+    p_ram_read : process (i_clk) is
     begin
 
         if rising_edge(i_clk) then
@@ -342,7 +357,7 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_ram_read;
 
     o_miss <= '1' when st = S_FILL_REQ else '0';
 
@@ -351,7 +366,7 @@ begin
     o_d_line    <= d_line_i;
     o_d_advance <= i_d_ready;
 
-    process (i_clk_cpu) is
+    p_cache_fsm : process (i_clk_cpu) is
 
         -- Linhas da região pedida menos uma, em linhas de 16 bytes.
         variable span_m1 : unsigned(27 downto 0);
@@ -373,13 +388,15 @@ begin
                 miss_q     <= '0';
             else
                 rq_v <= '0';
-                if st = S_IDLE and hit = '0' and sel_eff = '1' and addr_same = '1' and i_invalidate = '0' and blocked = '0' then
+                if st = S_IDLE and hit = '0' and sel_eff = '1'
+                   and addr_same = '1' and i_invalidate = '0' and blocked = '0' then
                     miss_q <= '1';
                 else
                     miss_q <= '0';
                 end if;
                 miss_a <= addr_q;
-                if i_inval_region = '1' and unsigned(i_inval_last(31 downto 4)) >= unsigned(i_inval_first(31 downto 4)) then
+                if i_inval_region = '1'
+                   and unsigned(i_inval_last(31 downto 4)) >= unsigned(i_inval_first(31 downto 4)) then
                     span_m1  := unsigned(i_inval_last(31 downto 4)) - unsigned(i_inval_first(31 downto 4));
                     rq_v     <= '1';
                     rq_first <= unsigned(i_inval_first(INDEX_BITS + 3 downto 4));
@@ -390,7 +407,8 @@ begin
                         rq_all <= '0';
                     end if;
                 end if;
-                -- um pedido de invalidação bloqueia as consultas até a varredura zerar as linhas dele; um segundo pedido
+                -- um pedido de invalidação bloqueia as consultas até a varredura zerar as linhas dele; um segundo
+                -- pedido
                 -- que encontra outro pendente vira o pedido de todas as linhas
                 if i_invalidate = '1' or rq_v = '1' then
                     blocked <= '1';
@@ -423,7 +441,8 @@ begin
                                 pend    <= '0';
                                 st      <= S_SWEEP;
                             end if;
-                        -- uma falha registrada no ciclo anterior (a decisão sai da leitura da tag em um registrador): traz a sua linha
+                        -- uma falha registrada no ciclo anterior (a decisão sai da leitura da tag em um registrador):
+                        -- traz a sua linha
                         elsif miss_q = '1' and i_invalidate = '0' then
                             fill_tag <= rom_miss & miss_a(window_bits - 1 downto TAG_LOW);
                             fill_idx <= miss_a(INDEX_BITS + 3 downto 4);
@@ -433,9 +452,11 @@ begin
                     when S_FILL_REQ =>
 
                         if fill_tag(TAG_BITS - 1) = '1' then
-                            d_addr_i <= base_flash(5 downto window_bits - 26) & fill_tag(TAG_BITS - 2 downto 0) & fill_idx & "0000";
+                            d_addr_i <= base_flash(5 downto window_bits - 26) & fill_tag(TAG_BITS - 2 downto 0)
+                                        & fill_idx & "0000";
                         else
-                            d_addr_i <= base_sdram(5 downto window_bits - 26) & fill_tag(TAG_BITS - 2 downto 0) & fill_idx & "0000";
+                            d_addr_i <= base_sdram(5 downto window_bits - 26) & fill_tag(TAG_BITS - 2 downto 0)
+                                        & fill_idx & "0000";
                         end if;
                         d_line_i <= '1';
                         d_rden_i <= '1';
@@ -464,7 +485,8 @@ begin
 
                         st <= S_IDLE;
 
-                    -- as escritas das RAMs saem de registradores e acontecem um ciclo depois: mais um ciclo antes da leitura nova
+                    -- as escritas das RAMs saem de registradores e acontecem um ciclo depois: mais um ciclo antes da
+                    -- leitura nova
                     when S_SETTLE2 =>
 
                         st <= S_SETTLE;
@@ -479,7 +501,8 @@ begin
                             sw_left <= sw_left - 1;
                         end if;
 
-                    -- a escrita da última linha só aparece na leitura registrada um ciclo depois: as consultas voltam a acertar daqui
+                    -- a escrita da última linha só aparece na leitura registrada um ciclo depois: as consultas voltam a
+                    -- acertar daqui
                     when S_RELEASE =>
 
                         if pend = '1' or i_invalidate = '1' or rq_v = '1' then
@@ -488,7 +511,8 @@ begin
                             st <= S_RELEASE2;
                         end if;
 
-                    -- o último zero é escrito um ciclo depois do estado de varredura: as consultas só voltam a acertar depois dele
+                    -- o último zero é escrito um ciclo depois do estado de varredura: as consultas só voltam a acertar
+                    -- depois dele
                     when S_RELEASE2 =>
 
                         if pend = '1' or i_invalidate = '1' or rq_v = '1' then
@@ -503,6 +527,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_cache_fsm;
 
 end architecture rtl;

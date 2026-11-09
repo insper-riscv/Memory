@@ -121,7 +121,7 @@ begin
     o_data    <= data_r;
     o_tdo     <= sr(0) when ir = "01" else bypass;
 
-    process (i_tck) is
+    p_jtag_shift : process (i_tck) is
     begin
 
         if rising_edge(i_tck) then
@@ -156,6 +156,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_jtag_shift;
 
 end architecture rtl;

@@ -5,7 +5,8 @@
 -- coluna do chip são generics, e o padrão é o chip de 32M x 16 da DE0-CV (16
 -- bits, 13 de linha, 2 de banco, 10 de coluna). Um pedido move uma palavra de 32
 -- bits como uma rajada de 32 / dq_width beats: dois de 16 bits no padrão, um de
--- 32 bits com dq_width igual a 32 (a rajada do registrador de modo acompanha). A política é de página fechada: todo acesso ativa a sua linha e lê ou
+-- 32 bits com dq_width igual a 32 (a rajada do registrador de modo acompanha). A política é de página fechada: todo
+-- acesso ativa a sua linha e lê ou
 -- escreve com auto-precharge, de modo que nenhuma linha fica aberta e a ordem
 -- dos comandos nunca depende do acesso anterior.
 --
@@ -44,7 +45,8 @@ entity sdram_ctrl is
         refresh_cycles : natural := cycles(T_REFI_PS, T_CK_PS) * 9 / 10;
         -- Clocks extras antes de amostrar o dado lido (ajuste de fase da placa e do clock).
         capture_extra  : natural := 0;
-        -- Verdadeiro: req_tog vem de outro clock e é sincronizado aqui; falso: vem deste clock (o árbitro) e é usado direto, sem a latência do sincronizador.
+        -- Verdadeiro: req_tog vem de outro clock e é sincronizado aqui; falso: vem deste clock (o árbitro) e é usado
+        -- direto, sem a latência do sincronizador.
         sync_req       : boolean := true;
         -- Largura do barramento de dados DQ do chip, em bits (16 ou 32).
         dq_width       : natural := 16;
@@ -116,7 +118,8 @@ architecture rtl of sdram_ctrl is
     -- Beats de dados por palavra de 32 bits (a rajada do chip).
     constant BEATS     : natural                               := dram_beats(dq_width);
     -- Bits do endereço de palavra do pedido.
-    constant ADDR_BITS : natural                               := dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width);
+    constant ADDR_BITS : natural                               :=
+        dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width);
     -- Bits da coluna da palavra (a coluna do chip sem os bits que a rajada percorre).
     constant WCOL      : natural                               := ADDR_BITS - row_bits - bank_bits;
     -- Bits do barramento de endereço do chip.
@@ -136,16 +139,20 @@ architecture rtl of sdram_ctrl is
     constant C_RFC           : natural := cycles(T_RFC_PS, tck_ps);
     -- Último dado de escrita até PRECHARGE, em ciclos.
     constant C_WR            : natural := cycles(T_WR_PS, tck_ps);
-    -- ACTIVE até o próximo ACTIVE de um acesso de página fechada: o maior entre tRC e o caminho de leitura (ACTIVE, tRCD, latência CAS, os beats e um clock de folga); o caminho de escrita (tRCD, os beats, tWR, tRP) nunca é mais longo.
+    -- ACTIVE até o próximo ACTIVE de um acesso de página fechada: o maior entre tRC e o caminho de leitura (ACTIVE,
+    -- tRCD, latência CAS, os beats e um clock de folga); o caminho de escrita (tRCD, os beats, tWR, tRP) nunca é mais
+    -- longo.
     constant ACT_TO_ACT      : natural :=
         max_natural(C_RC, max_natural(C_RCD + CAS_LATENCY + BEATS + 2, C_RCD + BEATS + C_WR + C_RP));
-    -- O mesmo intervalo para uma linha: o último comando sai três palavras de beats depois do primeiro e o último beat dois clocks depois dele.
+    -- O mesmo intervalo para uma linha: o último comando sai três palavras de beats depois do primeiro e o último beat
+    -- dois clocks depois dele.
     constant ACT_TO_ACT_LINE : natural :=
         max_natural(C_RC,
             max_natural(C_RCD + 3 * BEATS + CAS_LATENCY + BEATS + 2,
                 C_RCD + 4 * BEATS + C_WR + C_RP));
 
-    -- Coluna do chip do comando READ ou WRITE: a coluna da palavra (ou a da palavra lcnt da linha) seguida dos bits que a rajada percorre.
+    -- Coluna do chip do comando READ ou WRITE: a coluna da palavra (ou a da palavra lcnt da linha) seguida dos bits que
+    -- a rajada percorre.
 
     function chip_col (colword : std_logic_vector; lcnt : natural; line : std_logic) return std_logic_vector is
 
@@ -241,7 +248,7 @@ begin
     o_rdata_x   <= rdx_i;
     o_dram_cke  <= '1';
 
-    process (i_clk) is
+    p_ctrl_fsm : process (i_clk) is
 
         -- Comando de quatro bits (cs_n & ras_n & cas_n & we_n) emitido neste clock.
         variable cmd : std_logic_vector(3 downto 0);
@@ -411,7 +418,8 @@ begin
 
                     when ST_RW =>
 
-                        -- a coluna da palavra lcnt de uma linha (uma palavra avulsa mantém a sua coluna); auto-precharge
+                        -- a coluna da palavra lcnt de uma linha (uma palavra avulsa mantém a sua coluna);
+                        -- auto-precharge
                         -- no último comando
                         o_dram_ba                          <= addr_l(WCOL + bank_bits - 1 downto WCOL);
                         o_dram_addr(col_bits - 1 downto 0) <= chip_col(addr_l(WCOL - 1 downto 0), lcnt, line_l);
@@ -492,6 +500,6 @@ begin
             o_dram_we_n  <= cmd(0);
         end if;
 
-    end process;
+    end process p_ctrl_fsm;
 
 end architecture rtl;

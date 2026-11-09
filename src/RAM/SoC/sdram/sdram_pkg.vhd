@@ -61,10 +61,12 @@ package sdram_pkg is
 
     function cycles (ps : natural; tck_ps : natural) return natural;
 
-    -- Beats de dados que movem uma palavra de 32 bits no barramento DQ de dq_width bits (rajada programada no registrador de modo).
+    -- Beats de dados que movem uma palavra de 32 bits no barramento DQ de dq_width bits (rajada programada no
+    -- registrador de modo).
 
     function dram_beats (dq_width : natural) return natural;
-    -- Bits do endereço de palavra de 32 bits: linha, banco e coluna da palavra (a coluna do chip menos os bits que a rajada percorre).
+    -- Bits do endereço de palavra de 32 bits: linha, banco e coluna da palavra (a coluna do chip menos os bits que a
+    -- rajada percorre).
 
     function dram_word_addr_bits (row_bits, bank_bits, col_bits, dq_width : natural) return natural;
     -- Largura do barramento de endereço do chip: cabe a linha, e a coluna mais o bit A10 de auto-precharge.

@@ -93,11 +93,15 @@ architecture rtl of sram_ctrl_tb is
     signal chip_dq   : std_logic_vector(15 downto 0);
     -- O fio do barramento de dados, resolvido.
     signal dq_bus    : std_logic_vector(15 downto 0);
-    -- Pinos de controle.
+    -- Habilitação do chip (ativa em '0').
     signal ce_n      : std_logic;
+    -- Habilitação da saída (ativa em '0').
     signal oe_n      : std_logic;
+    -- Habilitação de escrita (ativa em '0').
     signal we_n      : std_logic;
+    -- Seleção do byte baixo (ativa em '0').
     signal lb_n      : std_logic;
+    -- Seleção do byte alto (ativa em '0').
     signal ub_n      : std_logic;
 
 begin
@@ -140,8 +144,16 @@ begin
 
     u_chip : entity work.sram_model
         generic map (
-            size_bytes         => size_bytes, t_aa_ns => t_aa_ns, t_rc_ns => t_rc_ns, t_wc_ns => t_wc_ns, t_sce_ns => t_sce_ns,
-            t_aw_ns            => t_aw_ns, t_pwe_ns => t_pwe_ns, t_sd_ns => t_sd_ns, t_ha_ns => t_ha_ns, t_hd_ns => t_hd_ns,
+            size_bytes         => size_bytes,
+            t_aa_ns            => t_aa_ns,
+            t_rc_ns            => t_rc_ns,
+            t_wc_ns            => t_wc_ns,
+            t_sce_ns           => t_sce_ns,
+            t_aw_ns            => t_aw_ns,
+            t_pwe_ns           => t_pwe_ns,
+            t_sd_ns            => t_sd_ns,
+            t_ha_ns            => t_ha_ns,
+            t_hd_ns            => t_hd_ns,
             abort_on_violation => abort_on_violation
         )
         port map (

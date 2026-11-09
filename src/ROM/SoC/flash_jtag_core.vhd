@@ -147,7 +147,7 @@ begin
     o_data    <= data_r;
     o_tdo     <= sr(0) when ir = IR_CMD or ir = IR_STREAM else bypass;
 
-    process (i_tck) is
+    p_jtag_shift : process (i_tck) is
 
         -- Operação do comando que acabou de ser deslocado no CMD.
         variable cmd_op : std_logic_vector(3 downto 0);
@@ -214,6 +214,6 @@ begin
             end if;
         end if;
 
-    end process;
+    end process p_jtag_shift;
 
 end architecture rtl;
