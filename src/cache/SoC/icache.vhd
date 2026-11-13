@@ -4,8 +4,8 @@
 -- Mapeamento direto, linhas de 16 bytes (quatro palavras), somente leitura. O tamanho é o genérico
 -- size_bits, uma potência de dois: 32768 bits (4 KB, 256 linhas) por padrão e 4096 bits (4 kbit, 32 linhas).
 -- Fica no caminho de busca dos endereços da SDRAM (0x40000000) e da FLASH
--- (0x20000000); a BOOT_MEMORY não passa por ela. A tag leva a região do endereço (dentro de [rom_base_kib,
--- rom_end_kib)),
+-- (0x20000000); a BOOT_MEMORY não passa por ela. A tag leva a região do endereço (dentro de [flash_base_kib,
+-- flash_end_kib)),
 -- que distingue as duas regiões: sem ele, uma linha da FLASH e uma da SDRAM com os
 -- mesmos bits de tag se confundiriam.
 --
@@ -51,8 +51,8 @@
 -- stores do core, que a cache não observa: só um fence.i os torna visíveis à
 -- busca.
 --
--- Divisão do endereço (janela de 2**window_bits bytes por região, 64 MiB por padrão): região (1 = ROM, pelos genéricos
--- rom_base_kib e rom_end_kib), bits window_bits-1:12
+-- Divisão do endereço (janela de 2**window_bits bytes por região, 64 MiB por padrão): região (1 = FLASH, pelos genéricos
+-- flash_base_kib e flash_end_kib), bits window_bits-1:12
 -- tag, 11:4 linha, 3:2 palavra (com 256 linhas; o índice ocupa log2 do número de linhas bits a partir do
 -- bit 4 e a tag o que sobra até o bit window_bits-1). Os demais bits a partir de window_bits não são guardados; o
 -- lado da memória acrescenta a base da região neles (base_flash ou base_sdram).
@@ -61,6 +61,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use work.cache_pkg.all;
 use work.utils_pkg.all;
 
@@ -77,14 +78,14 @@ entity icache is
         base_sdram   : std_logic_vector(5 downto 0) := "010000";
         -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
         base_flash   : std_logic_vector(5 downto 0) := "001000";
-        -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão).
+        -- Base, em KiB, da região da FLASH; o que cai nela é tratado como FLASH (0x20000000 por padrão).
         -- Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa
         -- do Core, por isso o padrão difere dos defaults do Core.
-        rom_base_kib : natural                      := 524288;
-        -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão). Origem: o espaço de
+        flash_base_kib : natural                      := 524288;
+        -- Fim exclusivo, em KiB, da região da FLASH (0x40000000 por padrão). Origem: o espaço de
         -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
         -- padrão difere dos defaults do Core.
-        rom_end_kib  : natural                      := 1048576;
+        flash_end_kib  : natural                      := 1048576;
         -- Com valor não negativo, a seleção da cache sai do endereço registrado (selecionado a partir deste endereço,
         -- em KiB), e a porta i_sel é ignorada; -1 usa i_sel. Tira a decodificação do PC do caminho até a cache.
         sel_from_kib : integer                      := -1;
@@ -103,13 +104,13 @@ entity icache is
         i_rst     : in    std_logic;
 
         -- Endereço de busca (o PC).
-        i_addr         : in    std_logic_vector(31 downto 0);
+        i_addr         : in    addr_t;
         -- O endereço de busca pertence à FLASH ou à SDRAM ('1').
         i_sel          : in    std_logic;
         -- A instrução em o_data é a do endereço atual ('1').
         o_ready        : out   std_logic;
         -- Instrução buscada.
-        o_data         : out   std_logic_vector(31 downto 0);
+        o_data         : out   word_t;
         -- Pulso que derruba todas as linhas da cache.
         i_invalidate   : in    std_logic                     := '0';
         -- Pulso de um ciclo no início de cada preenchimento de linha (uma falha da cache).
@@ -117,12 +118,12 @@ entity icache is
         -- Pulso que derruba as linhas da região de i_inval_first a i_inval_last.
         i_inval_region : in    std_logic                     := '0';
         -- Primeiro endereço de byte da região a derrubar.
-        i_inval_first  : in    std_logic_vector(31 downto 0) := (others => '0');
+        i_inval_first  : in    addr_t := (others => '0');
         -- Último endereço de byte da região a derrubar (incluído).
-        i_inval_last   : in    std_logic_vector(31 downto 0) := (others => '0');
+        i_inval_last   : in    addr_t := (others => '0');
 
         -- Lado da memória: endereço do acesso.
-        o_d_addr    : out   std_logic_vector(31 downto 0);
+        o_d_addr    : out   addr_t;
         -- Lado da memória: pedido de leitura ('1').
         o_d_rden    : out   std_logic;
         -- Lado da memória: o pipeline avançou, o acesso pode ser concluído.
@@ -152,21 +153,21 @@ architecture rtl of icache is
     begin
 
         if kib < 0 then
-            return to_unsigned(0, 32);
+            return to_unsigned(0, ADDR_BITS);
         end if;
 
-        return shift_left(to_unsigned(kib, 32), 10);
+        return shift_left(to_unsigned(kib, ADDR_BITS), 10);
 
     end function sel_from_addr_of;
 
     -- Primeiro endereço de byte selecionado (sel_from_kib não negativo).
-    constant SEL_FROM_ADDR : unsigned(31 downto 0) := sel_from_addr_of(sel_from_kib);
+    constant SEL_FROM_ADDR : unsigned(ADDR_BITS - 1 downto 0) := sel_from_addr_of(sel_from_kib);
 
     -- Bits do índice da linha.
     constant INDEX_BITS : natural := index_bits_of(size_bits);
     -- Linhas da cache.
     constant LINES      : natural := 2 ** INDEX_BITS;
-    -- Bits da tag: a região (ROM ou não) e os bits window_bits-1 até INDEX_BITS + 4.
+    -- Bits da tag: a região (FLASH ou não) e os bits window_bits-1 até INDEX_BITS + 4.
     constant TAG_BITS   : natural := window_bits - 3 - INDEX_BITS;
     -- Primeiro bit da tag no endereço, logo acima do índice e do deslocamento dentro da linha.
     constant TAG_LOW    : natural := INDEX_BITS + 4;
@@ -225,7 +226,7 @@ architecture rtl of icache is
     -- Validade da linha lida (registrada).
     signal valid_rd : std_logic                               := '0';
     -- Endereço que estava em addr na última borda.
-    signal addr_q   : std_logic_vector(31 downto 0)           := (others => '0');
+    signal addr_q   : addr_t           := (others => '0');
     -- Valor de sel na última borda.
     signal sel_q    : std_logic                               := '0';
     -- Seleção efetiva do endereço registrado: sel_q, ou a decodificação do endereço registrado com sel_from_kib.
@@ -235,10 +236,10 @@ architecture rtl of icache is
 
     -- A tag lida bate com a do endereço registrado.
     signal tag_match : std_logic;
-    -- O endereço registrado da busca está na região da ROM.
-    signal rom_q     : std_logic;
-    -- O endereço da falha em andamento está na região da ROM.
-    signal rom_miss  : std_logic;
+    -- O endereço registrado da busca está na região da FLASH.
+    signal flash_q     : std_logic;
+    -- O endereço da falha em andamento está na região da FLASH.
+    signal flash_miss  : std_logic;
     -- A instrução pedida está na cache.
     signal hit       : std_logic;
 
@@ -249,7 +250,7 @@ architecture rtl of icache is
     -- A consulta do ciclo anterior errou: registrada, tira a leitura da tag do caminho até a máquina de estados.
     signal miss_q     : std_logic                         := '0';
     -- Endereço da falha, copiado do endereço registrado sem lógica; a tag e o índice do preenchimento saem dele.
-    signal miss_a     : std_logic_vector(31 downto 0)     := (others => '0');
+    signal miss_a     : addr_t     := (others => '0');
     -- O endereço registrado é o de i_addr (ou a conferência está desligada).
     signal addr_same  : std_logic;
     -- Palavra da linha em preenchimento.
@@ -283,14 +284,14 @@ architecture rtl of icache is
     -- Pedido de linha ao lado da memória (registrado).
     signal d_line_i   : std_logic                         := '0';
     -- Endereço do pedido ao lado da memória (registrado).
-    signal d_addr_i   : std_logic_vector(31 downto 0)     := (others => '0');
+    signal d_addr_i   : addr_t     := (others => '0');
 
 begin
 
-    rom_q    <= in_window(addr_q, rom_base_kib, rom_end_kib);
-    rom_miss <= in_window(miss_a, rom_base_kib, rom_end_kib);
+    flash_q    <= in_window(addr_q, flash_base_kib, flash_end_kib);
+    flash_miss <= in_window(miss_a, flash_base_kib, flash_end_kib);
 
-    tag_match <= '1' when tag_rd = (rom_q & addr_q(window_bits - 1 downto TAG_LOW)) else '0';
+    tag_match <= '1' when tag_rd = (flash_q & addr_q(window_bits - 1 downto TAG_LOW)) else '0';
     sel_eff   <= sel_q when sel_from_kib < 0 else
                  '1' when unsigned(addr_q) >= SEL_FROM_ADDR else
                  '0';
@@ -444,7 +445,7 @@ begin
                         -- uma falha registrada no ciclo anterior (a decisão sai da leitura da tag em um registrador):
                         -- traz a sua linha
                         elsif miss_q = '1' and i_invalidate = '0' then
-                            fill_tag <= rom_miss & miss_a(window_bits - 1 downto TAG_LOW);
+                            fill_tag <= flash_miss & miss_a(window_bits - 1 downto TAG_LOW);
                             fill_idx <= miss_a(INDEX_BITS + 3 downto 4);
                             st       <= S_FILL_REQ;
                         end if;

@@ -2,6 +2,8 @@
 
 Functions that the caches, the fetch bridge and the region router share, so that the membership of an address in a region and the width of the line index exist once.
 
+The memory block addresses are of type `addr_t` and the core data word is `word_t`, both from the `config_pkg` of Common-Components, so the widths follow `ADDR_BITS` and `XLEN` of the platform. The address windows of the caches come from the platform map (`FLASH_BASE`, `FLASH_END`, `RAM_BASE`, `RAM_END`, `I_CACHE_WINDOW_BITS` and `D_CACHE_WINDOW_BITS`), passed through the generics of each block.
+
 ## 1. Role of the component in the SoC
 
 Every block that separates the FLASH region from the others tests the address against the same range, and the two caches compute the width of the line index the same way. The package gathers the two computations. It keeps no state, holds in elaboration and in synthesis and has no ports.
@@ -21,7 +23,7 @@ The package has no generics or ports. Each function is pure and takes the parame
 
 | Parameter | Type | Range | Meaning |
 | :--- | :--- | :--- | :--- |
-| `addr` | `std_logic_vector(31 downto 0)` | 0 to $2^{32}-1$ | Byte address tested |
+| `addr` | `addr_t` | 0 to $2^{ADDR\_BITS}-1$ | Byte address tested |
 | `base_kib` | `natural` | 0 to $2^{22}-1$ | First KiB of the region |
 | `end_kib` | `natural` | 0 to $2^{22}-1$ | KiB after the last one of the region |
 | return | `std_logic` | `'0'` or `'1'` | `'1'` when the address is in the region |

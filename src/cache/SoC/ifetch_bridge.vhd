@@ -3,7 +3,7 @@
 --
 -- Entrega ao núcleo a instrução do endereço de busca lendo-a direto da
 -- memória externa (o chip de FLASH, pelo roteador de região e pelo
--- árbitro), para a plataforma com ROM externa e sem cache de instruções.
+-- árbitro), para a plataforma com FLASH externa e sem cache de instruções.
 -- Fala com o núcleo o mesmo contrato da icache (i_addr, i_sel, o_ready,
 -- o_data, i_invalidate) e com a memória o mesmo contrato de linha dela
 -- (o pedido fica em o_d_addr, o_d_rden e o_d_line até i_d_ready, que é
@@ -39,14 +39,15 @@
 -- descarta. Stores do núcleo não são observados: só o fence.i torna
 -- código escrito visível à busca.
 --
--- Endereço: o núcleo usa o PC; a região (1 = ROM, pelos genéricos
--- rom_base_kib e rom_end_kib) escolhe a base dos bits 31 até window_bits (base_flash ou
+-- Endereço: o núcleo usa o PC; a região (1 = FLASH, pelos genéricos
+-- flash_base_kib e flash_end_kib) escolhe a base dos bits 31 até window_bits (base_flash ou
 -- base_sdram) e os bits window_bits-1:0 do PC seguem, como na icache.
 -- ========================================================================
 
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use work.cache_pkg.all;
 
 entity ifetch_bridge is
@@ -61,14 +62,14 @@ entity ifetch_bridge is
         base_sdram   : std_logic_vector(5 downto 0) := "010000";
         -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
         base_flash   : std_logic_vector(5 downto 0) := "001000";
-        -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão).
+        -- Base, em KiB, da região da FLASH; o que cai nela é tratado como FLASH (0x20000000 por padrão).
         -- Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa
         -- do Core, por isso o padrão difere dos defaults do Core.
-        rom_base_kib : natural                      := 524288;
-        -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão). Origem: o espaço de
+        flash_base_kib : natural                      := 524288;
+        -- Fim exclusivo, em KiB, da região da FLASH (0x40000000 por padrão). Origem: o espaço de
         -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
         -- padrão difere dos defaults do Core.
-        rom_end_kib  : natural                      := 1048576
+        flash_end_kib  : natural                      := 1048576
     );
     port (
         -- Clock do núcleo: o do registrador de busca, da máquina de estados e do reset.
@@ -77,20 +78,20 @@ entity ifetch_bridge is
         i_rst : in    std_logic;
 
         -- Endereço de busca (o PC).
-        i_addr       : in    std_logic_vector(31 downto 0);
+        i_addr       : in    addr_t;
         -- O endereço de busca pertence à FLASH ou à SDRAM ('1').
         i_sel        : in    std_logic;
         -- A instrução em o_data é a do endereço atual ('1').
         o_ready      : out   std_logic;
         -- Instrução buscada.
-        o_data       : out   std_logic_vector(31 downto 0);
+        o_data       : out   word_t;
         -- Pulso que descarta o registrador de busca (o fence.i).
         i_invalidate : in    std_logic := '0';
         -- Pulso de um ciclo depois do início de cada pedido à memória.
         o_miss       : out   std_logic;
 
         -- Lado da memória: endereço do acesso.
-        o_d_addr    : out   std_logic_vector(31 downto 0);
+        o_d_addr    : out   addr_t;
         -- Lado da memória: pedido de leitura ('1').
         o_d_rden    : out   std_logic;
         -- Lado da memória: o pipeline avançou, o acesso pode ser concluído.
@@ -148,11 +149,11 @@ architecture rtl of ifetch_bridge is
     -- Palavras do registrador de busca (a palavra 0 nos bits mais baixos).
     signal fetch_data : std_logic_vector(32 * WORDS - 1 downto 0) := (others => '0');
     -- Endereço do núcleo a que o registrador de busca pertence.
-    signal fetch_addr : std_logic_vector(31 downto 0)             := (others => '0');
+    signal fetch_addr : addr_t             := (others => '0');
     -- O registrador de busca guarda uma instrução válida.
     signal fetch_ok   : std_logic                                 := '0';
     -- Endereço do núcleo do pedido em andamento.
-    signal pend_addr  : std_logic_vector(31 downto 0)             := (others => '0');
+    signal pend_addr  : addr_t             := (others => '0');
     -- Um invalidate chegou durante o pedido, a palavra será descartada.
     signal drop       : std_logic                                 := '0';
     -- Pedido de leitura ao lado da memória (registrado).
@@ -160,7 +161,7 @@ architecture rtl of ifetch_bridge is
     -- Pedido de linha ao lado da memória (registrado).
     signal d_line_i   : std_logic                                 := '0';
     -- Endereço do pedido ao lado da memória (registrado).
-    signal d_addr_i   : std_logic_vector(31 downto 0)             := (others => '0');
+    signal d_addr_i   : addr_t             := (others => '0');
     -- Pulso do início de um pedido (registrado).
     signal miss_i     : std_logic                                 := '0';
 
@@ -170,7 +171,7 @@ architecture rtl of ifetch_bridge is
     -- Endereço do pedido à memória: a base da região nos bits 31 até window_bits, os bits abaixo dele do núcleo
     -- alinhados ao que se pede.
 
-    function mem_addr_of (addr : std_logic_vector(31 downto 0)) return std_logic_vector is
+    function mem_addr_of (addr : addr_t) return std_logic_vector is
 
         -- Bits window_bits-1:0 do endereço com os bits baixos zerados pelo alinhamento.
         variable low : std_logic_vector(window_bits - 1 downto 0) := addr(window_bits - 1 downto 0);
@@ -179,7 +180,7 @@ architecture rtl of ifetch_bridge is
 
         low(LOW_BIT - 1 downto 0) := (others => '0');
 
-        if in_window(addr, rom_base_kib, rom_end_kib) = '1' then
+        if in_window(addr, flash_base_kib, flash_end_kib) = '1' then
             return base_flash(5 downto window_bits - 26) & low;
         end if;
 

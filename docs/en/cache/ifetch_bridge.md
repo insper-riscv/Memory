@@ -2,7 +2,7 @@
 
 ## 1. Role of the component in the SoC
 
-The fetch bridge hands the core the instruction of the fetch address by reading it directly from the external memory, for the platform with an external ROM and no instruction cache. It takes the place of the [icache](icache.md) with the same contract on the core side and the same line contract on the memory side, so swapping one for the other does not change what wires them.
+The fetch bridge hands the core the instruction of the fetch address by reading it directly from the external memory, for the platform with an external FLASH and no instruction cache. It takes the place of the [icache](icache.md) with the same contract on the core side and the same line contract on the memory side, so swapping one for the other does not change what wires them.
 
 It is not a cache. There is no data RAM, no tag vector, no valid bit per line and no reuse by index. There is a single fetch register, which holds the requested word (or the line of four words that contains it, depending on the `fetch_line` generic) and the address it belongs to.
 
@@ -26,8 +26,8 @@ The first address outside the register, the target of a branch included, starts 
 | `window_bits` | natural from 26 to 29 | 26 | Width of the address window of the cache: $2^{\texttt{window\_bits}}$ bytes (26 is 64 MiB, 27 is 128 MiB). The tag stores the bits below it |
 | `base_sdram` | 6-bit vector | `010000` | Bits 31 to 26 of the SDRAM addresses on the memory side (0x40000000); only bits 31 down to `window_bits` are used |
 | `base_flash` | 6-bit vector | `001000` | Bits 31 to 26 of the FLASH addresses on the memory side (0x20000000); only bits 31 down to `window_bits` are used |
-| `rom_base_kib` | natural | 524288 | Base of the ROM region in KiB; whatever falls in it is treated as FLASH |
-| `rom_end_kib` | natural | 1048576 | Exclusive end of the ROM region in KiB |
+| `flash_base_kib` | natural | 524288 | Base of the FLASH region in KiB; whatever falls in it is treated as FLASH |
+| `flash_end_kib` | natural | 1048576 | Exclusive end of the FLASH region in KiB |
 
 ### 2.2. Ports
 

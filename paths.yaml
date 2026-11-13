@@ -29,12 +29,12 @@ provides:
   # (models and systems) are the ones the entity tests build.
   # The functions the caches, the fetch bridge and the region router share: the test of an address in a region and the width of the line index.
   cache_pkg:
-    requires: [Common-Components/utils]
+    requires: [Common-Components/config, Common-Components/utils]
     sources:
       - src/cache/SoC/cache_pkg.vhd
   # The offset of an address inside the window of a memory chip.
   ram_pkg:
-    requires: []
+    requires: [Common-Components/config]
     sources:
       - src/RAM/SoC/ram_pkg.vhd
   # The simulation helpers of the chip models and of the test systems; never synthesized.
@@ -52,11 +52,11 @@ provides:
       - src/RAM/SoC/ram_simulation.vhd
   # The synthesizable port over a memory block alone: ram_chip.vhd is a simulation model (protected type) that Quartus rejects.
   onchip_ram_port:
-    requires: [Common-Components/utils, latency_counter, ram_pkg]
+    requires: [Common-Components/config, Common-Components/utils, latency_counter, ram_pkg]
     sources:
       - src/RAM/SoC/onchip_ram_port.vhd
   onchip_ram:
-    requires: [Common-Components/utils, latency_counter, onchip_ram_port, ram_pkg]
+    requires: [Common-Components/config, Common-Components/utils, latency_counter, onchip_ram_port, ram_pkg]
     sources:
       - src/RAM/SoC/ram_chip.vhd
   ram_cyclone_v:
@@ -97,7 +97,7 @@ provides:
     sources:
       - src/ROM/Cyclone-V/flash_jtag_shell.vhd
   sdram:
-    requires: [Common-Components/synchronizer, chip_timing]
+    requires: [Common-Components/config, Common-Components/synchronizer, chip_timing]
     sources:
       - src/RAM/SoC/sdram/sdram_pkg.vhd
       - src/RAM/SoC/sdram/sdram_ctrl.vhd
@@ -113,39 +113,39 @@ provides:
     sources:
       - src/RAM/FPGA/Cyclone-V/sdram_jtag_shell.vhd
   axi_master_bridge:
-    requires: []
+    requires: [Common-Components/config]
     sources:
       - src/barramento/SoC/axi_master_bridge.vhd
   axi_slave_word_bridge:
-    requires: []
+    requires: [Common-Components/config]
     sources:
       - src/barramento/SoC/axi_slave_word_bridge.vhd
   icache:
-    requires: [Common-Components/utils, cache_pkg]
+    requires: [Common-Components/config, Common-Components/utils, cache_pkg]
     sources:
       - src/cache/SoC/icache.vhd
   dcache:
-    requires: [Common-Components/utils, cache_pkg]
+    requires: [Common-Components/config, Common-Components/utils, cache_pkg]
     sources:
       - src/cache/SoC/dcache.vhd
   flash_chip:
-    requires: [Common-Components/utils, latency_counter]
+    requires: [Common-Components/config, Common-Components/utils, latency_counter]
     sources:
       - src/cache/SoC/flash_chip.vhd
   flash_cmd_port:
-    requires: [Common-Components/utils, chip_timing]
+    requires: [Common-Components/config, Common-Components/utils, chip_timing]
     sources:
       - src/cache/SoC/flash_cmd_port.vhd
   flash_arbiter:
-    requires: []
+    requires: [Common-Components/config]
     sources:
       - src/cache/SoC/flash_arbiter.vhd
   mem_region_router:
-    requires: [Common-Components/utils, cache_pkg]
+    requires: [Common-Components/config, Common-Components/utils, cache_pkg]
     sources:
       - src/cache/SoC/mem_region_router.vhd
   ifetch_bridge:
-    requires: [Common-Components/utils, cache_pkg]
+    requires: [Common-Components/config, Common-Components/utils, cache_pkg]
     sources:
       - src/cache/SoC/ifetch_bridge.vhd
   chip_timing:
@@ -154,7 +154,7 @@ provides:
       - src/ROM/SoC/chip_timing_pkg.vhd
   nor_flash_ctrl:
     needs: [nor]
-    requires: [Common-Components/utils, Common-Components/synchronizer, chip_timing, latency_counter]
+    requires: [Common-Components/config, Common-Components/utils, Common-Components/synchronizer, chip_timing, latency_counter]
     sources:
       - src/ROM/SoC/nor_flash_ctrl.vhd
   nor_flash_model:
@@ -167,7 +167,7 @@ provides:
       - src/ROM/SoC/sim/nor_flash_ctrl_tb.vhd
   sram_ctrl:
     needs: [sram]
-    requires: [Common-Components/utils, chip_timing, latency_counter, ram_pkg]
+    requires: [Common-Components/config, Common-Components/utils, chip_timing, latency_counter, ram_pkg]
     sources:
       - src/RAM/SoC/sram_ctrl.vhd
   sram_model:

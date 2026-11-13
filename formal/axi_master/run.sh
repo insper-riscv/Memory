@@ -18,7 +18,7 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name>
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/common/src/config_pkg.vhd" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog axi_master_bridge > "$2.v"
   # a copy that exposes the state registers the invariants need (the logic is the same)
   sed -e 's/input  i_m_rlast);/input  i_m_rlast,\n  output [1:0] dbg_st, output dbg_awv, output dbg_wv, output dbg_arv, output dbg_we, output [1:0] dbg_beat, output [1:0] dbg_last, output [95:0] dbg_wdx, output [11:0] dbg_bex);/' \

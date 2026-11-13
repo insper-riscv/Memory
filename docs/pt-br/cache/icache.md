@@ -2,7 +2,7 @@
 
 ## 1. Função do componente no SoC
 
-A icache é a cache de instruções do core, somente leitura. Fica no caminho de busca dos endereços da SDRAM e da FLASH. A ROM de boot não passa por ela. Quando a instrução do endereço de busca não está guardada, a cache segura o core esperando (sem `o_ready`) e traz a linha de quatro palavras da memória.
+A icache é a cache de instruções do core, somente leitura. Fica no caminho de busca dos endereços da SDRAM e da FLASH. A BOOT_MEMORY não passa por ela. Quando a instrução do endereço de busca não está guardada, a cache segura o core esperando (sem `o_ready`) e traz a linha de quatro palavras da memória.
 
 | Propriedade | Valor |
 | :--- | :--- |
@@ -26,8 +26,8 @@ Os stores do core não são observados pela cache. Só uma invalidação (o `fen
 | `window_bits` | natural de 26 a 29 | 26 | Largura da janela de endereços da cache: $2^{\texttt{window\_bits}}$ bytes (26 é 64 MiB, 27 é 128 MiB). A tag guarda os bits abaixo dela |
 | `base_sdram` | vetor de 6 bits | `010000` | Bits 31 a 26 dos endereços da SDRAM no lado da memória (0x40000000); entram só os bits de 31 até `window_bits` |
 | `base_flash` | vetor de 6 bits | `001000` | Bits 31 a 26 dos endereços da FLASH no lado da memória (0x20000000); entram só os bits de 31 até `window_bits` |
-| `rom_base_kib` | natural | 524288 | Base da região da ROM em KiB; o que cai nela é tratado como FLASH (0x20000000) |
-| `rom_end_kib` | natural | 1048576 | Fim exclusivo da região da ROM em KiB (0x40000000) |
+| `flash_base_kib` | natural | 524288 | Base da região da FLASH em KiB; o que cai nela é tratado como FLASH (0x20000000) |
+| `flash_end_kib` | natural | 1048576 | Fim exclusivo da região da FLASH em KiB (0x40000000) |
 | `sel_from_kib` | integer | -1 | Com valor não negativo, a seleção sai do endereço registrado (selecionado a partir deste endereço, em KiB) e `i_sel` é ignorado |
 | `check_addr` | boolean | true | Confere em cada consulta que o endereço registrado é o de `i_addr`; com os clocks defasados (a borda de `i_clk` sempre antes da do core) pode ser desligado |
 
@@ -66,13 +66,13 @@ Com $I = \log_2(\texttt{size\_bits}) - 7$ bits de índice, a cache tem $2^I$ lin
 | Palavra na linha | 3 a 2 | 2 |
 | Índice | $I+3$ a 4 | $I$ |
 | Tag | `window_bits`$-1$ a $I+4$ | $W-4-I$ |
-| Região | Calculada a partir de `rom_base_kib` e `rom_end_kib`; vira o bit mais significativo da tag | 1 |
+| Região | Calculada a partir de `flash_base_kib` e `flash_end_kib`; vira o bit mais significativo da tag | 1 |
 
 $$
 \text{TAG\_BITS} = W - 3 - I
 $$
 
-Aqui $W$ é `window_bits`. O bit de região na tag impede que uma linha da FLASH e uma da SDRAM com os mesmos bits de $W-1$ a $I+4$ se confundam. Os bits de 31 a $W$ não são guardados e o pedido ao lado da memória os reconstrói com os bits de 5 a $W-26$ de `base_flash` ou `base_sdram`, conforme o bit de região da linha em preenchimento. Com `window_bits` igual a 26 (padrão) são os seis bits da base; com 27, a janela cobre os 128 MiB da SDRAM da DE2-115 e a base perde o bit 26, que passa a ser o bit mais alto da tag de endereço. A largura é fixada em geração pelo mapa da plataforma (`CACHE_WINDOW_BITS`), de modo que o padrão não altera o hardware gerado.
+Aqui $W$ é `window_bits`. O bit de região na tag impede que uma linha da FLASH e uma da SDRAM com os mesmos bits de $W-1$ a $I+4$ se confundam. Os bits de 31 a $W$ não são guardados e o pedido ao lado da memória os reconstrói com os bits de 5 a $W-26$ de `base_flash` ou `base_sdram`, conforme o bit de região da linha em preenchimento. Com `window_bits` igual a 26 (padrão) são os seis bits da base; com 27, a janela cobre os 128 MiB da SDRAM da DE2-115 e a base perde o bit 26, que passa a ser o bit mais alto da tag de endereço. A largura é fixada em geração pelo mapa da plataforma (`I_CACHE_WINDOW_BITS`), de modo que o padrão não altera o hardware gerado.
 
 ### 3.2. Consulta e contrato do lado do core
 

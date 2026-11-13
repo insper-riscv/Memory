@@ -31,6 +31,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use std.textio.all;
 use work.utils_pkg.all;
 use work.ram_pkg.all;
@@ -55,9 +56,9 @@ entity ram_chip is
         i_rst : in    std_logic;
 
         -- Porta de dados: endereço do acesso.
-        i_addr        : in    std_logic_vector(31 downto 0);
+        i_addr        : in    addr_t;
         -- Porta de dados: dado de escrita.
-        i_wdata       : in    std_logic_vector(31 downto 0);
+        i_wdata       : in    word_t;
         -- Porta de dados: habilita de bytes da escrita, um bit por byte.
         i_byteena     : in    std_logic_vector(3 downto 0);
         -- Porta de dados: pedido de leitura ('1' = lê).
@@ -69,7 +70,7 @@ entity ram_chip is
         -- Porta de dados: acesso concluído, o dado lido é válido ('1').
         o_ready       : out   std_logic;
         -- Porta de dados: dado lido.
-        o_rdata       : out   std_logic_vector(31 downto 0);
+        o_rdata       : out   word_t;
         -- Porta de dados: acesso de linha, quatro palavras seguidas ('1').
         i_line        : in    std_logic                     := '0';
         -- Porta de dados: palavras 1 a 3 do dado de escrita da linha.
@@ -80,7 +81,7 @@ entity ram_chip is
         o_rdata_x     : out   std_logic_vector(95 downto 0);
 
         -- Porta de instruções: endereço do acesso.
-        i_ins_addr    : in    std_logic_vector(31 downto 0) := (others => '0');
+        i_ins_addr    : in    addr_t := (others => '0');
         -- Porta de instruções: pedido de leitura ('1' = lê).
         i_ins_rden    : in    std_logic                     := '0';
         -- Porta de instruções: o pipeline avançou neste ciclo.
@@ -207,7 +208,7 @@ architecture rtl of ram_chip is
     -- O acesso da porta de dados é de linha.
     signal d_line    : std_logic                     := '0';
     -- Endereço de byte do acesso da porta de dados.
-    signal d_addr    : std_logic_vector(31 downto 0) := (others => '0');
+    signal d_addr    : addr_t := (others => '0');
     -- Dado de escrita capturado na porta de dados.
     signal d_wdata   : std_logic_vector(31 downto 0) := (others => '0');
     -- Habilita de bytes capturado na porta de dados.
@@ -234,7 +235,7 @@ architecture rtl of ram_chip is
     -- O acesso da porta de instruções é de linha.
     signal i_line_q  : std_logic                     := '0';
     -- Endereço de byte do acesso da porta de instruções.
-    signal i_addr_q  : std_logic_vector(31 downto 0) := (others => '0');
+    signal i_addr_q  : addr_t := (others => '0');
     -- Palavra 0 lida, à espera do avanço do pipeline.
     signal i_pending : std_logic_vector(31 downto 0) := (others => '0');
     -- Palavras 1 a 3 lidas, à espera do avanço do pipeline.
@@ -249,7 +250,7 @@ architecture rtl of ram_chip is
 
     -- Devolve o índice da palavra de um endereço de byte, ou WORDS quando está fora da janela.
 
-    function word_index (addr : std_logic_vector(31 downto 0)) return natural is
+    function word_index (addr : addr_t) return natural is
 
         -- Deslocamento do endereço dentro da janela do chip, em bytes.
         variable offset : unsigned(25 downto 0);
@@ -272,10 +273,10 @@ architecture rtl of ram_chip is
 
     -- Devolve o endereço inicial de um acesso: o da linha alinhado em 16 bytes, ou o da palavra.
 
-    function start_addr (addr : std_logic_vector(31 downto 0); line : std_logic) return std_logic_vector is
+    function start_addr (addr : addr_t; line : std_logic) return std_logic_vector is
 
         -- Endereço de partida, alinhado em 16 bytes quando o acesso é de linha.
-        variable a : std_logic_vector(31 downto 0) := addr;
+        variable a : addr_t := addr;
 
     begin
 

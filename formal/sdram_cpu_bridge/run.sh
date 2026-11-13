@@ -18,7 +18,7 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name>: the netlist and a copy that exposes the state, the synchronizer outputs and the request toggle
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$(formal_vhdl "$root/src/common/src/synchronizer.vhd" "synchronizer_$2")" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/common/src/config_pkg.vhd" "$(formal_vhdl "$root/src/common/src/synchronizer.vhd" "synchronizer_$2")" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog sdram_cpu_bridge > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v" st:1 ack_sync init_sync req_i

@@ -20,7 +20,7 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name> [window_bits]: the netlist and a copy that exposes the valid bits and the invalidation flag
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/cache/SoC/cache_pkg.vhd" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/common/src/config_pkg.vhd" "$root/src/cache/SoC/cache_pkg.vhd" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gsize_bits=256 -gwrite_through=true "-gwindow_bits=${3:-26}" dcache > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v" valid:1 inv_run

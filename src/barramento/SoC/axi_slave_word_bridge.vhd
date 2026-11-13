@@ -26,6 +26,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 
 entity axi_slave_word_bridge is
     port (
@@ -39,7 +40,7 @@ entity axi_slave_word_bridge is
         -- Porta escravo AXI4, canal de endereço de escrita: destino pronto para aceitar a transferência ('1').
         o_s_awready : out   std_logic;
         -- Porta escravo AXI4, canal de endereço de escrita: endereço do primeiro beat.
-        i_s_awaddr  : in    std_logic_vector(31 downto 0);
+        i_s_awaddr  : in    addr_t;
         -- Porta escravo AXI4, canal de endereço de escrita: número de beats da rajada menos um.
         i_s_awlen   : in    std_logic_vector(7 downto 0);
         -- Porta escravo AXI4, canal de endereço de escrita: log2 do número de bytes por beat.
@@ -51,7 +52,7 @@ entity axi_slave_word_bridge is
         -- Porta escravo AXI4, canal de dados de escrita: destino pronto para aceitar a transferência ('1').
         o_s_wready  : out   std_logic;
         -- Porta escravo AXI4, canal de dados de escrita: dados.
-        i_s_wdata   : in    std_logic_vector(31 downto 0);
+        i_s_wdata   : in    word_t;
         -- Porta escravo AXI4, canal de dados de escrita: habilita de bytes.
         i_s_wstrb   : in    std_logic_vector(3 downto 0);
         -- Porta escravo AXI4, canal de dados de escrita: último beat da rajada ('1').
@@ -67,7 +68,7 @@ entity axi_slave_word_bridge is
         -- Porta escravo AXI4, canal de endereço de leitura: destino pronto para aceitar a transferência ('1').
         o_s_arready : out   std_logic;
         -- Porta escravo AXI4, canal de endereço de leitura: endereço do primeiro beat.
-        i_s_araddr  : in    std_logic_vector(31 downto 0);
+        i_s_araddr  : in    addr_t;
         -- Porta escravo AXI4, canal de endereço de leitura: número de beats da rajada menos um.
         i_s_arlen   : in    std_logic_vector(7 downto 0);
         -- Porta escravo AXI4, canal de endereço de leitura: log2 do número de bytes por beat.
@@ -79,14 +80,14 @@ entity axi_slave_word_bridge is
         -- Porta escravo AXI4, canal de dados de leitura: destino pronto para aceitar a transferência ('1').
         i_s_rready  : in    std_logic;
         -- Porta escravo AXI4, canal de dados de leitura: dados.
-        o_s_rdata   : out   std_logic_vector(31 downto 0);
+        o_s_rdata   : out   word_t;
         -- Porta escravo AXI4, canal de dados de leitura: resposta (0 = OKAY, 2 = SLVERR).
         o_s_rresp   : out   std_logic_vector(1 downto 0);
         -- Porta escravo AXI4, canal de dados de leitura: último beat da rajada ('1').
         o_s_rlast   : out   std_logic;
 
         -- Endereço do acesso.
-        o_addr        : out   std_logic_vector(31 downto 0);
+        o_addr        : out   addr_t;
         -- Dado de escrita.
         o_wdata       : out   std_logic_vector(31 downto 0);
         -- Habilita de bytes da escrita, um bit por byte.
@@ -127,13 +128,13 @@ architecture rtl of axi_slave_word_bridge is
     -- A transação é um acesso de linha.
     signal fast_l  : std_logic                     := '0';
     -- Endereço da transação.
-    signal addr_l  : std_logic_vector(31 downto 0) := (others => '0');
+    signal addr_l  : addr_t := (others => '0');
     -- Beats ainda por mover, menos um.
     signal left_l  : unsigned(7 downto 0)          := (others => '0');
     -- Palavra da linha sendo guardada ou enviada.
     signal k       : natural range 0 to 3          := 0;
     -- Dado de escrita da palavra 0.
-    signal wdata_l : std_logic_vector(31 downto 0) := (others => '0');
+    signal wdata_l : word_t := (others => '0');
     -- Habilita de bytes da palavra 0.
     signal strb_l  : std_logic_vector(3 downto 0)  := (others => '0');
     -- Palavras 1 a 3 de escrita da linha.
@@ -149,7 +150,7 @@ architecture rtl of axi_slave_word_bridge is
     signal arr : std_logic;
 
     function is_bad (
-        a : std_logic_vector(31 downto 0);
+        a : addr_t;
         size : std_logic_vector(2 downto 0);
         burst : std_logic_vector(1 downto 0)
     ) return std_logic is
@@ -163,7 +164,7 @@ architecture rtl of axi_slave_word_bridge is
 
     end function is_bad;
 
-    function is_line (a : std_logic_vector(31 downto 0); len : std_logic_vector(7 downto 0)) return std_logic is
+    function is_line (a : addr_t; len : std_logic_vector(7 downto 0)) return std_logic is
     begin
 
         if len = "00000011" and a(3 downto 0) = "0000" then

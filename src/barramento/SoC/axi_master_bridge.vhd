@@ -35,6 +35,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use work.config_pkg.all;
 
 entity axi_master_bridge is
     port (
@@ -44,9 +45,9 @@ entity axi_master_bridge is
         i_rst : in    std_logic;
 
         -- Endereço do acesso.
-        i_addr        : in    std_logic_vector(31 downto 0);
+        i_addr        : in    addr_t;
         -- Dado de escrita.
-        i_wdata       : in    std_logic_vector(31 downto 0);
+        i_wdata       : in    word_t;
         -- Habilita de bytes da escrita, um bit por byte.
         i_byteena     : in    std_logic_vector(3 downto 0);
         -- Pedido de leitura ('1' = lê).
@@ -58,7 +59,7 @@ entity axi_master_bridge is
         -- Acesso concluído, o dado lido é válido ('1').
         o_ready       : out   std_logic;
         -- Dado lido.
-        o_rdata       : out   std_logic_vector(31 downto 0);
+        o_rdata       : out   word_t;
         -- Acesso de linha, quatro palavras seguidas ('1').
         i_line        : in    std_logic                     := '0';
         -- Palavras 1 a 3 do dado de escrita da linha.
@@ -75,7 +76,7 @@ entity axi_master_bridge is
         -- Porta mestre AXI4, canal de endereço de escrita: destino pronto para aceitar a transferência ('1').
         i_m_awready : in    std_logic;
         -- Porta mestre AXI4, canal de endereço de escrita: endereço do primeiro beat.
-        o_m_awaddr  : out   std_logic_vector(31 downto 0);
+        o_m_awaddr  : out   addr_t;
         -- Porta mestre AXI4, canal de endereço de escrita: número de beats da rajada menos um.
         o_m_awlen   : out   std_logic_vector(7 downto 0);
         -- Porta mestre AXI4, canal de endereço de escrita: log2 do número de bytes por beat.
@@ -105,7 +106,7 @@ entity axi_master_bridge is
         -- Porta mestre AXI4, canal de endereço de leitura: destino pronto para aceitar a transferência ('1').
         i_m_arready : in    std_logic;
         -- Porta mestre AXI4, canal de endereço de leitura: endereço do primeiro beat.
-        o_m_araddr  : out   std_logic_vector(31 downto 0);
+        o_m_araddr  : out   addr_t;
         -- Porta mestre AXI4, canal de endereço de leitura: número de beats da rajada menos um.
         o_m_arlen   : out   std_logic_vector(7 downto 0);
         -- Porta mestre AXI4, canal de endereço de leitura: log2 do número de bytes por beat.
@@ -170,9 +171,9 @@ architecture rtl of axi_master_bridge is
     -- Último beat da transação: 3 para uma linha, 0 para uma palavra.
     signal last_b    : natural range 0 to 3          := 0;
     -- Endereço do acesso, copiado ao iniciar.
-    signal addr_l    : std_logic_vector(31 downto 0) := (others => '0');
+    signal addr_l    : addr_t := (others => '0');
     -- Dado de escrita da palavra 0, copiado ao iniciar.
-    signal wdata_l   : std_logic_vector(31 downto 0) := (others => '0');
+    signal wdata_l   : word_t := (others => '0');
     -- Habilita de bytes da palavra 0, copiado ao iniciar.
     signal strb_l    : std_logic_vector(3 downto 0)  := (others => '0');
     -- Palavras 1 a 3 de escrita, copiadas ao iniciar.
@@ -184,11 +185,11 @@ architecture rtl of axi_master_bridge is
     -- O escravo respondeu com erro, ou faltou rlast na leitura.
     signal err_l     : std_logic                     := '0';
     -- Palavra 0 lida, à espera do avanço do pipeline.
-    signal pending   : std_logic_vector(31 downto 0) := (others => '0');
+    signal pending   : word_t := (others => '0');
     -- Palavras 1 a 3 lidas, à espera do avanço do pipeline.
     signal pending_x : std_logic_vector(95 downto 0) := (others => '0');
     -- Palavra 0 entregue ao core.
-    signal rdata_q   : std_logic_vector(31 downto 0) := (others => '0');
+    signal rdata_q   : word_t := (others => '0');
     -- Palavras 1 a 3 entregues ao core.
     signal rdx_q     : std_logic_vector(95 downto 0) := (others => '0');
 

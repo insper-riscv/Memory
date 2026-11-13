@@ -2,7 +2,7 @@
 -- Roteador de região dos pedidos de uma cache
 --
 -- Leva o pedido de um mestre (o lado da memória de uma cache) para a SDRAM ou para
--- a FLASH conforme o endereço esteja na região da FLASH, [rom_base_kib, rom_end_kib), e devolve o ready e o dado da
+-- a FLASH conforme o endereço esteja na região da FLASH, [flash_base_kib, flash_end_kib), e devolve o ready e o dado da
 -- região escolhida. O contrato é o da ponte da SDRAM: o pedido fica no barramento
 -- até ready, ready é um nível que só cai com advance, e o dado lido só muda no
 -- pedido seguinte. A escolha é combinacional sobre o endereço, que o mestre
@@ -10,7 +10,7 @@
 --
 -- Dois pedidos à FLASH não chegam ao chip. Um store (i_wren) é concluído aqui, sem
 -- efeito, como num chip protegido contra escrita; e uma leitura fora da janela de 1 MB
--- (a partir de rom_base_kib + rom_window_kib) devolve zero. Nos dois casos ready
+-- (a partir de flash_base_kib + flash_window_kib) devolve zero. Nos dois casos ready
 -- sobe um clock depois do pedido e fica em nível até advance. O mestre baixa o
 -- pedido na borda em que vê ready, como as caches fazem.
 --
@@ -27,6 +27,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use work.cache_pkg.all;
 
 entity mem_region_router is
@@ -34,13 +35,13 @@ entity mem_region_router is
         -- Base, em KiB, da região da FLASH (0x20000000 por padrão). Origem: o espaço de endereços da
         -- região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o padrão
         -- difere dos defaults do Core.
-        rom_base_kib   : natural := 524288;
+        flash_base_kib   : natural := 524288;
         -- Fim exclusivo, em KiB, da região da FLASH (0x40000000 por padrão). Origem: o espaço de
         -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
         -- padrão difere dos defaults do Core.
-        rom_end_kib    : natural := 1048576;
+        flash_end_kib    : natural := 1048576;
         -- Tamanho, em KiB, da janela que o chip da FLASH atende a partir da base; a leitura além dela devolve zero.
-        rom_window_kib : natural := 1024;
+        flash_window_kib : natural := 1024;
         -- O dado lido segue a região do último pedido concluído, e não o endereço atual (mestre sem cache de dados).
         hold_rdata     : boolean := false
     );
@@ -51,9 +52,9 @@ entity mem_region_router is
         i_rst : in    std_logic;
 
         -- Mestre: endereço do pedido.
-        i_addr    : in    std_logic_vector(31 downto 0);
+        i_addr    : in    addr_t;
         -- Mestre: dado de escrita (palavra 0).
-        i_wdata   : in    std_logic_vector(31 downto 0);
+        i_wdata   : in    word_t;
         -- Mestre: habilita de bytes da escrita.
         i_byteena : in    std_logic_vector(3 downto 0);
         -- Mestre: pedido de leitura ('1').
@@ -69,12 +70,12 @@ entity mem_region_router is
         -- Mestre: pedido concluído, o dado lido é válido ('1').
         o_ready   : out   std_logic;
         -- Mestre: palavra lida (a palavra 0 da linha).
-        o_rdata   : out   std_logic_vector(31 downto 0);
+        o_rdata   : out   word_t;
         -- Mestre: palavras 1 a 3 da linha lida.
         o_rdata_x : out   std_logic_vector(95 downto 0);
 
         -- SDRAM: endereço do pedido.
-        o_s_addr    : out   std_logic_vector(31 downto 0);
+        o_s_addr    : out   addr_t;
         -- SDRAM: dado de escrita (palavra 0).
         o_s_wdata   : out   std_logic_vector(31 downto 0);
         -- SDRAM: habilita de bytes da escrita.
@@ -97,7 +98,7 @@ entity mem_region_router is
         i_s_rdata_x : in    std_logic_vector(95 downto 0) := (others => '0');
 
         -- FLASH: endereço do pedido.
-        o_f_addr    : out   std_logic_vector(31 downto 0);
+        o_f_addr    : out   addr_t;
         -- FLASH: pedido de leitura ('1' só para leituras da FLASH dentro da janela).
         o_f_rden    : out   std_logic;
         -- FLASH: pedido de linha.
@@ -132,8 +133,8 @@ architecture rtl of mem_region_router is
 
 begin
 
-    is_flash <= in_window(i_addr, rom_base_kib, rom_end_kib);
-    beyond   <= '1' when unsigned(i_addr) >= shift_left(to_unsigned(rom_base_kib + rom_window_kib, 32), 10) else '0';
+    is_flash <= in_window(i_addr, flash_base_kib, flash_end_kib);
+    beyond   <= '1' when unsigned(i_addr) >= shift_left(to_unsigned(flash_base_kib + flash_window_kib, ADDR_BITS), 10) else '0';
     is_local <= is_flash and (i_wren or (i_rden and beyond));
 
     o_s_addr    <= i_addr;

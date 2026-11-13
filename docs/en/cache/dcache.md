@@ -24,8 +24,8 @@ The overview of the path from the core to the SDRAM, the cost measurements and t
 | `window_bits` | natural from 26 to 29 | 26 | Width of the address window of the cache: $2^{\texttt{window\_bits}}$ bytes (26 is 64 MiB, 27 is 128 MiB). The tag stores the bits below it |
 | `base_sdram` | 6-bit vector | `010000` | Bits 31 to 26 of the SDRAM addresses on the memory side (0x40000000); only bits 31 down to `window_bits` are used |
 | `base_flash` | 6-bit vector | `001000` | Bits 31 to 26 of the FLASH addresses on the memory side (0x20000000); only bits 31 down to `window_bits` are used |
-| `rom_base_kib` | natural | 524288 | Base of the ROM region in KiB; whatever falls in it is treated as FLASH (0x20000000) |
-| `rom_end_kib` | natural | 1048576 | Exclusive end of the ROM region in KiB (0x40000000) |
+| `flash_base_kib` | natural | 524288 | Base of the FLASH region in KiB; whatever falls in it is treated as FLASH (0x20000000) |
+| `flash_end_kib` | natural | 1048576 | Exclusive end of the FLASH region in KiB (0x40000000) |
 | `write_through` | boolean | false | True makes every store also go to memory and a store miss not bring the line in |
 
 ### 2.2. Core-side ports
@@ -79,13 +79,13 @@ With $I = \log_2(\texttt{size\_bits}) - 7$ index bits, the cache has $2^I$ lines
 | Word in line | 3 to 2 | 2 |
 | Index | $I+3$ to 4 | $I$ |
 | Tag | `window_bits`$-1$ to $I+4$ | $W-4-I$ |
-| Region | Computed from `rom_base_kib` and `rom_end_kib`; becomes the most significant tag bit | 1 |
+| Region | Computed from `flash_base_kib` and `flash_end_kib`; becomes the most significant tag bit | 1 |
 
 $$
 \text{TAG\_BITS} = W - 3 - I
 $$
 
-Here $W$ is `window_bits`. Bits 31 to $W$ are not stored. In a memory-side request, the cache rebuilds them with bits 5 down to $W-26$ of `base_flash` (ROM region) or `base_sdram`. With the default size and `window_bits` equal to 26, $I = 8$ (256 lines) and the tag has 15 bits; with 27, the window covers the 128 MiB of the DE2-115 SDRAM and the tag has 16 bits. The width is fixed at generation by the memory map of the platform (`CACHE_WINDOW_BITS`).
+Here $W$ is `window_bits`. Bits 31 to $W$ are not stored. In a memory-side request, the cache rebuilds them with bits 5 down to $W-26$ of `base_flash` (FLASH region) or `base_sdram`. With the default size and `window_bits` equal to 26, $I = 8$ (256 lines) and the tag has 15 bits; with 27, the window covers the 128 MiB of the DE2-115 SDRAM and the tag has 16 bits. The width is fixed at generation by the memory map of the platform (`D_CACHE_WINDOW_BITS`).
 
 The choice of base, in the fill and in the write-back, uses the most significant tag bit (the region bit), for any size.
 
@@ -109,12 +109,12 @@ In `S_IDLE`, a pending flush takes priority over an access. In `S_LOOK`, the dec
 | Order | Condition | Next state | Effect |
 | ---: | :--- | :--- | :--- |
 | 1 | `i_bypass` at 1 and `i_wren` at 0 | `S_BY_REQ` | One-word load straight from memory |
-| 2 | `i_wren` at 1 and (`write_through` or address in the ROM or `i_bypass` at 1) | `S_WT_REQ` | Store forwarded to memory |
+| 2 | `i_wren` at 1 and (`write_through` or address in the FLASH or `i_bypass` at 1) | `S_WT_REQ` | Store forwarded to memory |
 | 3 | Hit | `S_DONE` | A load keeps the word read; a store marks the line dirty |
 | 4 | Miss, line valid and dirty | `S_WB_RD` | Write-back and then fill |
 | 5 | Miss, line clean or invalid | `S_FILL_REQ` | Fill |
 
-A hit is the line being valid with the stored tag equal to the address tag. In a store that follows order 2 and hits, the RAMs also receive the word, except when the address is in the ROM or `i_bypass` is at 1. Thus a store to the FLASH never changes the cache, neither on a hit nor on a miss; it is only forwarded to memory, where the region router completes it with no effect.
+A hit is the line being valid with the stored tag equal to the address tag. In a store that follows order 2 and hits, the RAMs also receive the word, except when the address is in the FLASH or `i_bypass` is at 1. Thus a store to the FLASH never changes the cache, neither on a hit nor on a miss; it is only forwarded to memory, where the region router completes it with no effect.
 
 After the fill, the machine returns to `S_IDLE` and repeats the lookup, so the access that caused the miss is served as a hit. For a store without `write_through`, this marks the line dirty (write-allocate).
 

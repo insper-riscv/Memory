@@ -45,6 +45,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use work.utils_pkg.all;
 use work.ram_pkg.all;
 
@@ -66,9 +67,9 @@ entity onchip_ram_port is
         i_rst : in    std_logic;
 
         -- Endereço de byte do acesso.
-        i_addr        : in    std_logic_vector(31 downto 0);
+        i_addr        : in    addr_t;
         -- Dado de escrita (palavra 0 da linha).
-        i_wdata       : in    std_logic_vector(31 downto 0);
+        i_wdata       : in    word_t;
         -- Habilita de bytes da escrita, um bit por byte (palavra 0).
         i_byteena     : in    std_logic_vector(3 downto 0);
         -- Pedido de leitura ('1' = lê).
@@ -80,7 +81,7 @@ entity onchip_ram_port is
         -- Acesso concluído, o dado lido é válido ('1').
         o_ready       : out   std_logic;
         -- Dado lido (palavra 0 da linha).
-        o_rdata       : out   std_logic_vector(31 downto 0);
+        o_rdata       : out   word_t;
         -- Acesso de linha, quatro palavras seguidas ('1').
         i_line        : in    std_logic                     := '0';
         -- Palavras 1 a 3 do dado de escrita da linha, a palavra 1 nos bits mais baixos.
@@ -136,7 +137,7 @@ architecture rtl of onchip_ram_port is
     -- Índice da primeira palavra do acesso (alinhado em 4 palavras numa linha).
     signal acc_word  : std_logic_vector(WORD_BITS - 1 downto 0) := (others => '0');
     -- Dado de escrita capturado (palavra 0).
-    signal acc_wdata : std_logic_vector(31 downto 0)            := (others => '0');
+    signal acc_wdata : word_t            := (others => '0');
     -- Habilita de bytes capturado (palavra 0).
     signal acc_be    : std_logic_vector(3 downto 0)             := (others => '0');
     -- Palavras 1 a 3 do dado de escrita capturado.
@@ -144,11 +145,11 @@ architecture rtl of onchip_ram_port is
     -- Habilita de bytes das palavras 1 a 3 capturado.
     signal acc_bex   : std_logic_vector(11 downto 0)            := (others => '0');
     -- Palavra 0 lida, à espera do avanço do pipeline.
-    signal pend      : std_logic_vector(31 downto 0)            := (others => '0');
+    signal pend      : word_t            := (others => '0');
     -- Palavras 1 a 3 lidas, à espera do avanço do pipeline.
     signal pend_x    : std_logic_vector(95 downto 0)            := (others => '0');
     -- Palavra 0 entregue ao requisitante.
-    signal rdata_q   : std_logic_vector(31 downto 0)            := (others => '0');
+    signal rdata_q   : word_t            := (others => '0');
     -- Palavras 1 a 3 entregues ao requisitante.
     signal rdx_q     : std_logic_vector(95 downto 0)            := (others => '0');
 

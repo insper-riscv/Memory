@@ -19,9 +19,9 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name>: the netlist and a copy that exposes the latch, the protection and the operation
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/ROM/SoC/chip_timing_pkg.vhd" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/common/src/config_pkg.vhd" "$root/src/ROM/SoC/chip_timing_pkg.vhd" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gsize_bytes=64 -gsector_bytes=16 -gpage_bytes=8 \
-    -gerase_latency=1 -gprogram_latency=1 flash_cmd_port > "$2.v"
+    -gerase_latency=1 -gprogram_latency=1 -gbase_addr=00100000000000000000000000000000 flash_cmd_port > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v" wel prot:3 is_erase
   grep -q dbg_prot "$2_dbg.v" || { echo "the netlist has no register named prot: the exposure did not apply"; exit 1; }
@@ -45,7 +45,7 @@ start_mutant refusal_keeps_latch "/refused <= '1';/{n;s/wel     <= '0';/null;/}"
 start_mutant short_by_one       "s/if word_n = last_n then/if word_n = last_n - 1 then/"
 start_mutant stride_of_eight    "s/addr_q  <= addr_q + 4;/addr_q  <= addr_q + 8;/"
 start_mutant unprotect_all      "s/prot(sec) <= '0';/prot <= (others => '0');/"
-start_mutant region_one_short   "s/first_a + to_unsigned(4 \* (last_n + 1) - 1, 32)/first_a + to_unsigned(4 * (last_n + 1) - 2, 32)/"
+start_mutant region_one_short   "s/first_a + to_unsigned(4 \* (last_n + 1) - 1, ADDR_BITS)/first_a + to_unsigned(4 * (last_n + 1) - 2, ADDR_BITS)/"
 start_mutant page_unaligned     "/base_off <= off(WINDOW_BITS - 1 downto PAGE_BITS)$/{N;s/.*/base_off <= off;/}"
 wait
 

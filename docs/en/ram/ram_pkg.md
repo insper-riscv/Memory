@@ -20,7 +20,7 @@ The package has no generics or ports. The function is pure.
 
 | Parameter | Type | Range | Meaning |
 | :--- | :--- | :--- | :--- |
-| `addr` | `std_logic_vector(31 downto 0)` | 0 to $2^{32}-1$ | Byte address of the access; only the low 26 bits count |
+| `addr` | `addr_t` | 0 to $2^{ADDR\_BITS}-1$ | Byte address of the access; only the low 26 bits count |
 | `base_kib` | `natural` | 0 to 65535 | Base of the window inside the region, in KiB |
 | return | `unsigned(25 downto 0)` | 0 to $2^{26}-1$ | Offset in bytes inside the window |
 

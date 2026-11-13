@@ -12,6 +12,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use work.config_pkg.all;
 
 entity flash_arbiter is
     port (
@@ -21,7 +22,7 @@ entity flash_arbiter is
         i_rst : in    std_logic;
 
         -- Mestre A: endereço do pedido.
-        i_a_addr    : in    std_logic_vector(31 downto 0);
+        i_a_addr    : in    addr_t;
         -- Mestre A: pedido de leitura ('1').
         i_a_rden    : in    std_logic;
         -- Mestre A: pedido de linha de quatro palavras ('1').
@@ -36,7 +37,7 @@ entity flash_arbiter is
         o_a_rdata_x : out   std_logic_vector(95 downto 0);
 
         -- Mestre B: endereço do pedido.
-        i_b_addr    : in    std_logic_vector(31 downto 0);
+        i_b_addr    : in    addr_t;
         -- Mestre B: pedido de leitura ('1').
         i_b_rden    : in    std_logic;
         -- Mestre B: pedido de linha de quatro palavras ('1').
@@ -51,7 +52,7 @@ entity flash_arbiter is
         o_b_rdata_x : out   std_logic_vector(95 downto 0);
 
         -- Chip: endereço do pedido.
-        o_addr    : out   std_logic_vector(31 downto 0);
+        o_addr    : out   addr_t;
         -- Chip: pedido de leitura.
         o_rden    : out   std_logic;
         -- Chip: pedido de linha.

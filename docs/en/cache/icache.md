@@ -26,8 +26,8 @@ The core's stores are not observed by the cache. Only an invalidation (the progr
 | `window_bits` | natural from 26 to 29 | 26 | Width of the address window of the cache: $2^{\texttt{window\_bits}}$ bytes (26 is 64 MiB, 27 is 128 MiB). The tag stores the bits below it |
 | `base_sdram` | 6-bit vector | `010000` | Bits 31 to 26 of the SDRAM addresses on the memory side (0x40000000); only bits 31 down to `window_bits` are used |
 | `base_flash` | 6-bit vector | `001000` | Bits 31 to 26 of the FLASH addresses on the memory side (0x20000000); only bits 31 down to `window_bits` are used |
-| `rom_base_kib` | natural | 524288 | Base of the ROM region in KiB; whatever falls in it is treated as FLASH (0x20000000) |
-| `rom_end_kib` | natural | 1048576 | Exclusive end of the ROM region in KiB (0x40000000) |
+| `flash_base_kib` | natural | 524288 | Base of the FLASH region in KiB; whatever falls in it is treated as FLASH (0x20000000) |
+| `flash_end_kib` | natural | 1048576 | Exclusive end of the FLASH region in KiB (0x40000000) |
 | `sel_from_kib` | integer | -1 | With a non-negative value, the select comes from the registered address (selected from this address, in KiB) and `i_sel` is ignored |
 | `check_addr` | boolean | true | Checks on each lookup that the registered address is that of `i_addr`; with skewed clocks (the `i_clk` edge always before the core one) it can be turned off |
 
@@ -66,13 +66,13 @@ With $I = \log_2(\texttt{size\_bits}) - 7$ index bits, the cache has $2^I$ lines
 | Word in line | 3 to 2 | 2 |
 | Index | $I+3$ to 4 | $I$ |
 | Tag | `window_bits`$-1$ to $I+4$ | $W-4-I$ |
-| Region | Computed from `rom_base_kib` and `rom_end_kib`; becomes the most significant tag bit | 1 |
+| Region | Computed from `flash_base_kib` and `flash_end_kib`; becomes the most significant tag bit | 1 |
 
 $$
 \text{TAG\_BITS} = W - 3 - I
 $$
 
-Here $W$ is `window_bits`. The region bit in the tag keeps a FLASH line and an SDRAM line with the same bits $W-1$ to $I+4$ from being confused. Bits 31 to $W$ are not stored, and the memory-side request rebuilds them with bits 5 down to $W-26$ of `base_flash` or `base_sdram`, according to the region bit of the line being filled. With `window_bits` equal to 26 (the default) these are the six bits of the base; with 27 the window covers the 128 MiB of the DE2-115 SDRAM and the base loses bit 26, which becomes the top bit of the address tag. The width is fixed at generation by the memory map of the platform (`CACHE_WINDOW_BITS`), so the default leaves the generated hardware unchanged.
+Here $W$ is `window_bits`. The region bit in the tag keeps a FLASH line and an SDRAM line with the same bits $W-1$ to $I+4$ from being confused. Bits 31 to $W$ are not stored, and the memory-side request rebuilds them with bits 5 down to $W-26$ of `base_flash` or `base_sdram`, according to the region bit of the line being filled. With `window_bits` equal to 26 (the default) these are the six bits of the base; with 27 the window covers the 128 MiB of the DE2-115 SDRAM and the base loses bit 26, which becomes the top bit of the address tag. The width is fixed at generation by the memory map of the platform (`I_CACHE_WINDOW_BITS`), so the default leaves the generated hardware unchanged.
 
 ### 3.2. Lookup and core-side contract
 

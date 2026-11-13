@@ -27,10 +27,10 @@ netlist() {  # <vhdl> <name> [A|B]: the netlist and a copy that exposes the latc
   else
     times="-gt_acc_ns=10 -gt_pacc_ns=10 -gt_wp_ns=10 -gt_ah_ns=10 -gt_ds_ns=10 -gt_wph_ns=10 -gt_wc_ns=10 -gt_busy_ns=10 -gt_rp_ns=10 -gt_rh_ns=10"
   fi
-  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$(formal_vhdl "$root/src/common/src/synchronizer.vhd" "synchronizer_$2")" \
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/common/src/config_pkg.vhd" "$(formal_vhdl "$root/src/common/src/synchronizer.vhd" "synchronizer_$2")" \
     "$root/src/latency/SoC/latency_counter.vhd" "$root/src/ROM/SoC/chip_timing_pkg.vhd" "$1"
   # shellcheck disable=SC2086
-  ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gclk_period_ns=10 -gsize_bytes=8192 -gsector_bytes=4096 -gpage_bytes=8 $times nor_flash_ctrl > "$2.v"
+  ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gclk_period_ns=10 -gsize_bytes=8192 -gsector_bytes=4096 -gpage_bytes=8 -gbase_addr=00100000000000000000000000000000 $times nor_flash_ctrl > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v" wel prot:1 is_erase st:3 ry_s
   grep -q dbg_prot "$2_dbg.v" || { echo "the netlist has no register named prot: the exposure did not apply"; exit 1; }
@@ -85,7 +85,7 @@ mutant A ERASE   50 ry_not_awaited     "s/if ry_s(0) = '1' then/if ry_s(0) = '1'
 mutant A CMD     26 hardware_protect   "s/o_fl_wp_n     <= '1';/o_fl_wp_n     <= '0';/"
 mutant A READ    48 read_stride_two    "s/addr_q <= addr_q + 1;/addr_q <= addr_q + 2;/"
 mutant A READ    48 line_unaligned     "s/rd_addr := unsigned(i_addr(31 downto 4)) \& \"0000\";/rd_addr := unsigned(i_addr);/"
-mutant A ERASE   50 region_one_short   "s/last_q  <= first_a + to_unsigned(region - 1, 32);/last_q  <= first_a + to_unsigned(region - 2, 32);/"
+mutant A ERASE   50 region_one_short   "s/last_q  <= first_a + to_unsigned(region - 1, ADDR_BITS);/last_q  <= first_a + to_unsigned(region - 2, ADDR_BITS);/"
 mutant A READ    48 data_bus_in_read   "/oe_n_q  <= '0';/{n;s/dq_oe_q <= '0';/dq_oe_q <= '1';/}"
 mutant A ERASE   50 oe_with_we         "s/we_n_q <= '0';/we_n_q <= '0'; oe_n_q <= '0';/"
 mutant B ERASE   60 we_width_wp_only   "s/max_natural(t_wp_ns, max_natural(t_ah_ns, t_ds_ns))/t_wp_ns/"

@@ -36,8 +36,8 @@
 -- ainda podem estar mais velhas que a memória quando o hospedeiro a escreve; um
 -- invalidate (veja flush) antes de o hospedeiro carregar algo novo as derruba.
 --
--- Divisão do endereço (janela de 2**window_bits bytes por região, 64 MiB por padrão): região (1 = ROM, pelos genéricos
--- rom_base_kib e rom_end_kib), bits window_bits-1:12
+-- Divisão do endereço (janela de 2**window_bits bytes por região, 64 MiB por padrão): região (1 = FLASH, pelos genéricos
+-- flash_base_kib e flash_end_kib), bits window_bits-1:12
 -- tag, 11:4 linha, 3:2 palavra. Os demais bits a partir de window_bits não são guardados; o
 -- lado da memória acrescenta a base da região neles (base_flash ou base_sdram).
 --
@@ -62,6 +62,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use work.cache_pkg.all;
 use work.utils_pkg.all;
 
@@ -78,14 +79,14 @@ entity dcache is
         base_sdram    : std_logic_vector(5 downto 0) := "010000";
         -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
         base_flash    : std_logic_vector(5 downto 0) := "001000";
-        -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão).
+        -- Base, em KiB, da região da FLASH; o que cai nela é tratado como FLASH (0x20000000 por padrão).
         -- Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa
         -- do Core, por isso o padrão difere dos defaults do Core.
-        rom_base_kib  : natural                      := 524288;
-        -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão). Origem: o espaço de
+        flash_base_kib  : natural                      := 524288;
+        -- Fim exclusivo, em KiB, da região da FLASH (0x40000000 por padrão). Origem: o espaço de
         -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
         -- padrão difere dos defaults do Core.
-        rom_end_kib   : natural                      := 1048576;
+        flash_end_kib   : natural                      := 1048576;
         -- Verdadeiro: todo store vai também à memória e a falha de store não traz a linha (nenhuma linha fica suja).
         write_through : boolean                      := false
     );
@@ -96,9 +97,9 @@ entity dcache is
         i_rst : in    std_logic;
 
         -- Endereço do acesso.
-        i_addr        : in    std_logic_vector(31 downto 0);
+        i_addr        : in    addr_t;
         -- Dado de escrita.
-        i_wdata       : in    std_logic_vector(31 downto 0);
+        i_wdata       : in    word_t;
         -- Habilita de bytes da escrita, um bit por byte.
         i_byteena     : in    std_logic_vector(3 downto 0);
         -- Pedido de leitura ('1' = lê).
@@ -110,7 +111,7 @@ entity dcache is
         -- Acesso concluído, o dado lido é válido ('1').
         o_ready       : out   std_logic;
         -- Dado lido.
-        o_rdata       : out   std_logic_vector(31 downto 0);
+        o_rdata       : out   word_t;
 
         -- Pede a escrita de todas as linhas sujas na memória ('1').
         i_flush        : in    std_logic;
@@ -121,9 +122,9 @@ entity dcache is
         -- Pulso que derruba as linhas limpas da região de i_inval_first a i_inval_last.
         i_inval_region : in    std_logic                     := '0';
         -- Primeiro endereço de byte da região a derrubar.
-        i_inval_first  : in    std_logic_vector(31 downto 0) := (others => '0');
+        i_inval_first  : in    addr_t := (others => '0');
         -- Último endereço de byte da região a derrubar (incluído).
-        i_inval_last   : in    std_logic_vector(31 downto 0) := (others => '0');
+        i_inval_last   : in    addr_t := (others => '0');
         -- O acesso em andamento não passa pela cache ('1'): um load vai à memória como palavra, sem consultar nem
         -- trazer linha, e um store só é repassado, sem atualizar a cache. Vale para as palavras que o hospedeiro
         -- escreve por trás da cache (por exemplo o fromhost), que a cache não poderia manter atualizadas.
@@ -134,7 +135,7 @@ entity dcache is
         o_busy         : out   std_logic;
 
         -- Lado da memória: endereço do acesso.
-        o_d_addr    : out   std_logic_vector(31 downto 0);
+        o_d_addr    : out   addr_t;
         -- Lado da memória: dado de escrita.
         o_d_wdata   : out   std_logic_vector(31 downto 0);
         -- Lado da memória: habilita de bytes da escrita.
@@ -177,7 +178,7 @@ architecture rtl of dcache is
     constant INDEX_BITS : natural := index_bits_of(size_bits);
     -- Linhas da cache.
     constant LINES      : natural := 2 ** INDEX_BITS;
-    -- Bits da tag: a região (ROM ou não) e os bits window_bits-1 até INDEX_BITS + 4.
+    -- Bits da tag: a região (FLASH ou não) e os bits window_bits-1 até INDEX_BITS + 4.
     constant TAG_BITS   : natural := window_bits - 3 - INDEX_BITS;
     -- Primeiro bit da tag no endereço, logo acima do índice e do deslocamento dentro da linha.
     constant TAG_LOW    : natural := INDEX_BITS + 4;
@@ -221,7 +222,7 @@ architecture rtl of dcache is
 
     -- Tag do endereço do acesso.
     signal req_tag    : std_logic_vector(TAG_BITS - 1 downto 0);
-    -- O endereço do pedido está na região da ROM.
+    -- O endereço do pedido está na região da FLASH.
     signal is_rom     : std_logic;
     -- Índice da linha do endereço do acesso.
     signal req_idx    : std_logic_vector(INDEX_BITS - 1 downto 0);
@@ -243,9 +244,9 @@ architecture rtl of dcache is
     signal hit        : std_logic;
 
     -- Palavra lida da cache à espera do avanço do pipeline.
-    signal pend      : std_logic_vector(31 downto 0)     := (others => '0');
+    signal pend      : word_t     := (others => '0');
     -- Palavra entregue ao core.
-    signal rdata_q   : std_logic_vector(31 downto 0)     := (others => '0');
+    signal rdata_q   : word_t     := (others => '0');
     -- Pedido de leitura ao lado da memória (registrado).
     signal d_rden_i  : std_logic                         := '0';
     -- Pedido de escrita ao lado da memória (registrado).
@@ -259,7 +260,7 @@ architecture rtl of dcache is
     -- Palavra da linha que acabou de chegar da memória.
     signal fill_w    : std_logic_vector(31 downto 0);
     -- Endereço do pedido ao lado da memória (registrado).
-    signal d_addr_i  : std_logic_vector(31 downto 0)     := (others => '0');
+    signal d_addr_i  : addr_t     := (others => '0');
     -- Dado do pedido ao lado da memória (registrado).
     signal d_wdata_i : std_logic_vector(31 downto 0)     := (others => '0');
     -- Pulso de fim do flush (registrado).
@@ -287,7 +288,7 @@ architecture rtl of dcache is
 
 begin
 
-    is_rom <= in_window(i_addr, rom_base_kib, rom_end_kib);
+    is_rom <= in_window(i_addr, flash_base_kib, flash_end_kib);
 
     req_tag <= is_rom & i_addr(window_bits - 1 downto TAG_LOW);
     req_idx <= i_addr(INDEX_BITS + 3 downto 4);

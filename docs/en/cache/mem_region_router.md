@@ -17,9 +17,9 @@ Two kinds of FLASH request never reach the chip and are completed inside the rou
 
 | Generic | Type | Default | Meaning |
 | :--- | :--- | :--- | :--- |
-| `rom_base_kib` | natural | 524288 | Base of the FLASH region in KiB (0x20000000) |
-| `rom_end_kib` | natural | 1048576 | Exclusive end of the FLASH region in KiB (0x40000000) |
-| `rom_window_kib` | natural | 1024 | Size in KiB of the window the chip serves from the base; a read beyond it returns zero |
+| `flash_base_kib` | natural | 524288 | Base of the FLASH region in KiB (0x20000000) |
+| `flash_end_kib` | natural | 1048576 | Exclusive end of the FLASH region in KiB (0x40000000) |
+| `flash_window_kib` | natural | 1024 | Size in KiB of the window the chip serves from the base; a read beyond it returns zero |
 | `hold_rdata` | boolean | false | The data read follows the region of the last completed request, not the current address (a master without a data cache, see section 3.4) |
 
 ### 2.2. Master ports
@@ -132,7 +132,7 @@ The tests are cocotb tests in `tests/python/unittests/cache`, registered in `tes
 | `tests.json` entry | Test module | What it covers |
 | :--- | :--- | :--- |
 | `MemRegionRouter` | [mem_region_router.py](../../../tests/python/unittests/cache/mem_region_router.py) | Line read to the SDRAM and to the FLASH, FLASH store absorbed, read outside the window returns zero, SDRAM store passed through, mixed sequence |
-| `MemRegionRouterLow` | [mem_region_router_low.py](../../../tests/python/unittests/cache/mem_region_router_low.py) | Generics `rom_base_kib` equal to 2, `rom_end_kib` equal to 32 and `rom_window_kib` equal to 30; a read inside the region reaches the ROM, region edges, ROM store absorbed and SDRAM store passed through |
+| `MemRegionRouterLow` | [mem_region_router_low.py](../../../tests/python/unittests/cache/mem_region_router_low.py) | Generics `flash_base_kib` equal to 2, `flash_end_kib` equal to 32 and `flash_window_kib` equal to 30; a read inside the region reaches the ROM, region edges, ROM store absorbed and SDRAM store passed through |
 | `MemRegionRouterHold` | [mem_region_router_hold.py](../../../tests/python/unittests/cache/mem_region_router_hold.py) | Generic `hold_rdata` set to `true`; the FLASH word and the SDRAM word stay after the address changes, and an absorbed store leaves zero |
 | `FlashPath` | [flash_path.py](../../../tests/python/unittests/cache/flash_path.py) | Two routers, the icache, the arbiter and the chip together; a FLASH store never reaches the chip, a read beyond the window returns zero without touching the chip, SDRAM requests do not touch the FLASH path |
 

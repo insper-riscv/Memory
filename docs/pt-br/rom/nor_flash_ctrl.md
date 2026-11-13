@@ -27,7 +27,7 @@ Os tempos são ns, e os padrões vêm de [chip_timing_pkg](chip_timing_pkg.md), 
 | `size_bytes` | `positive` | 8388608 | Tamanho do chip, potência de dois de 8 KB a 8 MB |
 | `sector_bytes` | `positive` | 65536 | Setor de apagar e de proteger, potência de dois menor que `size_bytes` |
 | `page_bytes` | `positive` | 256 | Página de gravar, potência de dois de 8 bytes até `sector_bytes` |
-| `base_addr` | vetor de 32 bits | `0x20000000` | Início do chip no mapa do SoC, somado ao deslocamento na região de invalidação |
+| `base_addr` | `addr_t` | `FLASH_BASE` do `config_pkg` (a instância de teste usa `0x20000000`) | Início do chip no mapa do SoC, somado ao deslocamento na região de invalidação |
 | `t_acc_ns` | `natural` | 90 | Acesso aleatório |
 | `t_pacc_ns` | `natural` | 25 | Acesso dentro da página |
 | `t_wc_ns` | `natural` | 90 | Ciclo de escrita |
