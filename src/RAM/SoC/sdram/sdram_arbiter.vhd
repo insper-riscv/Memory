@@ -18,6 +18,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use work.config_pkg.all;
 
 entity sdram_arbiter is
     generic (
@@ -40,19 +41,19 @@ entity sdram_arbiter is
         -- Porta do mestre A (ponte de dados do core): endereço de palavra.
         i_a_addr    : in    std_logic_vector(addr_bits - 1 downto 0);
         -- Porta do mestre A (ponte de dados do core): dado de escrita.
-        i_a_wdata   : in    std_logic_vector(31 downto 0);
+        i_a_wdata   : in    word_t;
         -- Porta do mestre A (ponte de dados do core): habilita de bytes da escrita.
-        i_a_be      : in    std_logic_vector(3 downto 0);
+        i_a_be      : in    std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Porta do mestre A (ponte de dados do core): dado lido.
-        o_a_rdata   : out   std_logic_vector(31 downto 0);
+        o_a_rdata   : out   word_t;
         -- Porta do mestre A (ponte de dados do core): acesso de linha de quatro palavras ('1').
         i_a_line    : in    std_logic                     := '0';
         -- Porta do mestre A (ponte de dados do core): palavras 1 a 3 do dado de escrita da linha.
-        i_a_wdata_x : in    std_logic_vector(95 downto 0) := (others => '0');
+        i_a_wdata_x : in    std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
         -- Porta do mestre A (ponte de dados do core): habilita de bytes das palavras 1 a 3.
-        i_a_be_x    : in    std_logic_vector(11 downto 0) := (others => '0');
+        i_a_be_x    : in    std_logic_vector(3 * XLEN / 8 - 1 downto 0) := (others => '0');
         -- Porta do mestre A (ponte de dados do core): palavras 1 a 3 do dado lido da linha.
-        o_a_rdata_x : out   std_logic_vector(95 downto 0);
+        o_a_rdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Porta do mestre I (ponte de instruções do core): alternância que pede um acesso, cada inversão é um pedido
         -- novo.
@@ -65,19 +66,19 @@ entity sdram_arbiter is
         -- Porta do mestre I (ponte de instruções do core): endereço de palavra.
         i_ins_addr    : in    std_logic_vector(addr_bits - 1 downto 0) := (others => '0');
         -- Porta do mestre I (ponte de instruções do core): dado de escrita.
-        i_ins_wdata   : in    std_logic_vector(31 downto 0)            := (others => '0');
+        i_ins_wdata   : in    word_t            := (others => '0');
         -- Porta do mestre I (ponte de instruções do core): habilita de bytes da escrita.
-        i_ins_be      : in    std_logic_vector(3 downto 0)             := (others => '0');
+        i_ins_be      : in    std_logic_vector(XLEN / 8 - 1 downto 0)             := (others => '0');
         -- Porta do mestre I (ponte de instruções do core): dado lido.
-        o_ins_rdata   : out   std_logic_vector(31 downto 0);
+        o_ins_rdata   : out   word_t;
         -- Porta do mestre I (ponte de instruções do core): acesso de linha de quatro palavras ('1').
         i_ins_line    : in    std_logic                                := '0';
         -- Porta do mestre I (ponte de instruções do core): palavras 1 a 3 do dado de escrita da linha.
-        i_ins_wdata_x : in    std_logic_vector(95 downto 0)            := (others => '0');
+        i_ins_wdata_x : in    std_logic_vector(3 * XLEN - 1 downto 0)            := (others => '0');
         -- Porta do mestre I (ponte de instruções do core): habilita de bytes das palavras 1 a 3.
-        i_ins_be_x    : in    std_logic_vector(11 downto 0)            := (others => '0');
+        i_ins_be_x    : in    std_logic_vector(3 * XLEN / 8 - 1 downto 0)            := (others => '0');
         -- Porta do mestre I (ponte de instruções do core): palavras 1 a 3 do dado lido da linha.
-        o_ins_rdata_x : out   std_logic_vector(95 downto 0);
+        o_ins_rdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Porta do mestre B (porta de debug): alternância que pede um acesso, cada inversão é um pedido novo.
         i_b_req_tog : in    std_logic;
@@ -89,11 +90,11 @@ entity sdram_arbiter is
         -- Porta do mestre B (porta de debug): endereço de palavra.
         i_b_addr    : in    std_logic_vector(addr_bits - 1 downto 0);
         -- Porta do mestre B (porta de debug): dado de escrita.
-        i_b_wdata   : in    std_logic_vector(31 downto 0);
+        i_b_wdata   : in    word_t;
         -- Porta do mestre B (porta de debug): habilita de bytes da escrita.
-        i_b_be      : in    std_logic_vector(3 downto 0);
+        i_b_be      : in    std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Porta do mestre B (porta de debug): dado lido.
-        o_b_rdata   : out   std_logic_vector(31 downto 0);
+        o_b_rdata   : out   word_t;
 
         -- Porta do controlador SDRAM: alternância que pede um acesso, cada inversão é um pedido novo.
         o_c_req_tog : out   std_logic;
@@ -104,19 +105,19 @@ entity sdram_arbiter is
         -- Porta do controlador SDRAM: endereço de palavra.
         o_c_addr    : out   std_logic_vector(addr_bits - 1 downto 0);
         -- Porta do controlador SDRAM: dado de escrita.
-        o_c_wdata   : out   std_logic_vector(31 downto 0);
+        o_c_wdata   : out   word_t;
         -- Porta do controlador SDRAM: habilita de bytes da escrita.
-        o_c_be      : out   std_logic_vector(3 downto 0);
+        o_c_be      : out   std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Porta do controlador SDRAM: dado lido.
-        i_c_rdata   : in    std_logic_vector(31 downto 0);
+        i_c_rdata   : in    word_t;
         -- Porta do controlador SDRAM: acesso de linha de quatro palavras ('1').
         o_c_line    : out   std_logic;
         -- Porta do controlador SDRAM: palavras 1 a 3 do dado de escrita da linha.
-        o_c_wdata_x : out   std_logic_vector(95 downto 0);
+        o_c_wdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
         -- Porta do controlador SDRAM: habilita de bytes das palavras 1 a 3.
-        o_c_be_x    : out   std_logic_vector(11 downto 0);
+        o_c_be_x    : out   std_logic_vector(3 * XLEN / 8 - 1 downto 0);
         -- Porta do controlador SDRAM: palavras 1 a 3 do dado lido da linha.
-        i_c_rdata_x : in    std_logic_vector(95 downto 0)
+        i_c_rdata_x : in    std_logic_vector(3 * XLEN - 1 downto 0)
     );
 end entity sdram_arbiter;
 
@@ -162,17 +163,23 @@ architecture rtl of sdram_arbiter is
     -- O mestre I tem um pedido pendente.
     signal ins_pend    : std_logic;
     -- Dado lido entregue ao mestre I (registrado).
-    signal ins_rdata_i : std_logic_vector(31 downto 0) := (others => '0');
+    signal ins_rdata_i : word_t := (others => '0');
     -- Palavras 1 a 3 lidas entregues ao mestre I (registradas).
-    signal ins_rdx_i   : std_logic_vector(95 downto 0) := (others => '0');
+    signal ins_rdx_i   : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
     -- Dado lido entregue ao mestre A (registrado).
-    signal a_rdata_i   : std_logic_vector(31 downto 0) := (others => '0');
+    signal a_rdata_i   : word_t := (others => '0');
     -- Dado lido entregue ao mestre B (registrado).
-    signal b_rdata_i   : std_logic_vector(31 downto 0) := (others => '0');
+    signal b_rdata_i   : word_t := (others => '0');
     -- Palavras 1 a 3 lidas entregues ao mestre A (registradas).
-    signal a_rdx_i     : std_logic_vector(95 downto 0) := (others => '0');
+    signal a_rdx_i     : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
 
 begin
+
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
 
     o_a_ack_tog   <= a_ack_i;
     o_b_ack_tog   <= b_ack_i;

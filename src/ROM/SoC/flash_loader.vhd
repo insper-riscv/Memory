@@ -54,10 +54,12 @@ entity flash_loader is
         -- Índice de palavra do comando.
         i_addr       : in    std_logic_vector(23 downto 0);
         -- Dado de escrita do comando.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         i_data       : in    std_logic_vector(31 downto 0);
         -- Índice da palavra da última resposta ou a contagem de escritas.
         o_rsp_addr   : out   std_logic_vector(23 downto 0);
         -- Dado devolvido pela última leitura ou a soma de verificação.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         o_rsp_data   : out   std_logic_vector(31 downto 0);
         -- Status: bit 0 núcleo parado, bit 1 pedido recusado.
         o_rsp_status : out   std_logic_vector(7 downto 0);
@@ -77,8 +79,10 @@ entity flash_loader is
         -- Habilita de escrita da porta B da FLASH.
         o_wren_b    : out   std_logic;
         -- Dado de escrita da porta B da FLASH.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         o_data_b    : out   std_logic_vector(31 downto 0);
         -- Palavra lida pela porta B da FLASH.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         i_q_b       : in    std_logic_vector(31 downto 0)
     );
 end entity flash_loader;
@@ -116,6 +120,7 @@ architecture rtl of flash_loader is
     -- Índice de palavra aplicado à porta B quando ela é do carregador.
     signal address_r : std_logic_vector(addr_width - 1 downto 0) := (others => '0');
     -- Dado aplicado à porta B quando ela é do carregador.
+    -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
     signal data_r    : std_logic_vector(31 downto 0)             := (others => '0');
     -- Pulso de escrita do carregador.
     signal wren_r    : std_logic                                 := '0';
@@ -128,6 +133,7 @@ architecture rtl of flash_loader is
     -- Índice da palavra da última resposta.
     signal rsp_addr  : std_logic_vector(23 downto 0)             := (others => '0');
     -- Dado da última resposta.
+    -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
     signal rsp_data  : std_logic_vector(31 downto 0)             := (others => '0');
     -- Há um comando novo a executar.
     signal new_cmd   : std_logic;

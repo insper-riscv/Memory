@@ -54,7 +54,7 @@ entity axi_slave_word_bridge is
         -- Porta escravo AXI4, canal de dados de escrita: dados.
         i_s_wdata   : in    word_t;
         -- Porta escravo AXI4, canal de dados de escrita: habilita de bytes.
-        i_s_wstrb   : in    std_logic_vector(3 downto 0);
+        i_s_wstrb   : in    std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Porta escravo AXI4, canal de dados de escrita: último beat da rajada ('1').
         i_s_wlast   : in    std_logic;
         -- Porta escravo AXI4, canal de resposta de escrita: validade da transferência ('1' = válida).
@@ -89,9 +89,9 @@ entity axi_slave_word_bridge is
         -- Endereço do acesso.
         o_addr        : out   addr_t;
         -- Dado de escrita.
-        o_wdata       : out   std_logic_vector(31 downto 0);
+        o_wdata       : out   word_t;
         -- Habilita de bytes da escrita, um bit por byte.
-        o_byteena     : out   std_logic_vector(3 downto 0);
+        o_byteena     : out   std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Pedido de leitura ('1' = lê).
         o_rden        : out   std_logic;
         -- Pedido de escrita ('1' = escreve).
@@ -101,15 +101,15 @@ entity axi_slave_word_bridge is
         -- Acesso concluído, o dado lido é válido ('1').
         i_ready       : in    std_logic;
         -- Dado lido.
-        i_rdata       : in    std_logic_vector(31 downto 0);
+        i_rdata       : in    word_t;
         -- Acesso de linha, quatro palavras seguidas ('1').
         o_line        : out   std_logic;
         -- Palavras 1 a 3 do dado de escrita da linha.
-        o_wdata_x     : out   std_logic_vector(95 downto 0);
+        o_wdata_x     : out   std_logic_vector(3 * XLEN - 1 downto 0);
         -- Habilita de bytes das palavras 1 a 3 da linha.
-        o_byteena_x   : out   std_logic_vector(11 downto 0);
+        o_byteena_x   : out   std_logic_vector(3 * XLEN / 8 - 1 downto 0);
         -- Palavras 1 a 3 do dado lido da linha.
-        i_rdata_x     : in    std_logic_vector(95 downto 0)
+        i_rdata_x     : in    std_logic_vector(3 * XLEN - 1 downto 0)
     );
 end entity axi_slave_word_bridge;
 
@@ -136,11 +136,11 @@ architecture rtl of axi_slave_word_bridge is
     -- Dado de escrita da palavra 0.
     signal wdata_l : word_t := (others => '0');
     -- Habilita de bytes da palavra 0.
-    signal strb_l  : std_logic_vector(3 downto 0)  := (others => '0');
+    signal strb_l  : std_logic_vector(XLEN / 8 - 1 downto 0)  := (others => '0');
     -- Palavras 1 a 3 de escrita da linha.
-    signal wdx_l   : std_logic_vector(95 downto 0) := (others => '0');
+    signal wdx_l   : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
     -- Habilita de bytes das palavras 1 a 3.
-    signal bex_l   : std_logic_vector(11 downto 0) := (others => '0');
+    signal bex_l   : std_logic_vector(3 * XLEN / 8 - 1 downto 0) := (others => '0');
     -- A transação será respondida com SLVERR.
     signal err_l   : std_logic                     := '0';
 
@@ -177,6 +177,12 @@ architecture rtl of axi_slave_word_bridge is
 
 begin
 
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
+
     awr         <= '1' when st = ST_IDLE else '0';
     arr         <= '1' when st = ST_IDLE and i_s_awvalid = '0' else '0';
     o_s_awready <= awr;
@@ -202,9 +208,9 @@ begin
     -- o dado lido da memória só muda no seu próprio mem_advance, então fica válido enquanto um beat espera
     o_s_rdata  <= x"00000000" when bad_l = '1' else
                   i_rdata when (fast_l = '0' or k = 0) else
-                  i_rdata_x(31 downto 0) when k = 1 else
-                  i_rdata_x(63 downto 32) when k = 2 else
-                  i_rdata_x(95 downto 64);
+                  i_rdata_x(XLEN - 1 downto 0) when k = 1 else
+                  i_rdata_x(2 * XLEN - 1 downto XLEN) when k = 2 else
+                  i_rdata_x(3 * XLEN - 1 downto 2 * XLEN);
 
     p_bridge_fsm : process (i_clk) is
     begin
@@ -269,14 +275,14 @@ begin
                                     wdata_l <= i_s_wdata;
                                     strb_l  <= i_s_wstrb;
                                 elsif k = 1 then
-                                    wdx_l(31 downto 0) <= i_s_wdata;
-                                    bex_l(3 downto 0)  <= i_s_wstrb;
+                                    wdx_l(XLEN - 1 downto 0) <= i_s_wdata;
+                                    bex_l(XLEN / 8 - 1 downto 0) <= i_s_wstrb;
                                 elsif k = 2 then
-                                    wdx_l(63 downto 32) <= i_s_wdata;
-                                    bex_l(7 downto 4)   <= i_s_wstrb;
+                                    wdx_l(2 * XLEN - 1 downto XLEN) <= i_s_wdata;
+                                    bex_l(2 * XLEN / 8 - 1 downto XLEN / 8)   <= i_s_wstrb;
                                 else
-                                    wdx_l(95 downto 64) <= i_s_wdata;
-                                    bex_l(11 downto 8)  <= i_s_wstrb;
+                                    wdx_l(3 * XLEN - 1 downto 2 * XLEN) <= i_s_wdata;
+                                    bex_l(3 * XLEN / 8 - 1 downto 2 * XLEN / 8)  <= i_s_wstrb;
                                 end if;
                                 if k = 3 then
                                     k  <= 0;

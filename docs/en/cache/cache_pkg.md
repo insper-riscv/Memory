@@ -4,6 +4,8 @@ Functions that the caches, the fetch bridge and the region router share, so that
 
 The memory block addresses are of type `addr_t` and the core data word is `word_t`, both from the `config_pkg` of Common-Components, so the widths follow `ADDR_BITS` and `XLEN` of the platform. The address windows of the caches come from the platform map (`FLASH_BASE`, `FLASH_END`, `RAM_BASE`, `RAM_END`, `I_CACHE_WINDOW_BITS` and `D_CACHE_WINDOW_BITS`), passed through the generics of each block.
 
+The line of a cache and the `_x` registers that carry it use `XLEN` and `3 * XLEN` bits, and the byte enable uses `XLEN / 8` bits. The physical widths of devices and protocols stay at 32 bits: the data bus of the FLASH and SDRAM chips, the word of the RAM block, the JTAG registers, the BIST and the chip models. The blocks that connect the core to those devices (the caches, ifetch_bridge, mem_region_router, the FLASH, SRAM and SDRAM controllers, `onchip_ram_port`, `ram_chip` and the two AXI bridges) slice the word and assume a 4-byte word and a 16-byte line in the address bit layout, so they only elaborate with `XLEN = 32` and fail elaboration with a larger value.
+
 ## 1. Role of the component in the SoC
 
 Every block that separates the FLASH region from the others tests the address against the same range, and the two caches compute the width of the line index the same way. The package gathers the two computations. It keeps no state, holds in elaboration and in synthesis and has no ports.

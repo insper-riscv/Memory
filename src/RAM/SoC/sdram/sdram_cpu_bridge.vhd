@@ -43,7 +43,7 @@ entity sdram_cpu_bridge is
         -- Dado de escrita.
         i_wdata       : in    word_t;
         -- Habilita de bytes da escrita, um bit por byte.
-        i_byteena     : in    std_logic_vector(3 downto 0);
+        i_byteena     : in    std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Pedido de leitura ('1' = lê).
         i_rden        : in    std_logic;
         -- Pedido de escrita ('1' = escreve).
@@ -57,11 +57,11 @@ entity sdram_cpu_bridge is
         -- Acesso de linha, quatro palavras seguidas ('1').
         i_line        : in    std_logic                     := '0';
         -- Palavras 1 a 3 do dado de escrita da linha.
-        i_wdata_x     : in    std_logic_vector(95 downto 0) := (others => '0');
+        i_wdata_x     : in    std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
         -- Habilita de bytes das palavras 1 a 3 da linha.
-        i_byteena_x   : in    std_logic_vector(11 downto 0) := (others => '0');
+        i_byteena_x   : in    std_logic_vector(3 * XLEN / 8 - 1 downto 0) := (others => '0');
         -- Palavras 1 a 3 do dado lido da linha.
-        o_rdata_x     : out   std_logic_vector(95 downto 0);
+        o_rdata_x     : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Alternância que pede um acesso ao controlador: cada inversão é um pedido novo.
         o_req_tog   : out   std_logic;
@@ -74,19 +74,19 @@ entity sdram_cpu_bridge is
         -- Porta do controlador SDRAM: endereço de palavra.
         o_c_addr    : out   std_logic_vector(addr_bits - 1 downto 0);
         -- Porta do controlador SDRAM: dado de escrita.
-        o_c_wdata   : out   std_logic_vector(31 downto 0);
+        o_c_wdata   : out   word_t;
         -- Porta do controlador SDRAM: habilita de bytes da escrita.
-        o_c_be      : out   std_logic_vector(3 downto 0);
+        o_c_be      : out   std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Porta do controlador SDRAM: dado lido.
-        i_c_rdata   : in    std_logic_vector(31 downto 0);
+        i_c_rdata   : in    word_t;
         -- Porta do controlador SDRAM: acesso de linha de quatro palavras ('1').
         o_c_line    : out   std_logic;
         -- Porta do controlador SDRAM: palavras 1 a 3 do dado de escrita da linha.
-        o_c_wdata_x : out   std_logic_vector(95 downto 0);
+        o_c_wdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
         -- Porta do controlador SDRAM: habilita de bytes das palavras 1 a 3.
-        o_c_be_x    : out   std_logic_vector(11 downto 0);
+        o_c_be_x    : out   std_logic_vector(3 * XLEN / 8 - 1 downto 0);
         -- Porta do controlador SDRAM: palavras 1 a 3 do dado lido da linha.
-        i_c_rdata_x : in    std_logic_vector(95 downto 0)
+        i_c_rdata_x : in    std_logic_vector(3 * XLEN - 1 downto 0)
     );
 end entity sdram_cpu_bridge;
 
@@ -111,13 +111,19 @@ architecture rtl of sdram_cpu_bridge is
     -- Palavra 0 do dado lido entregue ao core.
     signal rdata_q   : word_t := (others => '0');
     -- Palavras 1 a 3 do dado lido, à espera do avanço do pipeline.
-    signal pending_x : std_logic_vector(95 downto 0) := (others => '0');
+    signal pending_x : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
     -- Palavras 1 a 3 do dado lido entregues ao core.
-    signal rdx_q     : std_logic_vector(95 downto 0) := (others => '0');
+    signal rdx_q     : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
     -- O acesso em andamento é de linha.
     signal line_l    : std_logic                     := '0';
 
 begin
+
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
 
     -- Leva o toggle de confirmação e o init_done do clock do controlador ao do core.
     u_sync_ack : entity work.synchronizer

@@ -37,7 +37,7 @@ start prove bridge_dbg.v cover 40 '-DCOVER'                 cover
 
 # Mutants of the VHDL: each defect must make the safety proof fail.
 start_mutant no_wait_aw   "s/o_m_bready[[:space:]]*<= '1' when st = ST_WR and awv = '0' and wv = '0' else '0';/o_m_bready  <= '1' when st = ST_WR else '0';/"
-start_mutant strb_wrong   "s/strb_l  <= i_byteena;/strb_l  <= \"1111\";/"
+start_mutant strb_wrong   "s/strb_l  <= i_byteena;/strb_l  <= (others => '1');/"
 start_mutant drop_w       "s/if wv = '1' and i_m_wready = '1' then/if wv = '1' then/"
 start_mutant ready_pulse  "s/if i_mem_advance = '1' then/if true then/"
 start_mutant wlast_always "s/o_m_wlast   <= '1' when beat = last_b else '0';/o_m_wlast <= '1';/"

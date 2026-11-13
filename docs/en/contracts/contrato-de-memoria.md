@@ -116,7 +116,7 @@ The Quartus Lite of this project does not compile a two-port `altsyncram` togeth
 
 ## 6. Stored word width different from the core word
 
-The core speaks in 32-bit words, with a 4-bit mask (one bit per byte) and a byte address. When the device stores words of $W \neq 32$ bits, an adapter between the two reconciles the difference. The adapter only sees the byte mask on a write and a whole 32-bit word on a read. It never receives the width of the instruction, because the selection of a byte or halfword and the sign extension happen in the WB stage of the core. The complete treatment is in [MEMORY_WIDTH.md](https://github.com/insper-riscv/Core/blob/main/docs/en/MEMORY_WIDTH.md), and this section summarizes the rules.
+The core speaks in words of `XLEN` bits (`word_t`), with a mask of `XLEN`/8 bits (one bit per byte) and a byte address. When the device stores words of $W \neq \text{XLEN}$ bits, an adapter between the two reconciles the difference. The adapter only sees the byte mask on a write and a whole word of `XLEN` bits on a read. It never receives the width of the instruction, because the selection of a byte or halfword and the sign extension happen in the WB stage of the core. The complete treatment is in [MEMORY_WIDTH.md](https://github.com/insper-riscv/Core/blob/main/docs/en/MEMORY_WIDTH.md), and this section summarizes the rules.
 
 ### 6.1. Address
 

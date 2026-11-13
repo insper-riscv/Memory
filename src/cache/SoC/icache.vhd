@@ -131,11 +131,11 @@ entity icache is
         -- Lado da memória: acesso concluído, dado lido válido ('1').
         i_d_ready   : in    std_logic;
         -- Lado da memória: dado lido.
-        i_d_rdata   : in    std_logic_vector(31 downto 0);
+        i_d_rdata   : in    word_t;
         -- Lado da memória: acesso de linha de quatro palavras ('1').
         o_d_line    : out   std_logic;
         -- Lado da memória: palavras 1 a 3 do dado lido da linha.
-        i_d_rdata_x : in    std_logic_vector(95 downto 0) := (others => '0')
+        i_d_rdata_x : in    std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0')
     );
 end entity icache;
 
@@ -173,7 +173,7 @@ architecture rtl of icache is
     constant TAG_LOW    : natural := INDEX_BITS + 4;
 
     -- Memória de dados: quatro palavras por linha.
-    type data_t is array(0 to 4 * LINES - 1) of std_logic_vector(31 downto 0);
+    type data_t is array(0 to 4 * LINES - 1) of word_t;
 
     -- Memória de tags: uma tag por linha (região e bits window_bits-1 até o fim do índice).
     type tag_t is array(0 to LINES - 1) of std_logic_vector(TAG_BITS - 1 downto 0);
@@ -199,7 +199,7 @@ architecture rtl of icache is
     -- Endereço de escrita da memória de dados, registrado.
     signal w_ram_wa   : std_logic_vector(INDEX_BITS + 1 downto 0) := (others => '0');
     -- Dado de escrita da memória de dados, registrado.
-    signal w_data     : std_logic_vector(31 downto 0)             := (others => '0');
+    signal w_data     : word_t             := (others => '0');
     -- Habilitação de escrita da memória de tags, registrada.
     signal w_tag_we   : std_logic                                 := '0';
     -- Índice de escrita da memória de tags, registrado.
@@ -220,7 +220,7 @@ architecture rtl of icache is
     signal valid_wd   : std_logic;
 
     -- Palavra lida da memória de dados (leitura registrada).
-    signal ram_rd   : std_logic_vector(31 downto 0)           := (others => '0');
+    signal ram_rd   : word_t           := (others => '0');
     -- Tag lida da memória de tags (leitura registrada).
     signal tag_rd   : std_logic_vector(TAG_BITS - 1 downto 0) := (others => '0');
     -- Validade da linha lida (registrada).
@@ -256,7 +256,7 @@ architecture rtl of icache is
     -- Palavra da linha em preenchimento.
     signal cnt        : unsigned(1 downto 0)              := (others => '0');
     -- Palavra da linha que acabou de chegar da memória.
-    signal fill_w     : std_logic_vector(31 downto 0);
+    signal fill_w     : word_t;
     -- Há um pedido de invalidação por região a aplicar neste ciclo.
     signal rq_v       : std_logic                         := '0';
     -- Índice da primeira linha do pedido de invalidação por região.
@@ -288,6 +288,12 @@ architecture rtl of icache is
 
 begin
 
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
+
     flash_q    <= in_window(addr_q, flash_base_kib, flash_end_kib);
     flash_miss <= in_window(miss_a, flash_base_kib, flash_end_kib);
 
@@ -302,9 +308,9 @@ begin
     o_data    <= ram_rd;
 
     fill_w   <= i_d_rdata when cnt = "00" else
-                i_d_rdata_x(31 downto 0) when cnt = "01" else
-                i_d_rdata_x(63 downto 32) when cnt = "10" else
-                i_d_rdata_x(95 downto 64);
+                i_d_rdata_x(XLEN - 1 downto 0) when cnt = "01" else
+                i_d_rdata_x(2 * XLEN - 1 downto XLEN) when cnt = "10" else
+                i_d_rdata_x(3 * XLEN - 1 downto 2 * XLEN);
     ram_wa   <= fill_idx & std_logic_vector(cnt);
     ram_we   <= '1' when st = S_FILL_GET else '0';
     tag_we   <= '1' when st = S_FILL_GET and cnt = "11" else '0';

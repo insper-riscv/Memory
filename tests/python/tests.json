@@ -117,6 +117,8 @@
     "SdramBist": {
         "toplevel": "sdram_bist_system",
         "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -139,6 +141,8 @@
     "SdramBistRegisteredPins": {
         "toplevel": "sdram_bist_system",
         "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -185,6 +189,8 @@
     "SdramCtrl": {
         "toplevel": "sdram_ctrl_tb",
         "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -203,6 +209,8 @@
     "SdramCtrl32": {
         "toplevel": "sdram_ctrl_tb",
         "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -224,6 +232,8 @@
     "SdramCtrl100MHz": {
         "toplevel": "sdram_ctrl_tb",
         "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -247,6 +257,8 @@
     "SdramArbiter": {
         "toplevel": "sdram_arbiter",
         "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/RAM/SoC/sdram/sdram_arbiter.vhd"

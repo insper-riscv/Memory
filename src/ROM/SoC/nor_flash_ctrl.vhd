@@ -111,7 +111,7 @@ entity nor_flash_ctrl is
         -- Leitura: palavra pedida (a palavra 0 da linha).
         o_rdata   : out   word_t;
         -- Leitura: palavras 1 a 3 da linha, a palavra 1 nos bits mais baixos.
-        o_rdata_x : out   std_logic_vector(95 downto 0);
+        o_rdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Comandos K4: pulso de um ciclo que entrega um comando.
         i_cmd_valid   : in    std_logic;
@@ -128,6 +128,7 @@ entity nor_flash_ctrl is
         -- Comandos K4: índice da palavra do buffer de página lida pela gravação, registrado.
         o_buf_idx     : out   std_logic_vector(log2_exact(page_bytes) - 3 downto 0);
         -- Comandos K4: palavra do buffer de página, com leitura registrada.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         i_buf_data    : in    std_logic_vector(31 downto 0);
         -- Comandos K4: pulso de um ciclo no fim de um apagar ou gravar aceito.
         o_inval_valid : out   std_logic;
@@ -232,7 +233,7 @@ architecture rtl of nor_flash_ctrl is
     -- A leitura em andamento está fora da janela do chip.
     signal out_win   : std_logic                              := '0';
     -- Bytes lidos: a palavra 0 nos bits 31 a 0 e as palavras 1 a 3 acima.
-    signal line_q    : std_logic_vector(127 downto 0)         := (others => '0');
+    signal line_q    : std_logic_vector(4 * XLEN - 1 downto 0)         := (others => '0');
     -- Endereço de byte entregue ao chip (registrado).
     signal addr_q    : unsigned(WINDOW_BITS - 1 downto 0)     := (others => '0');
     -- Dado entregue ao chip (registrado).
@@ -268,6 +269,7 @@ architecture rtl of nor_flash_ctrl is
     -- Fase da busca da palavra do buffer.
     signal fetch_n   : natural range 0 to 1                   := 0;
     -- Palavra do buffer em gravação.
+    -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
     signal word_q    : std_logic_vector(31 downto 0)          := (others => '0');
     -- Índice da palavra do buffer de página (registrado).
     signal buf_idx   : unsigned(PAGE_BITS - 3 downto 0)       := (others => '0');
@@ -345,6 +347,12 @@ architecture rtl of nor_flash_ctrl is
 
 begin
 
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
+
     assert size_bytes >= 8192 and size_bytes <= 2 ** 23
         report "size_bytes must be between 8 KB and 8 MB"
         severity failure;
@@ -369,8 +377,8 @@ begin
 
     o_ready       <= '1' when st = S_RD_DONE else '0';
     o_busy        <= '1' when st = S_RD else '0';
-    o_rdata       <= line_q(31 downto 0);
-    o_rdata_x     <= line_q(127 downto 32);
+    o_rdata       <= line_q(XLEN - 1 downto 0);
+    o_rdata_x     <= line_q(4 * XLEN - 1 downto XLEN);
     o_cmd_busy    <= '0' when st = S_IDLE else '1';
     o_wel         <= wel;
     o_refused     <= refused;
@@ -543,7 +551,7 @@ begin
                                 if i_line = '1' then
                                     line_q <= (others => '0');
                                 else
-                                    line_q(31 downto 0) <= (others => '0');
+                                    line_q(XLEN - 1 downto 0) <= (others => '0');
                                 end if;
                                 st <= S_RD_DONE;
                             else

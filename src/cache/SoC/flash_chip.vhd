@@ -62,11 +62,12 @@ entity flash_chip is
         -- Palavra pedida (a palavra 0 da linha).
         o_rdata   : out   word_t;
         -- Palavras 1 a 3 da linha, a palavra 1 nos bits mais baixos.
-        o_rdata_x : out   std_logic_vector(95 downto 0);
+        o_rdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Endereço de byte entregue à memória de armazenamento (registrado).
         o_mem_addr : out   addr_t;
         -- Palavra lida da memória de armazenamento (leitura registrada).
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         i_mem_data : in    std_logic_vector(31 downto 0)
     );
 end entity flash_chip;
@@ -98,11 +99,18 @@ architecture rtl of flash_chip is
     -- O pedido em andamento está fora da janela do chip.
     signal out_win   : std_logic                     := '0';
     -- Palavra 0 capturada.
+    -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
     signal w0        : std_logic_vector(31 downto 0) := (others => '0');
     -- Palavras 1 a 3 capturadas.
     signal wx        : std_logic_vector(95 downto 0) := (others => '0');
 
 begin
+
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
 
     o_mem_addr <= addr_q;
     o_rdata    <= w0;
@@ -135,6 +143,7 @@ begin
         -- Endereço-base da linha em andamento.
         variable next_base : unsigned(ADDR_BITS - 1 downto 0);
         -- Palavra capturada do armazenamento no ciclo corrente.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         variable captured  : std_logic_vector(31 downto 0);
 
     begin

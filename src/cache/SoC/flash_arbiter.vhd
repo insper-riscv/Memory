@@ -32,9 +32,9 @@ entity flash_arbiter is
         -- Mestre A: pedido concluído.
         o_a_ready   : out   std_logic;
         -- Mestre A: palavra lida.
-        o_a_rdata   : out   std_logic_vector(31 downto 0);
+        o_a_rdata   : out   word_t;
         -- Mestre A: palavras 1 a 3 da linha lida.
-        o_a_rdata_x : out   std_logic_vector(95 downto 0);
+        o_a_rdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Mestre B: endereço do pedido.
         i_b_addr    : in    addr_t;
@@ -47,9 +47,9 @@ entity flash_arbiter is
         -- Mestre B: pedido concluído.
         o_b_ready   : out   std_logic;
         -- Mestre B: palavra lida.
-        o_b_rdata   : out   std_logic_vector(31 downto 0);
+        o_b_rdata   : out   word_t;
         -- Mestre B: palavras 1 a 3 da linha lida.
-        o_b_rdata_x : out   std_logic_vector(95 downto 0);
+        o_b_rdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Chip: endereço do pedido.
         o_addr    : out   addr_t;
@@ -62,9 +62,9 @@ entity flash_arbiter is
         -- Chip: pedido concluído.
         i_ready   : in    std_logic;
         -- Chip: palavra lida.
-        i_rdata   : in    std_logic_vector(31 downto 0);
+        i_rdata   : in    word_t;
         -- Chip: palavras 1 a 3 da linha lida.
-        i_rdata_x : in    std_logic_vector(95 downto 0)
+        i_rdata_x : in    std_logic_vector(3 * XLEN - 1 downto 0)
     );
 end entity flash_arbiter;
 

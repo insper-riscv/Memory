@@ -99,11 +99,11 @@ entity ifetch_bridge is
         -- Lado da memória: acesso concluído, dado lido válido ('1').
         i_d_ready   : in    std_logic;
         -- Lado da memória: dado lido (a palavra 0).
-        i_d_rdata   : in    std_logic_vector(31 downto 0);
+        i_d_rdata   : in    word_t;
         -- Lado da memória: acesso de linha de quatro palavras ('1').
         o_d_line    : out   std_logic;
         -- Lado da memória: palavras 1 a 3 do dado lido da linha.
-        i_d_rdata_x : in    std_logic_vector(95 downto 0) := (others => '0')
+        i_d_rdata_x : in    std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0')
     );
 end entity ifetch_bridge;
 
@@ -147,7 +147,7 @@ architecture rtl of ifetch_bridge is
     constant LOW_BIT : natural  := low_bit_of(fetch_line);
 
     -- Palavras do registrador de busca (a palavra 0 nos bits mais baixos).
-    signal fetch_data : std_logic_vector(32 * WORDS - 1 downto 0) := (others => '0');
+    signal fetch_data : std_logic_vector(XLEN * WORDS - 1 downto 0) := (others => '0');
     -- Endereço do núcleo a que o registrador de busca pertence.
     signal fetch_addr : addr_t             := (others => '0');
     -- O registrador de busca guarda uma instrução válida.
@@ -190,12 +190,18 @@ architecture rtl of ifetch_bridge is
 
 begin
 
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
+
     match   <= '1' when i_addr(31 downto LOW_BIT) = fetch_addr(31 downto LOW_BIT) else '0';
     o_ready <= fetch_ok and match and i_sel;
 
     gen_line : if fetch_line generate
-        o_data <= fetch_data(32 * to_integer(unsigned(i_addr(3 downto 2))) + 31 downto
-                             32 * to_integer(unsigned(i_addr(3 downto 2))));
+        o_data <= fetch_data(XLEN * to_integer(unsigned(i_addr(3 downto 2))) + XLEN - 1 downto
+                             XLEN * to_integer(unsigned(i_addr(3 downto 2))));
     end generate gen_line;
 
     gen_word : if not fetch_line generate

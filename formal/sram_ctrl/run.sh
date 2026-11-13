@@ -57,7 +57,7 @@ mutant() {  # <cfg> <scenario> <depth> <name> <sed>
 mutant A WRITE 44 lanes_swapped     "s/lb_n_q  <= not be_q(2 \* half_n);/lb_n_q  <= not be_q(2 * half_n + 1);/"
 mutant A WRITE 44 empty_half_written "s/elsif be_q(2 \* half_n + 1 downto 2 \* half_n) = \"00\" then/elsif be_q(2 * half_n + 1 downto 2 * half_n) = \"11\" then/"
 mutant A WRITE 44 stride_two        "s/addr_q <= addr_q + 1;/addr_q <= addr_q + 2;/"
-mutant A READ  24 data_early        "s/o_rdata      <= rdata_q(31 downto 0);/o_rdata      <= pend_q(31 downto 0);/"
+mutant A READ  24 data_early        "s/o_rdata      <= rdata_q(XLEN - 1 downto 0);/o_rdata      <= pend_q(XLEN - 1 downto 0);/"
 mutant A READ  24 window_ignored    "s/if acc_outw = '1' then/if false then/"
 mutant A READ  24 data_bus_in_read  "/ub_n_q  <= '0';/{n;s/dq_oe_q <= '0';/dq_oe_q <= '1';/}"
 mutant A WRITE 44 oe_with_we        "s/we_n_q <= '0';/we_n_q <= '0'; oe_n_q <= '0';/"

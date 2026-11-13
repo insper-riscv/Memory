@@ -84,6 +84,7 @@ entity flash_cmd_port is
         -- Índice da palavra do buffer de página lida pela gravação (registrado).
         o_buf_idx  : out   std_logic_vector(log2_exact(page_bytes) - 3 downto 0);
         -- Palavra do buffer de página, com leitura registrada.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         i_buf_data : in    std_logic_vector(31 downto 0);
 
         -- Endereço de byte entregue à porta B da memória de armazenamento (registrado).
@@ -91,8 +92,10 @@ entity flash_cmd_port is
         -- Habilita de escrita da porta B da memória de armazenamento.
         o_mem_we    : out   std_logic;
         -- Palavra a escrever na porta B da memória de armazenamento.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         o_mem_wdata : out   std_logic_vector(31 downto 0);
         -- Palavra lida da porta B da memória de armazenamento (leitura registrada).
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         i_mem_data  : in    std_logic_vector(31 downto 0);
 
         -- Pulso de um ciclo no fim de um apagar ou gravar aceito: as caches devem derrubar a região.
@@ -162,6 +165,7 @@ architecture rtl of flash_cmd_port is
     -- Habilita de escrita registrada.
     signal we_q     : std_logic                              := '0';
     -- Palavra de escrita registrada.
+    -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
     signal wdata_q  : std_logic_vector(31 downto 0)          := (others => '0');
     -- Pulso de invalidação registrado.
     signal inval_q  : std_logic                              := '0';
