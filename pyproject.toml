@@ -1,6 +1,6 @@
 [project]
 name = "riscv-memory"
-version = "0.4.7"
+version = "0.4.8"
 description = "Memories of the RV32 SoC: simulation models, Quartus IPs of the board, and (future) external memory controllers."
 license = "Apache-2.0"
 # Same Python as the ci-vhdl image of Infra, which also carries riscv-tools.
