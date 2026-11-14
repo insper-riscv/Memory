@@ -18,7 +18,7 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name>
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/common/src/config_pkg.vhd" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog axi_master_bridge > "$2.v"
   # a copy that exposes the state registers the invariants need (the logic is the same)
   sed -e 's/input  i_m_rlast);/input  i_m_rlast,\n  output [1:0] dbg_st, output dbg_awv, output dbg_wv, output dbg_arv, output dbg_we, output [1:0] dbg_beat, output [1:0] dbg_last, output [95:0] dbg_wdx, output [11:0] dbg_bex);/' \
@@ -37,7 +37,7 @@ start prove bridge_dbg.v cover 40 '-DCOVER'                 cover
 
 # Mutants of the VHDL: each defect must make the safety proof fail.
 start_mutant no_wait_aw   "s/o_m_bready[[:space:]]*<= '1' when st = ST_WR and awv = '0' and wv = '0' else '0';/o_m_bready  <= '1' when st = ST_WR else '0';/"
-start_mutant strb_wrong   "s/strb_l  <= i_byteena;/strb_l  <= \"1111\";/"
+start_mutant strb_wrong   "s/strb_l  <= i_byteena;/strb_l  <= (others => '1');/"
 start_mutant drop_w       "s/if wv = '1' and i_m_wready = '1' then/if wv = '1' then/"
 start_mutant ready_pulse  "s/if i_mem_advance = '1' then/if true then/"
 start_mutant wlast_always "s/o_m_wlast   <= '1' when beat = last_b else '0';/o_m_wlast <= '1';/"

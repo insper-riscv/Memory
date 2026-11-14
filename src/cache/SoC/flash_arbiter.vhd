@@ -12,6 +12,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use work.config_pkg.all;
 
 entity flash_arbiter is
     port (
@@ -21,7 +22,7 @@ entity flash_arbiter is
         i_rst : in    std_logic;
 
         -- Mestre A: endereço do pedido.
-        i_a_addr    : in    std_logic_vector(31 downto 0);
+        i_a_addr    : in    addr_t;
         -- Mestre A: pedido de leitura ('1').
         i_a_rden    : in    std_logic;
         -- Mestre A: pedido de linha de quatro palavras ('1').
@@ -31,12 +32,12 @@ entity flash_arbiter is
         -- Mestre A: pedido concluído.
         o_a_ready   : out   std_logic;
         -- Mestre A: palavra lida.
-        o_a_rdata   : out   std_logic_vector(31 downto 0);
+        o_a_rdata   : out   word_t;
         -- Mestre A: palavras 1 a 3 da linha lida.
-        o_a_rdata_x : out   std_logic_vector(95 downto 0);
+        o_a_rdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Mestre B: endereço do pedido.
-        i_b_addr    : in    std_logic_vector(31 downto 0);
+        i_b_addr    : in    addr_t;
         -- Mestre B: pedido de leitura ('1').
         i_b_rden    : in    std_logic;
         -- Mestre B: pedido de linha de quatro palavras ('1').
@@ -46,12 +47,12 @@ entity flash_arbiter is
         -- Mestre B: pedido concluído.
         o_b_ready   : out   std_logic;
         -- Mestre B: palavra lida.
-        o_b_rdata   : out   std_logic_vector(31 downto 0);
+        o_b_rdata   : out   word_t;
         -- Mestre B: palavras 1 a 3 da linha lida.
-        o_b_rdata_x : out   std_logic_vector(95 downto 0);
+        o_b_rdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Chip: endereço do pedido.
-        o_addr    : out   std_logic_vector(31 downto 0);
+        o_addr    : out   addr_t;
         -- Chip: pedido de leitura.
         o_rden    : out   std_logic;
         -- Chip: pedido de linha.
@@ -61,9 +62,9 @@ entity flash_arbiter is
         -- Chip: pedido concluído.
         i_ready   : in    std_logic;
         -- Chip: palavra lida.
-        i_rdata   : in    std_logic_vector(31 downto 0);
+        i_rdata   : in    word_t;
         -- Chip: palavras 1 a 3 da linha lida.
-        i_rdata_x : in    std_logic_vector(95 downto 0)
+        i_rdata_x : in    std_logic_vector(3 * XLEN - 1 downto 0)
     );
 end entity flash_arbiter;
 

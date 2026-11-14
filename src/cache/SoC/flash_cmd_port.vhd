@@ -42,6 +42,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use work.utils_pkg.all;
 use work.chip_timing_pkg.max_natural;
 
@@ -54,7 +55,7 @@ entity flash_cmd_port is
         -- Tamanho da página de gravar em bytes, uma potência de dois de 8 bytes até sector_bytes (256).
         page_bytes      : positive                      := 256;
         -- Endereço de byte do início do chip no mapa do SoC, somado ao deslocamento na região de invalidação.
-        base_addr       : std_logic_vector(31 downto 0) := x"20000000";
+        base_addr       : addr_t := std_logic_vector(FLASH_BASE(ADDR_BITS - 1 downto 0));
         -- Bordas de espera de um apagar antes da varredura do setor.
         erase_latency   : natural                       := 2000;
         -- Bordas de espera de uma gravação antes da varredura da página.
@@ -71,7 +72,7 @@ entity flash_cmd_port is
         -- Código do comando: 001 habilitar escrita, 010 apagar, 011 gravar, 100 proteger, 101 desproteger.
         i_cmd_op    : in    std_logic_vector(2 downto 0);
         -- Endereço de byte do comando (a região é a do setor ou da página que o contém).
-        i_cmd_addr  : in    std_logic_vector(31 downto 0);
+        i_cmd_addr  : in    addr_t;
 
         -- O chip está executando um apagar ou uma gravação ('1').
         o_busy    : out   std_logic;
@@ -83,23 +84,26 @@ entity flash_cmd_port is
         -- Índice da palavra do buffer de página lida pela gravação (registrado).
         o_buf_idx  : out   std_logic_vector(log2_exact(page_bytes) - 3 downto 0);
         -- Palavra do buffer de página, com leitura registrada.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         i_buf_data : in    std_logic_vector(31 downto 0);
 
         -- Endereço de byte entregue à porta B da memória de armazenamento (registrado).
-        o_mem_addr  : out   std_logic_vector(31 downto 0);
+        o_mem_addr  : out   addr_t;
         -- Habilita de escrita da porta B da memória de armazenamento.
         o_mem_we    : out   std_logic;
         -- Palavra a escrever na porta B da memória de armazenamento.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         o_mem_wdata : out   std_logic_vector(31 downto 0);
         -- Palavra lida da porta B da memória de armazenamento (leitura registrada).
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         i_mem_data  : in    std_logic_vector(31 downto 0);
 
         -- Pulso de um ciclo no fim de um apagar ou gravar aceito: as caches devem derrubar a região.
         o_inval_valid : out   std_logic;
         -- Primeiro endereço de byte da região alterada.
-        o_inval_first : out   std_logic_vector(31 downto 0);
+        o_inval_first : out   addr_t;
         -- Último endereço de byte da região alterada.
-        o_inval_last  : out   std_logic_vector(31 downto 0)
+        o_inval_last  : out   addr_t
     );
 end entity flash_cmd_port;
 
@@ -161,13 +165,14 @@ architecture rtl of flash_cmd_port is
     -- Habilita de escrita registrada.
     signal we_q     : std_logic                              := '0';
     -- Palavra de escrita registrada.
+    -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
     signal wdata_q  : std_logic_vector(31 downto 0)          := (others => '0');
     -- Pulso de invalidação registrado.
     signal inval_q  : std_logic                              := '0';
     -- Primeiro endereço da região invalidada (registrado).
-    signal first_q  : unsigned(31 downto 0)                  := (others => '0');
+    signal first_q  : unsigned(ADDR_BITS - 1 downto 0)                  := (others => '0');
     -- Último endereço da região invalidada (registrado).
-    signal last_q   : unsigned(31 downto 0)                  := (others => '0');
+    signal last_q   : unsigned(ADDR_BITS - 1 downto 0)                  := (others => '0');
 
 begin
 
@@ -182,7 +187,7 @@ begin
     o_wel         <= wel;
     o_refused     <= refused;
     o_buf_idx     <= std_logic_vector(buf_idx);
-    o_mem_addr    <= std_logic_vector(resize(addr_q, 32));
+    o_mem_addr    <= std_logic_vector(resize(addr_q, ADDR_BITS));
     o_mem_we      <= we_q;
     o_mem_wdata   <= wdata_q;
     o_inval_valid <= inval_q;
@@ -198,7 +203,7 @@ begin
         -- O endereço do comando está fora da janela do chip.
         variable out_win : boolean;
         -- Primeiro endereço da região invalidada, no mapa do SoC.
-        variable first_a : unsigned(31 downto 0);
+        variable first_a : unsigned(ADDR_BITS - 1 downto 0);
 
     begin
 
@@ -285,9 +290,9 @@ begin
 
                                 ph <= 0;
                                 if word_n = last_n then
-                                    first_a := unsigned(base_addr) + resize(base_off, 32);
+                                    first_a := unsigned(base_addr) + resize(base_off, ADDR_BITS);
                                     first_q <= first_a;
-                                    last_q  <= first_a + to_unsigned(4 * (last_n + 1) - 1, 32);
+                                    last_q  <= first_a + to_unsigned(4 * (last_n + 1) - 1, ADDR_BITS);
                                     inval_q <= '1';
                                     wel     <= '0';
                                     st      <= S_IDLE;

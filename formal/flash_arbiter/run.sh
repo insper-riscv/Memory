@@ -18,7 +18,7 @@ source "$root/formal/common.sh"
 
 netlist() {  # <vhdl> <name>: the netlist and a copy that exposes the owner and the last served master
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/common/src/config_pkg.vhd" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog flash_arbiter > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v" owner:1 last_a

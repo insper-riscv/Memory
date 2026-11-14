@@ -13,6 +13,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.utils_pkg.all;
+use work.config_pkg.all;
 
 entity flash_dual_system is
     generic (
@@ -29,7 +30,9 @@ entity flash_dual_system is
         -- Bordas de espera de um apagar.
         erase_latency   : natural  := 40;
         -- Bordas de espera de uma gravação.
-        program_latency : natural  := 10
+        program_latency : natural  := 10;
+        -- Endereço do chip de comandos no mapa do SoC.
+        base_addr       : addr_t   := x"20000000"
     );
     port (
         -- Clock do sistema.
@@ -133,7 +136,7 @@ begin
     u_cmd : entity work.flash_cmd_port
         generic map (
             size_bytes    => size_bytes, sector_bytes => sector_bytes, page_bytes => page_bytes,
-            erase_latency => erase_latency, program_latency => program_latency
+            erase_latency => erase_latency, program_latency => program_latency, base_addr => base_addr
         )
         port map (
             i_clk         => i_clk,

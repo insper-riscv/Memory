@@ -13,7 +13,7 @@ module props (input clk);
   // Largura da janela da tag (window_bits do DUT): 26 é 64 MiB e 27 é 128 MiB.
   localparam WIN = `WINDOW;
   localparam [5:0] BASE_SDRAM = 6'b010000, BASE_FLASH = 6'b001000;
-  localparam [31:0] ROM_BASE = 32'h20000000, ROM_END = 32'h40000000;
+  localparam [31:0] FLASH_BASE = 32'h20000000, FLASH_END = 32'h40000000;
   (* anyconst *) wire [31:0] wa;
   (* anyconst *) wire [31:0] W;
   (* anyseq *) wire rst, sel, invalidate, d_ready;
@@ -33,12 +33,12 @@ module props (input clk);
     .i_invalidate(invalidate), .i_inval_region(inval_region), .i_inval_first(ifirst), .i_inval_last(ilast), .o_miss(miss), .o_d_addr(d_addr), .o_d_rden(d_rden), .o_d_advance(d_adv),
     .i_d_ready(d_ready), .i_d_rdata(d_rdata), .o_d_line(d_line), .i_d_rdata_x(d_rdata_x));
 
-  function in_rom (input [31:0] x);
-    in_rom = x >= ROM_BASE && x < ROM_END;
+  function in_flash (input [31:0] x);
+    in_flash = x >= FLASH_BASE && x < FLASH_END;
   endfunction
 
   // A linha de wa como a memória de baixo a vê, e a posição da palavra de wa nela.
-  wire [5:0] wbase = in_rom(wa) ? BASE_FLASH : BASE_SDRAM;
+  wire [5:0] wbase = in_flash(wa) ? BASE_FLASH : BASE_SDRAM;
   wire [31:0] wline = {wbase[5:WIN-26], wa[WIN-1:4], 4'b0000};
   wire [1:0] k = wa[3:2];
 

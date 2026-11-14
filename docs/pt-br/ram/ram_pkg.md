@@ -20,7 +20,7 @@ O pacote não tem generics nem portas. A função é pura.
 
 | Parâmetro | Tipo | Faixa | Significado |
 | :--- | :--- | :--- | :--- |
-| `addr` | `std_logic_vector(31 downto 0)` | 0 a $2^{32}-1$ | Endereço de byte do acesso; só os 26 bits baixos contam |
+| `addr` | `addr_t` | 0 a $2^{ADDR\_BITS}-1$ | Endereço de byte do acesso; só os 26 bits baixos contam |
 | `base_kib` | `natural` | 0 a 65535 | Base da janela dentro da região, em KiB |
 | retorno | `unsigned(25 downto 0)` | 0 a $2^{26}-1$ | Deslocamento em bytes dentro da janela |
 

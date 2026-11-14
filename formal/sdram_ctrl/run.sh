@@ -20,7 +20,7 @@ source "$root/formal/common.sh"
 # The wait of 200 us and the refresh period shrink to INIT and REFC clocks; the chip timings stay the project's.
 netlist() {  # <vhdl> <name> [período do clock em ps] [largura do DQ em bits]
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$root/src/RAM/SoC/sdram/sdram_pkg.vhd" "$root/src/ROM/SoC/chip_timing_pkg.vhd" "$(formal_vhdl "$root/src/common/src/synchronizer.vhd" "synchronizer_$2")" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/common/src/config_pkg.vhd" "$root/src/RAM/SoC/sdram/sdram_pkg.vhd" "$root/src/ROM/SoC/chip_timing_pkg.vhd" "$(formal_vhdl "$root/src/common/src/synchronizer.vhd" "synchronizer_$2")" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gtck_ps="${3:-7000}" -gdq_width="${4:-16}" -ginit_cycles=6 -grefresh_cycles=24 sdram_ctrl > "$2.v"
   cp "$2.v" "$2_dbg.v"
   expose "$2_dbg.v"

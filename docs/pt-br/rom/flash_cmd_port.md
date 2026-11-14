@@ -46,7 +46,7 @@ O controlador de FLASH NOR de um chip de dispositivo implementa a mesma face des
 | `size_bytes` | `positive` | 1048576 | Tamanho do chip em bytes, potência de dois maior que `sector_bytes` e de até 32 MB |
 | `sector_bytes` | `positive` | 4096 | Tamanho do setor de apagar e de proteger, potência de dois |
 | `page_bytes` | `positive` | 256 | Tamanho da página de gravar, potência de dois de 8 bytes até `sector_bytes` |
-| `base_addr` | vetor de 32 bits | `0x20000000` | Endereço do início do chip no mapa do SoC, somado ao deslocamento na região de invalidação |
+| `base_addr` | `addr_t` | `FLASH_BASE` do `config_pkg` (a instância de teste usa `0x20000000`) | Endereço do início do chip no mapa do SoC, somado ao deslocamento na região de invalidação |
 | `erase_latency` | `natural` | 2000 | Bordas de espera de um apagar antes da varredura do setor |
 | `program_latency` | `natural` | 200 | Bordas de espera de uma gravação antes da varredura da página |
 

@@ -11,6 +11,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use work.utils_pkg.all;
 
 package cache_pkg is
@@ -19,7 +20,7 @@ package cache_pkg is
     -- <= addr < end_kib * 1024; com base igual ao fim a região é vazia e o resultado é sempre '0'.
 
     pure function in_window (
-        addr : std_logic_vector(31 downto 0);
+        addr : addr_t;
         base_kib : natural;
         end_kib : natural
     ) return std_logic;
@@ -35,14 +36,14 @@ end package cache_pkg;
 package body cache_pkg is
 
     pure function in_window (
-        addr : std_logic_vector(31 downto 0);
+        addr : addr_t;
         base_kib : natural;
         end_kib : natural
     ) return std_logic is
     begin
 
-        if unsigned(addr) >= shift_left(to_unsigned(base_kib, 32), 10) and
-           unsigned(addr) < shift_left(to_unsigned(end_kib, 32), 10) then
+        if unsigned(addr) >= shift_left(to_unsigned(base_kib, ADDR_BITS), 10) and
+           unsigned(addr) < shift_left(to_unsigned(end_kib, ADDR_BITS), 10) then
             return '1';
         end if;
 

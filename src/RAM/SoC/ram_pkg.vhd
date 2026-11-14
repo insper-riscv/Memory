@@ -10,6 +10,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 
 package ram_pkg is
 
@@ -18,7 +19,7 @@ package ram_pkg is
     -- testa a base antes).
 
     pure function window_offset (
-        addr : std_logic_vector(31 downto 0);
+        addr : addr_t;
         base_kib : natural
     ) return unsigned;
 
@@ -27,7 +28,7 @@ end package ram_pkg;
 package body ram_pkg is
 
     pure function window_offset (
-        addr : std_logic_vector(31 downto 0);
+        addr : addr_t;
         base_kib : natural
     ) return unsigned is
     begin

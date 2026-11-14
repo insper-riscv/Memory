@@ -116,7 +116,7 @@ O Quartus Lite deste projeto não compila um `altsyncram` em duas portas junto c
 
 ## 6. Largura da palavra guardada diferente da palavra do core
 
-O core fala em palavras de 32 bits, com uma máscara de 4 bits (um bit por byte) e endereço de byte. Quando o dispositivo guarda palavras de $W \neq 32$ bits, um adaptador entre os dois reconcilia a diferença. O adaptador só vê a máscara de bytes na escrita e uma palavra inteira de 32 bits na leitura. Ele nunca recebe a largura da instrução, porque a seleção de byte ou meia palavra e a extensão de sinal acontecem no estágio WB do core. O tratamento completo está em [MEMORY_WIDTH.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/MEMORY_WIDTH.md), e esta seção resume as regras.
+O core fala em palavras de `XLEN` bits (`word_t`), com uma máscara de `XLEN`/8 bits (um bit por byte) e endereço de byte. Quando o dispositivo guarda palavras de $W \neq \text{XLEN}$ bits, um adaptador entre os dois reconcilia a diferença. O adaptador só vê a máscara de bytes na escrita e uma palavra inteira de `XLEN` bits na leitura. Ele nunca recebe a largura da instrução, porque a seleção de byte ou meia palavra e a extensão de sinal acontecem no estágio WB do core. O tratamento completo está em [MEMORY_WIDTH.md](https://github.com/insper-riscv/Core/blob/main/docs/pt-br/MEMORY_WIDTH.md), e esta seção resume as regras.
 
 ### 6.1. Endereço
 

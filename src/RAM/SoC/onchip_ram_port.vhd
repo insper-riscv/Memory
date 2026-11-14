@@ -45,6 +45,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use work.utils_pkg.all;
 use work.ram_pkg.all;
 
@@ -66,11 +67,11 @@ entity onchip_ram_port is
         i_rst : in    std_logic;
 
         -- Endereço de byte do acesso.
-        i_addr        : in    std_logic_vector(31 downto 0);
+        i_addr        : in    addr_t;
         -- Dado de escrita (palavra 0 da linha).
-        i_wdata       : in    std_logic_vector(31 downto 0);
+        i_wdata       : in    word_t;
         -- Habilita de bytes da escrita, um bit por byte (palavra 0).
-        i_byteena     : in    std_logic_vector(3 downto 0);
+        i_byteena     : in    std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Pedido de leitura ('1' = lê).
         i_rden        : in    std_logic;
         -- Pedido de escrita ('1' = escreve), que prevalece sobre a leitura se os dois vierem juntos.
@@ -80,19 +81,20 @@ entity onchip_ram_port is
         -- Acesso concluído, o dado lido é válido ('1').
         o_ready       : out   std_logic;
         -- Dado lido (palavra 0 da linha).
-        o_rdata       : out   std_logic_vector(31 downto 0);
+        o_rdata       : out   word_t;
         -- Acesso de linha, quatro palavras seguidas ('1').
         i_line        : in    std_logic                     := '0';
         -- Palavras 1 a 3 do dado de escrita da linha, a palavra 1 nos bits mais baixos.
-        i_wdata_x     : in    std_logic_vector(95 downto 0) := (others => '0');
+        i_wdata_x     : in    std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
         -- Habilita de bytes das palavras 1 a 3 da linha, quatro bits por palavra.
-        i_byteena_x   : in    std_logic_vector(11 downto 0) := (others => '0');
+        i_byteena_x   : in    std_logic_vector(3 * XLEN / 8 - 1 downto 0) := (others => '0');
         -- Palavras 1 a 3 do dado lido da linha.
-        o_rdata_x     : out   std_logic_vector(95 downto 0);
+        o_rdata_x     : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Bloco de RAM: índice da palavra (endereço de byte sem os dois bits baixos).
         o_mem_addr    : out   std_logic_vector(log2_exact(size_bytes) - 3 downto 0);
         -- Bloco de RAM: dado de escrita.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         o_mem_wdata   : out   std_logic_vector(31 downto 0);
         -- Bloco de RAM: habilita de bytes da escrita, um bit por byte.
         o_mem_byteena : out   std_logic_vector(3 downto 0);
@@ -101,11 +103,13 @@ entity onchip_ram_port is
         -- Bloco de RAM: habilita de escrita ('1').
         o_mem_wren    : out   std_logic;
         -- Bloco de RAM: palavra lida, válida um ciclo depois do endereço.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         i_mem_q       : in    std_logic_vector(31 downto 0);
 
         -- Índice da palavra que a porta de depuração lê, a partir do início da janela.
         i_dbg_word_addr : in    std_logic_vector(23 downto 0) := (others => '0');
         -- Palavra da RAM no índice de i_dbg_word_addr.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         o_dbg_word_data : out   std_logic_vector(31 downto 0)
     );
 end entity onchip_ram_port;
@@ -136,21 +140,21 @@ architecture rtl of onchip_ram_port is
     -- Índice da primeira palavra do acesso (alinhado em 4 palavras numa linha).
     signal acc_word  : std_logic_vector(WORD_BITS - 1 downto 0) := (others => '0');
     -- Dado de escrita capturado (palavra 0).
-    signal acc_wdata : std_logic_vector(31 downto 0)            := (others => '0');
+    signal acc_wdata : word_t            := (others => '0');
     -- Habilita de bytes capturado (palavra 0).
-    signal acc_be    : std_logic_vector(3 downto 0)             := (others => '0');
+    signal acc_be    : std_logic_vector(XLEN / 8 - 1 downto 0)             := (others => '0');
     -- Palavras 1 a 3 do dado de escrita capturado.
-    signal acc_wdx   : std_logic_vector(95 downto 0)            := (others => '0');
+    signal acc_wdx   : std_logic_vector(3 * XLEN - 1 downto 0)            := (others => '0');
     -- Habilita de bytes das palavras 1 a 3 capturado.
-    signal acc_bex   : std_logic_vector(11 downto 0)            := (others => '0');
+    signal acc_bex   : std_logic_vector(3 * XLEN / 8 - 1 downto 0)            := (others => '0');
     -- Palavra 0 lida, à espera do avanço do pipeline.
-    signal pend      : std_logic_vector(31 downto 0)            := (others => '0');
+    signal pend      : word_t            := (others => '0');
     -- Palavras 1 a 3 lidas, à espera do avanço do pipeline.
-    signal pend_x    : std_logic_vector(95 downto 0)            := (others => '0');
+    signal pend_x    : std_logic_vector(3 * XLEN - 1 downto 0)            := (others => '0');
     -- Palavra 0 entregue ao requisitante.
-    signal rdata_q   : std_logic_vector(31 downto 0)            := (others => '0');
+    signal rdata_q   : word_t            := (others => '0');
     -- Palavras 1 a 3 entregues ao requisitante.
-    signal rdx_q     : std_logic_vector(95 downto 0)            := (others => '0');
+    signal rdx_q     : std_logic_vector(3 * XLEN - 1 downto 0)            := (others => '0');
 
     -- O acesso emite palavras ao bloco neste ciclo.
     signal issue     : std_logic;
@@ -161,6 +165,7 @@ architecture rtl of onchip_ram_port is
     -- O índice da leitura em voo está fora da janela.
     signal dbg_out   : std_logic                     := '0';
     -- Palavra de depuração entregue.
+    -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
     signal dbg_q     : std_logic_vector(31 downto 0) := (others => '0');
     -- Índice de palavra do acesso em curso, com o passo somado nos dois bits baixos.
     signal acc_index : std_logic_vector(WORD_BITS - 1 downto 0);
@@ -174,6 +179,12 @@ architecture rtl of onchip_ram_port is
     signal lat_wait  : std_logic;
 
 begin
+
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
 
     assert size_bytes >= 16 and size_bytes <= 33554432
         report "size_bytes must be a power of two from 16 bytes to 32 MB"
@@ -211,13 +222,13 @@ begin
     o_mem_rden    <= dbg_issue or (issue and not acc_we and acc_in);
     o_mem_wren    <= issue and acc_we and acc_in;
     o_mem_byteena <= acc_be when step = 0 else
-                     acc_bex(3 downto 0) when step = 1 else
-                     acc_bex(7 downto 4) when step = 2 else
-                     acc_bex(11 downto 8);
+                     acc_bex(XLEN / 8 - 1 downto 0) when step = 1 else
+                     acc_bex(2 * XLEN / 8 - 1 downto XLEN / 8) when step = 2 else
+                     acc_bex(3 * XLEN / 8 - 1 downto 2 * XLEN / 8);
     o_mem_wdata   <= acc_wdata when step = 0 else
-                     acc_wdx(31 downto 0) when step = 1 else
-                     acc_wdx(63 downto 32) when step = 2 else
-                     acc_wdx(95 downto 64);
+                     acc_wdx(XLEN - 1 downto 0) when step = 1 else
+                     acc_wdx(2 * XLEN - 1 downto XLEN) when step = 2 else
+                     acc_wdx(3 * XLEN - 1 downto 2 * XLEN);
 
     -- Máquina do acesso: captura o pedido, emite as palavras ao bloco, recolhe as lidas e espera o avanço.
     p_access_fsm : process (i_clk) is
@@ -270,11 +281,11 @@ begin
                             if step = 1 then
                                 pend <= i_mem_q and (31 downto 0 => acc_in);
                             elsif step = 2 then
-                                pend_x(31 downto 0) <= i_mem_q and (31 downto 0 => acc_in);
+                                pend_x(XLEN - 1 downto 0) <= i_mem_q and (31 downto 0 => acc_in);
                             elsif step = 3 then
-                                pend_x(63 downto 32) <= i_mem_q and (31 downto 0 => acc_in);
+                                pend_x(2 * XLEN - 1 downto XLEN) <= i_mem_q and (31 downto 0 => acc_in);
                             else
-                                pend_x(95 downto 64) <= i_mem_q and (31 downto 0 => acc_in);
+                                pend_x(3 * XLEN - 1 downto 2 * XLEN) <= i_mem_q and (31 downto 0 => acc_in);
                             end if;
                         end if;
                         if step > last_step then

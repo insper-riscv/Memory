@@ -36,8 +36,8 @@
 -- ainda podem estar mais velhas que a memória quando o hospedeiro a escreve; um
 -- invalidate (veja flush) antes de o hospedeiro carregar algo novo as derruba.
 --
--- Divisão do endereço (janela de 2**window_bits bytes por região, 64 MiB por padrão): região (1 = ROM, pelos genéricos
--- rom_base_kib e rom_end_kib), bits window_bits-1:12
+-- Divisão do endereço (janela de 2**window_bits bytes por região, 64 MiB por padrão): região (1 = FLASH, pelos genéricos
+-- flash_base_kib e flash_end_kib), bits window_bits-1:12
 -- tag, 11:4 linha, 3:2 palavra. Os demais bits a partir de window_bits não são guardados; o
 -- lado da memória acrescenta a base da região neles (base_flash ou base_sdram).
 --
@@ -62,6 +62,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use work.cache_pkg.all;
 use work.utils_pkg.all;
 
@@ -78,14 +79,14 @@ entity dcache is
         base_sdram    : std_logic_vector(5 downto 0) := "010000";
         -- Bits 31:26 dos endereços da FLASH (0x20000000), acrescentados do lado da memória.
         base_flash    : std_logic_vector(5 downto 0) := "001000";
-        -- Base, em KiB, da região da ROM; o que cai nela é tratado como FLASH (0x20000000 por padrão).
+        -- Base, em KiB, da região da FLASH; o que cai nela é tratado como FLASH (0x20000000 por padrão).
         -- Origem: o espaço de endereços da região da FLASH que as caches do Memory enxergam, não o mapa
         -- do Core, por isso o padrão difere dos defaults do Core.
-        rom_base_kib  : natural                      := 524288;
-        -- Fim exclusivo, em KiB, da região da ROM (0x40000000 por padrão). Origem: o espaço de
+        flash_base_kib  : natural                      := 524288;
+        -- Fim exclusivo, em KiB, da região da FLASH (0x40000000 por padrão). Origem: o espaço de
         -- endereços da região da FLASH que as caches do Memory enxergam, não o mapa do Core, por isso o
         -- padrão difere dos defaults do Core.
-        rom_end_kib   : natural                      := 1048576;
+        flash_end_kib   : natural                      := 1048576;
         -- Verdadeiro: todo store vai também à memória e a falha de store não traz a linha (nenhuma linha fica suja).
         write_through : boolean                      := false
     );
@@ -96,11 +97,11 @@ entity dcache is
         i_rst : in    std_logic;
 
         -- Endereço do acesso.
-        i_addr        : in    std_logic_vector(31 downto 0);
+        i_addr        : in    addr_t;
         -- Dado de escrita.
-        i_wdata       : in    std_logic_vector(31 downto 0);
+        i_wdata       : in    word_t;
         -- Habilita de bytes da escrita, um bit por byte.
-        i_byteena     : in    std_logic_vector(3 downto 0);
+        i_byteena     : in    std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Pedido de leitura ('1' = lê).
         i_rden        : in    std_logic;
         -- Pedido de escrita ('1' = escreve).
@@ -110,7 +111,7 @@ entity dcache is
         -- Acesso concluído, o dado lido é válido ('1').
         o_ready       : out   std_logic;
         -- Dado lido.
-        o_rdata       : out   std_logic_vector(31 downto 0);
+        o_rdata       : out   word_t;
 
         -- Pede a escrita de todas as linhas sujas na memória ('1').
         i_flush        : in    std_logic;
@@ -121,9 +122,9 @@ entity dcache is
         -- Pulso que derruba as linhas limpas da região de i_inval_first a i_inval_last.
         i_inval_region : in    std_logic                     := '0';
         -- Primeiro endereço de byte da região a derrubar.
-        i_inval_first  : in    std_logic_vector(31 downto 0) := (others => '0');
+        i_inval_first  : in    addr_t := (others => '0');
         -- Último endereço de byte da região a derrubar (incluído).
-        i_inval_last   : in    std_logic_vector(31 downto 0) := (others => '0');
+        i_inval_last   : in    addr_t := (others => '0');
         -- O acesso em andamento não passa pela cache ('1'): um load vai à memória como palavra, sem consultar nem
         -- trazer linha, e um store só é repassado, sem atualizar a cache. Vale para as palavras que o hospedeiro
         -- escreve por trás da cache (por exemplo o fromhost), que a cache não poderia manter atualizadas.
@@ -134,11 +135,11 @@ entity dcache is
         o_busy         : out   std_logic;
 
         -- Lado da memória: endereço do acesso.
-        o_d_addr    : out   std_logic_vector(31 downto 0);
+        o_d_addr    : out   addr_t;
         -- Lado da memória: dado de escrita.
-        o_d_wdata   : out   std_logic_vector(31 downto 0);
+        o_d_wdata   : out   word_t;
         -- Lado da memória: habilita de bytes da escrita.
-        o_d_byteena : out   std_logic_vector(3 downto 0);
+        o_d_byteena : out   std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Lado da memória: pedido de leitura ('1').
         o_d_rden    : out   std_logic;
         -- Lado da memória: pedido de escrita ('1').
@@ -148,13 +149,13 @@ entity dcache is
         -- Lado da memória: acesso concluído, dado lido válido ('1').
         i_d_ready   : in    std_logic;
         -- Lado da memória: dado lido.
-        i_d_rdata   : in    std_logic_vector(31 downto 0);
+        i_d_rdata   : in    word_t;
         -- Lado da memória: acesso de linha de quatro palavras ('1').
         o_d_line    : out   std_logic;
         -- Lado da memória: palavras 1 a 3 do dado de escrita da linha.
-        o_d_wdata_x : out   std_logic_vector(95 downto 0);
+        o_d_wdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
         -- Lado da memória: palavras 1 a 3 do dado lido da linha.
-        i_d_rdata_x : in    std_logic_vector(95 downto 0) := (others => '0')
+        i_d_rdata_x : in    std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0')
     );
 end entity dcache;
 
@@ -177,7 +178,7 @@ architecture rtl of dcache is
     constant INDEX_BITS : natural := index_bits_of(size_bits);
     -- Linhas da cache.
     constant LINES      : natural := 2 ** INDEX_BITS;
-    -- Bits da tag: a região (ROM ou não) e os bits window_bits-1 até INDEX_BITS + 4.
+    -- Bits da tag: a região (FLASH ou não) e os bits window_bits-1 até INDEX_BITS + 4.
     constant TAG_BITS   : natural := window_bits - 3 - INDEX_BITS;
     -- Primeiro bit da tag no endereço, logo acima do índice e do deslocamento dentro da linha.
     constant TAG_LOW    : natural := INDEX_BITS + 4;
@@ -201,11 +202,11 @@ architecture rtl of dcache is
     -- Endereço de escrita da memória de dados.
     signal ram_wa : std_logic_vector(INDEX_BITS + 1 downto 0);
     -- Palavra lida da memória de dados (leitura registrada).
-    signal ram_rd : std_logic_vector(31 downto 0);
+    signal ram_rd : word_t;
     -- Dado de escrita da memória de dados.
-    signal ram_wd : std_logic_vector(31 downto 0);
+    signal ram_wd : word_t;
     -- Habilita de bytes da escrita na memória de dados.
-    signal ram_be : std_logic_vector(3 downto 0);
+    signal ram_be : std_logic_vector(XLEN / 8 - 1 downto 0);
     -- Habilita de escrita da memória de dados.
     signal ram_we : std_logic;
     -- Endereço de leitura da memória de tags.
@@ -221,7 +222,7 @@ architecture rtl of dcache is
 
     -- Tag do endereço do acesso.
     signal req_tag    : std_logic_vector(TAG_BITS - 1 downto 0);
-    -- O endereço do pedido está na região da ROM.
+    -- O endereço do pedido está na região da FLASH.
     signal is_rom     : std_logic;
     -- Índice da linha do endereço do acesso.
     signal req_idx    : std_logic_vector(INDEX_BITS - 1 downto 0);
@@ -243,25 +244,25 @@ architecture rtl of dcache is
     signal hit        : std_logic;
 
     -- Palavra lida da cache à espera do avanço do pipeline.
-    signal pend      : std_logic_vector(31 downto 0)     := (others => '0');
+    signal pend      : word_t     := (others => '0');
     -- Palavra entregue ao core.
-    signal rdata_q   : std_logic_vector(31 downto 0)     := (others => '0');
+    signal rdata_q   : word_t     := (others => '0');
     -- Pedido de leitura ao lado da memória (registrado).
     signal d_rden_i  : std_logic                         := '0';
     -- Pedido de escrita ao lado da memória (registrado).
     signal d_wren_i  : std_logic                         := '0';
     -- Habilita de bytes do pedido ao lado da memória (registrado).
-    signal d_be_i    : std_logic_vector(3 downto 0)      := "1111";
+    signal d_be_i    : std_logic_vector(XLEN / 8 - 1 downto 0)      := (others => '1');
     -- Pedido de linha ao lado da memória (registrado).
     signal d_line_i  : std_logic                         := '0';
     -- Linha em escrita de volta à memória.
-    signal wb_q      : std_logic_vector(127 downto 0)    := (others => '0');
+    signal wb_q      : std_logic_vector(4 * XLEN - 1 downto 0)    := (others => '0');
     -- Palavra da linha que acabou de chegar da memória.
-    signal fill_w    : std_logic_vector(31 downto 0);
+    signal fill_w    : word_t;
     -- Endereço do pedido ao lado da memória (registrado).
-    signal d_addr_i  : std_logic_vector(31 downto 0)     := (others => '0');
+    signal d_addr_i  : addr_t     := (others => '0');
     -- Dado do pedido ao lado da memória (registrado).
-    signal d_wdata_i : std_logic_vector(31 downto 0)     := (others => '0');
+    signal d_wdata_i : word_t     := (others => '0');
     -- Pulso de fim do flush (registrado).
     signal fd_i      : std_logic                         := '0';
     -- Há um pedido de invalidação por região a aplicar neste ciclo.
@@ -287,7 +288,13 @@ architecture rtl of dcache is
 
 begin
 
-    is_rom <= in_window(i_addr, rom_base_kib, rom_end_kib);
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
+
+    is_rom <= in_window(i_addr, flash_base_kib, flash_end_kib);
 
     req_tag <= is_rom & i_addr(window_bits - 1 downto TAG_LOW);
     req_idx <= i_addr(INDEX_BITS + 3 downto 4);
@@ -304,11 +311,11 @@ begin
               '0';
     ram_wa <= i_addr(INDEX_BITS + 3 downto 2) when st = S_LOOK else req_idx & std_logic_vector(cnt);
     fill_w <= i_d_rdata when cnt = "00" else
-              i_d_rdata_x(31 downto 0) when cnt = "01" else
-              i_d_rdata_x(63 downto 32) when cnt = "10" else
-              i_d_rdata_x(95 downto 64);
+              i_d_rdata_x(XLEN - 1 downto 0) when cnt = "01" else
+              i_d_rdata_x(2 * XLEN - 1 downto XLEN) when cnt = "10" else
+              i_d_rdata_x(3 * XLEN - 1 downto 2 * XLEN);
     ram_wd <= i_wdata when st = S_LOOK else fill_w;
-    ram_be <= i_byteena when st = S_LOOK else "1111";
+    ram_be <= i_byteena when st = S_LOOK else (others => '1');
     tag_we <= '1' when st = S_FILL_GET and cnt = "11" else '0';
     tag_wa <= req_idx;
     tag_wd <= req_tag;
@@ -328,7 +335,7 @@ begin
     -- Uma RAM por byte do dado, cada uma com a sua habilitação de escrita: é o que a síntese reconhece como bloco de
     -- RAM (uma RAM de 32 bits escrita byte a byte num laço viraria um vetor de registradores).
 
-    gen_lane : for b in 0 to 3 generate
+    gen_lane : for b in 0 to XLEN / 8 - 1 generate
         -- Os bytes de uma posição da RAM de dados, a faixa b da palavra.
         signal lane : lane_t := (others => (others => '0'));
     begin
@@ -359,7 +366,7 @@ begin
     o_d_rden    <= d_rden_i;
     o_d_wren    <= d_wren_i;
     o_d_line    <= d_line_i;
-    o_d_wdata_x <= wb_q(127 downto 32);
+    o_d_wdata_x <= wb_q(4 * XLEN - 1 downto XLEN);
     o_d_advance <= i_d_ready;
 
     p_cache_fsm : process (i_clk) is
@@ -472,7 +479,7 @@ begin
 
                         if i_d_ready = '1' then
                             d_wren_i <= '0';
-                            d_be_i   <= "1111";
+                            d_be_i   <= (others => '1');
                             st       <= S_DONE;
                         end if;
 
@@ -507,7 +514,7 @@ begin
 
                     when S_WB_CAP =>
 
-                        wb_q(32 * to_integer(cnt) + 31 downto 32 * to_integer(cnt)) <= ram_rd;
+                        wb_q(XLEN * to_integer(cnt) + XLEN - 1 downto XLEN * to_integer(cnt)) <= ram_rd;
                         if cnt = "11" then
                             st <= S_WB_REQ;
                         else
@@ -524,7 +531,7 @@ begin
                             d_addr_i <= base_sdram(5 downto window_bits - 26) & tag_rd(TAG_BITS - 2 downto 0)
                                         & cur_idx & "0000";
                         end if;
-                        d_wdata_i <= wb_q(31 downto 0);
+                        d_wdata_i <= wb_q(XLEN - 1 downto 0);
                         d_line_i  <= '1';
                         d_wren_i  <= '1';
                         st        <= S_WB_WAIT;

@@ -27,7 +27,7 @@ The times are in ns, and the defaults come from [chip_timing_pkg](chip_timing_pk
 | `size_bytes` | `positive` | 8388608 | Chip size, power of two from 8 KB to 8 MB |
 | `sector_bytes` | `positive` | 65536 | Erase and protect sector, power of two smaller than `size_bytes` |
 | `page_bytes` | `positive` | 256 | Program page, power of two from 8 bytes up to `sector_bytes` |
-| `base_addr` | 32-bit vector | `0x20000000` | Start of the chip in the SoC map, added to the offset in the invalidation region |
+| `base_addr` | `addr_t` | `FLASH_BASE` of `config_pkg` (the test instance uses `0x20000000`) | Start of the chip in the SoC map, added to the offset in the invalidation region |
 | `t_acc_ns` | `natural` | 90 | Random access |
 | `t_pacc_ns` | `natural` | 25 | Access inside the page |
 | `t_wc_ns` | `natural` | 90 | Write cycle |

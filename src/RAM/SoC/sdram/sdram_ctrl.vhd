@@ -32,6 +32,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use work.sdram_pkg.all;
 use work.chip_timing_pkg.max_natural;
 
@@ -74,19 +75,19 @@ entity sdram_ctrl is
         -- Endereço do acesso.
         i_addr      : in    std_logic_vector(dram_word_addr_bits(row_bits, bank_bits, col_bits, dq_width) - 1 downto 0);
         -- Dado de escrita.
-        i_wdata     : in    std_logic_vector(31 downto 0);
+        i_wdata     : in    word_t;
         -- Habilita de bytes do comando.
-        i_be        : in    std_logic_vector(3 downto 0);
+        i_be        : in    std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Dado lido.
-        o_rdata     : out   std_logic_vector(31 downto 0);
+        o_rdata     : out   word_t;
         -- Acesso de linha, quatro palavras seguidas ('1').
         i_line      : in    std_logic                     := '0';
         -- Palavras 1 a 3 do dado de escrita da linha.
-        i_wdata_x   : in    std_logic_vector(95 downto 0) := (others => '0');
+        i_wdata_x   : in    std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
         -- Habilita de bytes das palavras 1 a 3 da escrita de linha.
-        i_be_x      : in    std_logic_vector(11 downto 0) := (others => '0');
+        i_be_x      : in    std_logic_vector(3 * XLEN / 8 - 1 downto 0) := (others => '0');
         -- Palavras 1 a 3 do dado lido da linha.
-        o_rdata_x   : out   std_logic_vector(95 downto 0);
+        o_rdata_x   : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Habilita de clock (CKE) do chip.
         o_dram_cke    : out   std_logic;
@@ -208,29 +209,35 @@ architecture rtl of sdram_ctrl is
     -- Endereço do pedido em atendimento.
     signal addr_l  : std_logic_vector(ADDR_BITS - 1 downto 0) := (others => '0');
     -- Dado de escrita do pedido em atendimento.
-    signal wdata_l : std_logic_vector(31 downto 0)            := (others => '0');
+    signal wdata_l : word_t            := (others => '0');
     -- Habilita de bytes do pedido em atendimento.
-    signal be_l    : std_logic_vector(3 downto 0)             := (others => '0');
+    signal be_l    : std_logic_vector(XLEN / 8 - 1 downto 0)             := (others => '0');
     -- Clocks desde o primeiro comando READ.
     signal rd_t    : natural range 0 to 31                    := 0;
     -- O dado lido está sendo amostrado.
     signal rd_run  : std_logic                                := '0';
     -- Dado lido da palavra 0 (registrado).
-    signal rdata_i : std_logic_vector(31 downto 0)            := (others => '0');
+    signal rdata_i : word_t            := (others => '0');
     -- Palavras 1 a 3 lidas (registradas).
-    signal rdx_i   : std_logic_vector(95 downto 0)            := (others => '0');
+    signal rdx_i   : std_logic_vector(3 * XLEN - 1 downto 0)            := (others => '0');
     -- O pedido em atendimento é de linha.
     signal line_l  : std_logic                                := '0';
     -- Palavras 1 a 3 de escrita do pedido em atendimento.
-    signal wdx_l   : std_logic_vector(95 downto 0)            := (others => '0');
+    signal wdx_l   : std_logic_vector(3 * XLEN - 1 downto 0)            := (others => '0');
     -- Habilita de bytes das palavras 1 a 3 do pedido em atendimento.
-    signal bex_l   : std_logic_vector(11 downto 0)            := (others => '0');
+    signal bex_l   : std_logic_vector(3 * XLEN / 8 - 1 downto 0)            := (others => '0');
     -- Palavra da linha para a qual vai o próximo comando.
     signal lcnt    : natural range 0 to 3                     := 0;
     -- A inicialização terminou (registrado).
     signal init_i  : std_logic                                := '0';
 
 begin
+
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
 
     -- Leva o toggle de pedido do clock do core ao do controlador (sem uso quando sync_req = false).
     u_sync_req : entity work.synchronizer

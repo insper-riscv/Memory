@@ -16,7 +16,7 @@ module props (input clk);
   // Largura da janela da tag (window_bits do DUT): 26 é 64 MiB e 27 é 128 MiB.
   localparam WIN = `WINDOW;
   localparam [5:0] BASE_SDRAM = 6'b010000, BASE_FLASH = 6'b001000;
-  localparam [31:0] ROM_BASE = 32'h20000000, ROM_END = 32'h40000000;
+  localparam [31:0] FLASH_BASE = 32'h20000000, FLASH_END = 32'h40000000;
   (* anyconst *) wire [31:0] wa;
   (* anyseq *) wire rst, rden, wren, mem_advance, flush, invalidate, bypass, d_ready;
   (* anyseq *) wire [31:0] addr, wdata, d_rdata;
@@ -41,15 +41,15 @@ module props (input clk);
     .o_d_rden(d_rden), .o_d_wren(d_wren), .o_d_advance(d_adv), .i_d_ready(d_ready), .i_d_rdata(d_rdata), .o_d_line(d_line),
     .o_d_wdata_x(d_wdata_x), .i_d_rdata_x(d_rdata_x), .dbg_valid(d_valid), .dbg_inv_run(d_inv_run));
 
-  function in_rom (input [31:0] x);
-    in_rom = x >= ROM_BASE && x < ROM_END;
+  function in_flash (input [31:0] x);
+    in_flash = x >= FLASH_BASE && x < FLASH_END;
   endfunction
   function [31:0] merge (input [31:0] old, input [31:0] nw, input [3:0] be);
     merge = {be[3] ? nw[31:24] : old[31:24], be[2] ? nw[23:16] : old[23:16], be[1] ? nw[15:8] : old[15:8], be[0] ? nw[7:0] : old[7:0]};
   endfunction
 
   // O endereço vigiado como a memória de baixo o vê: a palavra e a linha, e a posição da palavra na linha.
-  wire [5:0] wbase = in_rom(wa) ? BASE_FLASH : BASE_SDRAM;
+  wire [5:0] wbase = in_flash(wa) ? BASE_FLASH : BASE_SDRAM;
   wire [31:0] wword = {wbase[5:WIN-26], wa[WIN-1:2], 2'b00};
   wire [1:0] k = wa[3:2];
 
@@ -88,7 +88,7 @@ module props (input clk);
   // os endereços do núcleo ficam na mesma janela (2**WIN bytes, 64 MiB por padrão) do endereço vigiado
   always @* assume (addr[31:WIN] == wa[31:WIN]);
   // fora da região da flash: um store na região da flash é um comando à flash, vai à memória de baixo e não ao cache
-  always @* assume (!in_rom(wa));
+  always @* assume (!in_flash(wa));
   always @* assume (!(rden && wren));
   always @* assume (!bypass);
   // o núcleo mantém o pedido até ser atendido, e consome a resposta no ciclo em que ela chega

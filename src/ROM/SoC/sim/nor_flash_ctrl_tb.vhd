@@ -12,6 +12,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
 use work.utils_pkg.all;
+use work.config_pkg.all;
 use work.chip_timing_pkg.all;
 
 entity nor_flash_ctrl_tb is
@@ -27,7 +28,7 @@ entity nor_flash_ctrl_tb is
         -- Tamanho da página em bytes.
         page_bytes         : positive                      := 64;
         -- Endereço do chip no mapa do SoC.
-        base_addr          : std_logic_vector(31 downto 0) := x"20000000";
+        base_addr          : addr_t                        := x"20000000";
         -- Acesso aleatório, em ns.
         t_acc_ns           : natural                       := NOR_T_ACC_NS;
         -- Acesso de página, em ns.

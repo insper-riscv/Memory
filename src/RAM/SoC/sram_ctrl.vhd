@@ -41,6 +41,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use work.utils_pkg.all;
 use work.chip_timing_pkg.all;
 use work.ram_pkg.all;
@@ -82,11 +83,11 @@ entity sram_ctrl is
         i_rst : in    std_logic;
 
         -- Endereço de byte do acesso.
-        i_addr      : in    std_logic_vector(31 downto 0);
+        i_addr      : in    addr_t;
         -- Dado de escrita (palavra 0 da linha).
-        i_wdata     : in    std_logic_vector(31 downto 0);
+        i_wdata     : in    word_t;
         -- Habilita de bytes da escrita, um bit por byte (palavra 0).
-        i_byteena   : in    std_logic_vector(3 downto 0);
+        i_byteena   : in    std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Pedido de leitura ('1' = lê).
         i_rden      : in    std_logic;
         -- Pedido de escrita ('1' = escreve), que prevalece sobre a leitura.
@@ -96,15 +97,15 @@ entity sram_ctrl is
         -- Acesso concluído, o dado lido é válido ('1').
         o_ready     : out   std_logic;
         -- Dado lido (palavra 0 da linha).
-        o_rdata     : out   std_logic_vector(31 downto 0);
+        o_rdata     : out   word_t;
         -- Acesso de linha, quatro palavras seguidas ('1').
         i_line      : in    std_logic                     := '0';
         -- Palavras 1 a 3 do dado de escrita da linha.
-        i_wdata_x   : in    std_logic_vector(95 downto 0) := (others => '0');
+        i_wdata_x   : in    std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
         -- Habilita de bytes das palavras 1 a 3 da linha.
-        i_byteena_x : in    std_logic_vector(11 downto 0) := (others => '0');
+        i_byteena_x : in    std_logic_vector(3 * XLEN / 8 - 1 downto 0) := (others => '0');
         -- Palavras 1 a 3 do dado lido da linha.
-        o_rdata_x   : out   std_logic_vector(95 downto 0);
+        o_rdata_x   : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Chip: endereço de palavra de 16 bits (SRAM_ADDR[19:0]).
         o_sram_addr  : out   std_logic_vector(19 downto 0);
@@ -187,23 +188,29 @@ architecture rtl of sram_ctrl is
     -- UB# registrado.
     signal ub_n_q    : std_logic                      := '1';
     -- Dado de escrita capturado (palavra 0 nos bits 31 a 0).
-    signal wdata_q   : std_logic_vector(127 downto 0) := (others => '0');
+    signal wdata_q   : std_logic_vector(4 * XLEN - 1 downto 0) := (others => '0');
     -- Habilita de bytes capturado.
-    signal be_q      : std_logic_vector(15 downto 0)  := (others => '0');
+    signal be_q      : std_logic_vector(4 * XLEN / 8 - 1 downto 0)  := (others => '0');
     -- Dado lido, à espera do avanço do pipeline.
-    signal pend_q    : std_logic_vector(127 downto 0) := (others => '0');
+    signal pend_q    : std_logic_vector(4 * XLEN - 1 downto 0) := (others => '0');
     -- Dado entregue ao pipeline.
-    signal rdata_q   : std_logic_vector(127 downto 0) := (others => '0');
+    signal rdata_q   : std_logic_vector(4 * XLEN - 1 downto 0) := (others => '0');
 
 begin
+
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
 
     assert size_bytes >= 16 and size_bytes <= 2 ** 21
         report "size_bytes must be between 16 bytes and 2 MB"
         severity failure;
 
     o_ready      <= '1' when st = S_DONE else '0';
-    o_rdata      <= rdata_q(31 downto 0);
-    o_rdata_x    <= rdata_q(127 downto 32);
+    o_rdata      <= rdata_q(XLEN - 1 downto 0);
+    o_rdata_x    <= rdata_q(4 * XLEN - 1 downto XLEN);
     o_sram_addr  <= std_logic_vector(addr_q);
     o_sram_dq    <= dq_q;
     o_sram_dq_oe <= dq_oe_q;
@@ -246,7 +253,7 @@ begin
     p_ctrl_fsm : process (i_clk) is
 
         -- Endereço de byte do acesso, alinhado a palavra ou a linha.
-        variable a      : unsigned(31 downto 0);
+        variable a      : unsigned(ADDR_BITS - 1 downto 0);
         -- Deslocamento do acesso dentro do chip, em bytes.
         variable offset : unsigned(25 downto 0);
 

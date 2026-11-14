@@ -46,7 +46,7 @@ The NOR FLASH controller of a device chip implements the same face as this model
 | `size_bytes` | `positive` | 1048576 | Chip size in bytes, a power of two greater than `sector_bytes` and up to 32 MB |
 | `sector_bytes` | `positive` | 4096 | Size of the erase and protect sector, a power of two |
 | `page_bytes` | `positive` | 256 | Size of the program page, a power of two from 8 bytes up to `sector_bytes` |
-| `base_addr` | 32-bit vector | `0x20000000` | Address of the start of the chip in the SoC map, added to the offset in the invalidation region |
+| `base_addr` | `addr_t` | `FLASH_BASE` of `config_pkg` (the test instance uses `0x20000000`) | Address of the start of the chip in the SoC map, added to the offset in the invalidation region |
 | `erase_latency` | `natural` | 2000 | Wait edges of an erase before the sector sweep |
 | `program_latency` | `natural` | 200 | Wait edges of a program before the page sweep |
 

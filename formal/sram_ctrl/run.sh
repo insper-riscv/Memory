@@ -27,7 +27,7 @@ netlist() {  # <vhdl> <name> [A|B]: the netlist and a copy that exposes the stat
   else
     times="-gt_aa_ns=10 -gt_rc_ns=10 -gt_wc_ns=10 -gt_sce_ns=10 -gt_aw_ns=10 -gt_pwe_ns=10 -gt_sd_ns=10 -gt_ha_ns=10 -gt_hd_ns=0"
   fi
-  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/latency/SoC/latency_counter.vhd" \
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/common/src/config_pkg.vhd" "$root/src/latency/SoC/latency_counter.vhd" \
     "$root/src/ROM/SoC/chip_timing_pkg.vhd" "$root/src/RAM/SoC/ram_pkg.vhd" "$1"
   # shellcheck disable=SC2086
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog -gclk_period_ns=10 -gsize_bytes=64 $times sram_ctrl > "$2.v"
@@ -57,7 +57,7 @@ mutant() {  # <cfg> <scenario> <depth> <name> <sed>
 mutant A WRITE 44 lanes_swapped     "s/lb_n_q  <= not be_q(2 \* half_n);/lb_n_q  <= not be_q(2 * half_n + 1);/"
 mutant A WRITE 44 empty_half_written "s/elsif be_q(2 \* half_n + 1 downto 2 \* half_n) = \"00\" then/elsif be_q(2 * half_n + 1 downto 2 * half_n) = \"11\" then/"
 mutant A WRITE 44 stride_two        "s/addr_q <= addr_q + 1;/addr_q <= addr_q + 2;/"
-mutant A READ  24 data_early        "s/o_rdata      <= rdata_q(31 downto 0);/o_rdata      <= pend_q(31 downto 0);/"
+mutant A READ  24 data_early        "s/o_rdata      <= rdata_q(XLEN - 1 downto 0);/o_rdata      <= pend_q(XLEN - 1 downto 0);/"
 mutant A READ  24 window_ignored    "s/if acc_outw = '1' then/if false then/"
 mutant A READ  24 data_bus_in_read  "/ub_n_q  <= '0';/{n;s/dq_oe_q <= '0';/dq_oe_q <= '1';/}"
 mutant A WRITE 44 oe_with_we        "s/we_n_q <= '0';/we_n_q <= '0'; oe_n_q <= '0';/"

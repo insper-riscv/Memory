@@ -107,6 +107,7 @@ architecture rtl of sdram_dbg_master is
     -- Habilita de bytes do comando em execução.
     signal be_l      : std_logic_vector(3 downto 0)      := (others => '0');
     -- Dado do comando em execução.
+    -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
     signal data_l    : std_logic_vector(31 downto 0)     := (others => '0');
     -- Palavra sendo acessada.
     signal cur_addr  : unsigned(addr_bits - 1 downto 0)  := (others => '0');
@@ -159,6 +160,7 @@ begin
         procedure issue (
             a  : unsigned(addr_bits - 1 downto 0);
             we : std_logic;
+            -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
             d  : std_logic_vector(31 downto 0);
             b  : std_logic_vector(3 downto 0)
         ) is

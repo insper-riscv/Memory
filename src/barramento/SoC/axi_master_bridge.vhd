@@ -35,6 +35,7 @@
 
 library ieee;
 use ieee.std_logic_1164.all;
+use work.config_pkg.all;
 
 entity axi_master_bridge is
     port (
@@ -44,11 +45,11 @@ entity axi_master_bridge is
         i_rst : in    std_logic;
 
         -- Endereço do acesso.
-        i_addr        : in    std_logic_vector(31 downto 0);
+        i_addr        : in    addr_t;
         -- Dado de escrita.
-        i_wdata       : in    std_logic_vector(31 downto 0);
+        i_wdata       : in    word_t;
         -- Habilita de bytes da escrita, um bit por byte.
-        i_byteena     : in    std_logic_vector(3 downto 0);
+        i_byteena     : in    std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Pedido de leitura ('1' = lê).
         i_rden        : in    std_logic;
         -- Pedido de escrita ('1' = escreve).
@@ -58,15 +59,15 @@ entity axi_master_bridge is
         -- Acesso concluído, o dado lido é válido ('1').
         o_ready       : out   std_logic;
         -- Dado lido.
-        o_rdata       : out   std_logic_vector(31 downto 0);
+        o_rdata       : out   word_t;
         -- Acesso de linha, quatro palavras seguidas ('1').
         i_line        : in    std_logic                     := '0';
         -- Palavras 1 a 3 do dado de escrita da linha.
-        i_wdata_x     : in    std_logic_vector(95 downto 0) := (others => '0');
+        i_wdata_x     : in    std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
         -- Habilita de bytes das palavras 1 a 3 da linha.
-        i_byteena_x   : in    std_logic_vector(11 downto 0) := (others => '0');
+        i_byteena_x   : in    std_logic_vector(3 * XLEN / 8 - 1 downto 0) := (others => '0');
         -- Palavras 1 a 3 do dado lido da linha.
-        o_rdata_x     : out   std_logic_vector(95 downto 0);
+        o_rdata_x     : out   std_logic_vector(3 * XLEN - 1 downto 0);
         -- Resposta de erro do barramento ('1').
         o_err         : out   std_logic;
 
@@ -75,7 +76,7 @@ entity axi_master_bridge is
         -- Porta mestre AXI4, canal de endereço de escrita: destino pronto para aceitar a transferência ('1').
         i_m_awready : in    std_logic;
         -- Porta mestre AXI4, canal de endereço de escrita: endereço do primeiro beat.
-        o_m_awaddr  : out   std_logic_vector(31 downto 0);
+        o_m_awaddr  : out   addr_t;
         -- Porta mestre AXI4, canal de endereço de escrita: número de beats da rajada menos um.
         o_m_awlen   : out   std_logic_vector(7 downto 0);
         -- Porta mestre AXI4, canal de endereço de escrita: log2 do número de bytes por beat.
@@ -89,9 +90,9 @@ entity axi_master_bridge is
         -- Porta mestre AXI4, canal de dados de escrita: destino pronto para aceitar a transferência ('1').
         i_m_wready  : in    std_logic;
         -- Porta mestre AXI4, canal de dados de escrita: dados.
-        o_m_wdata   : out   std_logic_vector(31 downto 0);
+        o_m_wdata   : out   word_t;
         -- Porta mestre AXI4, canal de dados de escrita: habilita de bytes.
-        o_m_wstrb   : out   std_logic_vector(3 downto 0);
+        o_m_wstrb   : out   std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Porta mestre AXI4, canal de dados de escrita: último beat da rajada ('1').
         o_m_wlast   : out   std_logic;
         -- Porta mestre AXI4, canal de resposta de escrita: validade da transferência ('1' = válida).
@@ -105,7 +106,7 @@ entity axi_master_bridge is
         -- Porta mestre AXI4, canal de endereço de leitura: destino pronto para aceitar a transferência ('1').
         i_m_arready : in    std_logic;
         -- Porta mestre AXI4, canal de endereço de leitura: endereço do primeiro beat.
-        o_m_araddr  : out   std_logic_vector(31 downto 0);
+        o_m_araddr  : out   addr_t;
         -- Porta mestre AXI4, canal de endereço de leitura: número de beats da rajada menos um.
         o_m_arlen   : out   std_logic_vector(7 downto 0);
         -- Porta mestre AXI4, canal de endereço de leitura: log2 do número de bytes por beat.
@@ -119,7 +120,7 @@ entity axi_master_bridge is
         -- Porta mestre AXI4, canal de dados de leitura: destino pronto para aceitar a transferência ('1').
         o_m_rready  : out   std_logic;
         -- Porta mestre AXI4, canal de dados de leitura: dados.
-        i_m_rdata   : in    std_logic_vector(31 downto 0);
+        i_m_rdata   : in    word_t;
         -- Porta mestre AXI4, canal de dados de leitura: resposta (0 = OKAY, 2 = SLVERR).
         i_m_rresp   : in    std_logic_vector(1 downto 0);
         -- Porta mestre AXI4, canal de dados de leitura: último beat da rajada ('1').
@@ -131,25 +132,25 @@ architecture rtl of axi_master_bridge is
 
     -- palavra k (1 a 3) das três palavras extras e seus quatro habilita de bytes
 
-    function word_x (v : std_logic_vector(95 downto 0); k : natural) return std_logic_vector is
+    function word_x (v : std_logic_vector(3 * XLEN - 1 downto 0); k : natural) return word_t is
     begin
 
         if k = 0 then
-            return x"00000000";
+            return (XLEN - 1 downto 0 => '0');
         end if;
 
-        return v(32 * k - 1 downto 32 * (k - 1));
+        return v(XLEN * k - 1 downto XLEN * (k - 1));
 
     end function word_x;
 
-    function be_x (v : std_logic_vector(11 downto 0); k : natural) return std_logic_vector is
+    function be_x (v : std_logic_vector(3 * XLEN / 8 - 1 downto 0); k : natural) return std_logic_vector is
     begin
 
         if k = 0 then
-            return "0000";
+            return (XLEN / 8 - 1 downto 0 => '0');
         end if;
 
-        return v(4 * k - 1 downto 4 * (k - 1));
+        return v(XLEN / 8 * k - 1 downto XLEN / 8 * (k - 1));
 
     end function be_x;
 
@@ -170,29 +171,35 @@ architecture rtl of axi_master_bridge is
     -- Último beat da transação: 3 para uma linha, 0 para uma palavra.
     signal last_b    : natural range 0 to 3          := 0;
     -- Endereço do acesso, copiado ao iniciar.
-    signal addr_l    : std_logic_vector(31 downto 0) := (others => '0');
+    signal addr_l    : addr_t := (others => '0');
     -- Dado de escrita da palavra 0, copiado ao iniciar.
-    signal wdata_l   : std_logic_vector(31 downto 0) := (others => '0');
+    signal wdata_l   : word_t := (others => '0');
     -- Habilita de bytes da palavra 0, copiado ao iniciar.
-    signal strb_l    : std_logic_vector(3 downto 0)  := (others => '0');
+    signal strb_l    : std_logic_vector(XLEN / 8 - 1 downto 0)  := (others => '0');
     -- Palavras 1 a 3 de escrita, copiadas ao iniciar.
-    signal wdx_l     : std_logic_vector(95 downto 0) := (others => '0');
+    signal wdx_l     : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
     -- Habilita de bytes das palavras 1 a 3, copiado ao iniciar.
-    signal bex_l     : std_logic_vector(11 downto 0) := (others => '0');
+    signal bex_l     : std_logic_vector(3 * XLEN / 8 - 1 downto 0) := (others => '0');
     -- O acesso em andamento é uma escrita.
     signal we_l      : std_logic                     := '0';
     -- O escravo respondeu com erro, ou faltou rlast na leitura.
     signal err_l     : std_logic                     := '0';
     -- Palavra 0 lida, à espera do avanço do pipeline.
-    signal pending   : std_logic_vector(31 downto 0) := (others => '0');
+    signal pending   : word_t := (others => '0');
     -- Palavras 1 a 3 lidas, à espera do avanço do pipeline.
-    signal pending_x : std_logic_vector(95 downto 0) := (others => '0');
+    signal pending_x : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
     -- Palavra 0 entregue ao core.
-    signal rdata_q   : std_logic_vector(31 downto 0) := (others => '0');
+    signal rdata_q   : word_t := (others => '0');
     -- Palavras 1 a 3 entregues ao core.
-    signal rdx_q     : std_logic_vector(95 downto 0) := (others => '0');
+    signal rdx_q     : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
 
 begin
+
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
 
     o_m_awvalid <= awv;
     o_m_awaddr  <= addr_l;
@@ -290,7 +297,7 @@ begin
                             if beat = 0 then
                                 pending <= i_m_rdata;
                             else
-                                pending_x(32 * beat - 1 downto 32 * (beat - 1)) <= i_m_rdata; -- aqui os beats 1 a 3
+                                pending_x(XLEN * beat - 1 downto XLEN * (beat - 1)) <= i_m_rdata; -- aqui os beats 1 a 3
                             end if;
                             if i_m_rresp(1) = '1' then
                                 err_l <= '1';

@@ -2,7 +2,7 @@
 
 ## 1. Função do componente no SoC
 
-A ponte de busca entrega ao núcleo a instrução do endereço de busca lendo-a diretamente da memória externa, para a plataforma com ROM externa e sem cache de instruções. Ela ocupa o lugar da [icache](icache.md) com o mesmo contrato no lado do núcleo e o mesmo contrato de linha no lado da memória, então a troca de uma pela outra não altera quem as liga.
+A ponte de busca entrega ao núcleo a instrução do endereço de busca lendo-a diretamente da memória externa, para a plataforma com FLASH externa e sem cache de instruções. Ela ocupa o lugar da [icache](icache.md) com o mesmo contrato no lado do núcleo e o mesmo contrato de linha no lado da memória, então a troca de uma pela outra não altera quem as liga.
 
 Ela não é uma cache. Não há RAM de dados, vetor de tags, bit de validade por linha nem reaproveitamento por índice. Existe um único registrador de busca, que guarda a palavra pedida (ou a linha de quatro palavras que a contém, conforme o genérico `fetch_line`) e o endereço a que pertence.
 
@@ -26,8 +26,8 @@ O primeiro endereço fora do registrador, inclusive o alvo de um desvio, dispara
 | `window_bits` | natural de 26 a 29 | 26 | Largura da janela de endereços da cache: $2^{\texttt{window\_bits}}$ bytes (26 é 64 MiB, 27 é 128 MiB). A tag guarda os bits abaixo dela |
 | `base_sdram` | vetor de 6 bits | `010000` | Bits 31 a 26 dos endereços da SDRAM no lado da memória (0x40000000); entram só os bits de 31 até `window_bits` |
 | `base_flash` | vetor de 6 bits | `001000` | Bits 31 a 26 dos endereços da FLASH no lado da memória (0x20000000); entram só os bits de 31 até `window_bits` |
-| `rom_base_kib` | natural | 524288 | Base da região da ROM em KiB; o que cai nela é tratado como FLASH |
-| `rom_end_kib` | natural | 1048576 | Fim exclusivo da região da ROM em KiB |
+| `flash_base_kib` | natural | 524288 | Base da região da FLASH em KiB; o que cai nela é tratado como FLASH |
+| `flash_end_kib` | natural | 1048576 | Fim exclusivo da região da FLASH em KiB |
 
 ### 2.2. Portas
 

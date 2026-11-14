@@ -24,8 +24,8 @@ A visão geral do caminho do core até a SDRAM, as medições de custo e as esco
 | `window_bits` | natural de 26 a 29 | 26 | Largura da janela de endereços da cache: $2^{\texttt{window\_bits}}$ bytes (26 é 64 MiB, 27 é 128 MiB). A tag guarda os bits abaixo dela |
 | `base_sdram` | vetor de 6 bits | `010000` | Bits 31 a 26 dos endereços da SDRAM no lado da memória (0x40000000); entram só os bits de 31 até `window_bits` |
 | `base_flash` | vetor de 6 bits | `001000` | Bits 31 a 26 dos endereços da FLASH no lado da memória (0x20000000); entram só os bits de 31 até `window_bits` |
-| `rom_base_kib` | natural | 524288 | Base da região da ROM em KiB; o que cai nela é tratado como FLASH (0x20000000) |
-| `rom_end_kib` | natural | 1048576 | Fim exclusivo da região da ROM em KiB (0x40000000) |
+| `flash_base_kib` | natural | 524288 | Base da região da FLASH em KiB; o que cai nela é tratado como FLASH (0x20000000) |
+| `flash_end_kib` | natural | 1048576 | Fim exclusivo da região da FLASH em KiB (0x40000000) |
 | `write_through` | boolean | falso | Verdadeiro faz todo store ir também à memória e a falha de store não trazer a linha |
 
 ### 2.2. Portas do lado do core
@@ -79,13 +79,13 @@ Com $I = \log_2(\texttt{size\_bits}) - 7$ bits de índice, a cache tem $2^I$ lin
 | Palavra na linha | 3 a 2 | 2 |
 | Índice | $I+3$ a 4 | $I$ |
 | Tag | `window_bits`$-1$ a $I+4$ | $W-4-I$ |
-| Região | Calculada a partir de `rom_base_kib` e `rom_end_kib`; vira o bit mais significativo da tag | 1 |
+| Região | Calculada a partir de `flash_base_kib` e `flash_end_kib`; vira o bit mais significativo da tag | 1 |
 
 $$
 \text{TAG\_BITS} = W - 3 - I
 $$
 
-Aqui $W$ é `window_bits`. Os bits de 31 a $W$ não são guardados. Num pedido ao lado da memória, a cache os reconstrói com os bits de 5 a $W-26$ de `base_flash` (região da ROM) ou `base_sdram`. Com o tamanho padrão e `window_bits` igual a 26, $I = 8$ (256 linhas) e a tag tem 15 bits; com 27, a janela cobre os 128 MiB da SDRAM da DE2-115 e a tag tem 16 bits. A largura é fixada em geração pelo mapa da plataforma (`CACHE_WINDOW_BITS`).
+Aqui $W$ é `window_bits`. Os bits de 31 a $W$ não são guardados. Num pedido ao lado da memória, a cache os reconstrói com os bits de 5 a $W-26$ de `base_flash` (região da FLASH) ou `base_sdram`. Com o tamanho padrão e `window_bits` igual a 26, $I = 8$ (256 linhas) e a tag tem 15 bits; com 27, a janela cobre os 128 MiB da SDRAM da DE2-115 e a tag tem 16 bits. A largura é fixada em geração pelo mapa da plataforma (`D_CACHE_WINDOW_BITS`).
 
 A escolha da base, no preenchimento e na escrita de volta, usa o bit mais significativo da tag (o bit de região), para qualquer tamanho.
 
@@ -109,12 +109,12 @@ Em `S_IDLE`, um flush pendente tem prioridade sobre um acesso. Em `S_LOOK`, a de
 | Ordem | Condição | Próximo estado | Efeito |
 | ---: | :--- | :--- | :--- |
 | 1 | `i_bypass` em 1 e `i_wren` em 0 | `S_BY_REQ` | Load de uma palavra direto da memória |
-| 2 | `i_wren` em 1 e (`write_through` ou endereço na ROM ou `i_bypass` em 1) | `S_WT_REQ` | Store repassado à memória |
+| 2 | `i_wren` em 1 e (`write_through` ou endereço na FLASH ou `i_bypass` em 1) | `S_WT_REQ` | Store repassado à memória |
 | 3 | Acerto | `S_DONE` | Load guarda a palavra lida; store marca a linha como suja |
 | 4 | Falha, linha válida e suja | `S_WB_RD` | Escrita de volta e depois preenchimento |
 | 5 | Falha, linha limpa ou inválida | `S_FILL_REQ` | Preenchimento |
 
-O acerto é a validade da linha com a tag lida igual à tag do endereço. Num store que segue a ordem 2 e acerta, as RAMs também recebem a palavra, exceto se o endereço está na ROM ou se `i_bypass` está em 1. Assim, um store à FLASH nunca altera a cache, nem num acerto nem numa falha; ele só é repassado à memória, onde o roteador de região o conclui sem efeito.
+O acerto é a validade da linha com a tag lida igual à tag do endereço. Num store que segue a ordem 2 e acerta, as RAMs também recebem a palavra, exceto se o endereço está na FLASH ou se `i_bypass` está em 1. Assim, um store à FLASH nunca altera a cache, nem num acerto nem numa falha; ele só é repassado à memória, onde o roteador de região o conclui sem efeito.
 
 Terminado o preenchimento, a máquina volta a `S_IDLE` e refaz a consulta, de modo que o acesso que causou a falha é atendido como acerto. Num store sem `write_through`, isso marca a linha como suja (write-allocate).
 

@@ -51,6 +51,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use work.utils_pkg.all;
 use work.chip_timing_pkg.all;
 
@@ -67,7 +68,7 @@ entity nor_flash_ctrl is
         -- Tamanho da página de gravar, em bytes, potência de dois de 8 bytes até sector_bytes.
         page_bytes    : positive                      := 256;
         -- Endereço do início do chip no mapa do SoC, somado ao deslocamento na região de invalidação.
-        base_addr     : std_logic_vector(31 downto 0) := x"20000000";
+        base_addr     : addr_t := std_logic_vector(FLASH_BASE(ADDR_BITS - 1 downto 0));
         -- Acesso aleatório (endereço e CE# até o dado), em ns.
         t_acc_ns      : natural                       := NOR_T_ACC_NS;
         -- Acesso dentro da página, em ns.
@@ -96,7 +97,7 @@ entity nor_flash_ctrl is
         i_rst : in    std_logic;
 
         -- Leitura: endereço do pedido.
-        i_addr    : in    std_logic_vector(31 downto 0);
+        i_addr    : in    addr_t;
         -- Leitura: pedido de leitura ('1' = lê).
         i_rden    : in    std_logic;
         -- Leitura: pedido de linha de quatro palavras ('1') ou de uma palavra ('0').
@@ -108,16 +109,16 @@ entity nor_flash_ctrl is
         -- Leitura: o controlador está esperando o chip por um pedido ('1' em cada ciclo de espera).
         o_busy    : out   std_logic;
         -- Leitura: palavra pedida (a palavra 0 da linha).
-        o_rdata   : out   std_logic_vector(31 downto 0);
+        o_rdata   : out   word_t;
         -- Leitura: palavras 1 a 3 da linha, a palavra 1 nos bits mais baixos.
-        o_rdata_x : out   std_logic_vector(95 downto 0);
+        o_rdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Comandos K4: pulso de um ciclo que entrega um comando.
         i_cmd_valid   : in    std_logic;
         -- Comandos K4: código do comando (1 habilitar escrita, 2 apagar, 3 gravar, 4 proteger, 5 desproteger).
         i_cmd_op      : in    std_logic_vector(2 downto 0);
         -- Comandos K4: endereço de byte do comando.
-        i_cmd_addr    : in    std_logic_vector(31 downto 0);
+        i_cmd_addr    : in    addr_t;
         -- Comandos K4: o controlador não aceita comando (leitura, operação ou reset em andamento).
         o_cmd_busy    : out   std_logic;
         -- Comandos K4: o latch de escrita está armado.
@@ -127,13 +128,14 @@ entity nor_flash_ctrl is
         -- Comandos K4: índice da palavra do buffer de página lida pela gravação, registrado.
         o_buf_idx     : out   std_logic_vector(log2_exact(page_bytes) - 3 downto 0);
         -- Comandos K4: palavra do buffer de página, com leitura registrada.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         i_buf_data    : in    std_logic_vector(31 downto 0);
         -- Comandos K4: pulso de um ciclo no fim de um apagar ou gravar aceito.
         o_inval_valid : out   std_logic;
         -- Comandos K4: primeiro endereço de byte da região alterada, no mapa do SoC.
-        o_inval_first : out   std_logic_vector(31 downto 0);
+        o_inval_first : out   addr_t;
         -- Comandos K4: último endereço de byte da região alterada.
-        o_inval_last  : out   std_logic_vector(31 downto 0);
+        o_inval_last  : out   addr_t;
 
         -- Chip: endereço de byte (FL_ADDR[22:0]).
         o_fl_addr  : out   std_logic_vector(22 downto 0);
@@ -231,7 +233,7 @@ architecture rtl of nor_flash_ctrl is
     -- A leitura em andamento está fora da janela do chip.
     signal out_win   : std_logic                              := '0';
     -- Bytes lidos: a palavra 0 nos bits 31 a 0 e as palavras 1 a 3 acima.
-    signal line_q    : std_logic_vector(127 downto 0)         := (others => '0');
+    signal line_q    : std_logic_vector(4 * XLEN - 1 downto 0)         := (others => '0');
     -- Endereço de byte entregue ao chip (registrado).
     signal addr_q    : unsigned(WINDOW_BITS - 1 downto 0)     := (others => '0');
     -- Dado entregue ao chip (registrado).
@@ -267,15 +269,16 @@ architecture rtl of nor_flash_ctrl is
     -- Fase da busca da palavra do buffer.
     signal fetch_n   : natural range 0 to 1                   := 0;
     -- Palavra do buffer em gravação.
+    -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
     signal word_q    : std_logic_vector(31 downto 0)          := (others => '0');
     -- Índice da palavra do buffer de página (registrado).
     signal buf_idx   : unsigned(PAGE_BITS - 3 downto 0)       := (others => '0');
     -- Pulso de invalidação registrado.
     signal inval_q   : std_logic                              := '0';
     -- Primeiro endereço da região invalidada (registrado).
-    signal first_q   : unsigned(31 downto 0)                  := (others => '0');
+    signal first_q   : unsigned(ADDR_BITS - 1 downto 0)                  := (others => '0');
     -- Último endereço da região invalidada (registrado).
-    signal last_q    : unsigned(31 downto 0)                  := (others => '0');
+    signal last_q    : unsigned(ADDR_BITS - 1 downto 0)                  := (others => '0');
 
     -- Devolve o endereço e o dado do passo da sequência de comando do chip. Os endereços de desbloqueio são os de
     -- modo byte (0xAAA e 0x555).
@@ -344,6 +347,12 @@ architecture rtl of nor_flash_ctrl is
 
 begin
 
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
+
     assert size_bytes >= 8192 and size_bytes <= 2 ** 23
         report "size_bytes must be between 8 KB and 8 MB"
         severity failure;
@@ -368,8 +377,8 @@ begin
 
     o_ready       <= '1' when st = S_RD_DONE else '0';
     o_busy        <= '1' when st = S_RD else '0';
-    o_rdata       <= line_q(31 downto 0);
-    o_rdata_x     <= line_q(127 downto 32);
+    o_rdata       <= line_q(XLEN - 1 downto 0);
+    o_rdata_x     <= line_q(4 * XLEN - 1 downto XLEN);
     o_cmd_busy    <= '0' when st = S_IDLE else '1';
     o_wel         <= wel;
     o_refused     <= refused;
@@ -436,7 +445,7 @@ begin
         -- Início da página do endereço do comando, dentro do chip.
         variable pg_off   : unsigned(WINDOW_BITS - 1 downto 0);
         -- Endereço de byte do pedido de leitura, alinhado a palavra ou a linha.
-        variable rd_addr  : unsigned(31 downto 0);
+        variable rd_addr  : unsigned(ADDR_BITS - 1 downto 0);
         -- Endereço do passo de escrita.
         variable w_addr   : unsigned(WINDOW_BITS - 1 downto 0);
         -- Dado do passo de escrita.
@@ -446,7 +455,7 @@ begin
         -- Dado do byte em gravação.
         variable byte_dat : std_logic_vector(7 downto 0);
         -- Primeiro endereço da região invalidada, no mapa do SoC.
-        variable first_a  : unsigned(31 downto 0);
+        variable first_a  : unsigned(ADDR_BITS - 1 downto 0);
         -- Bytes da região invalidada.
         variable region   : natural;
 
@@ -542,7 +551,7 @@ begin
                                 if i_line = '1' then
                                     line_q <= (others => '0');
                                 else
-                                    line_q(31 downto 0) <= (others => '0');
+                                    line_q(XLEN - 1 downto 0) <= (others => '0');
                                 end if;
                                 st <= S_RD_DONE;
                             else
@@ -672,14 +681,14 @@ begin
 
                     when S_FIN =>
 
-                        first_a := unsigned(base_addr) + resize(base_off, 32);
+                        first_a := unsigned(base_addr) + resize(base_off, ADDR_BITS);
                         if is_erase = '1' then
                             region := sector_bytes;
                         else
                             region := page_bytes;
                         end if;
                         first_q <= first_a;
-                        last_q  <= first_a + to_unsigned(region - 1, 32);
+                        last_q  <= first_a + to_unsigned(region - 1, ADDR_BITS);
                         inval_q <= '1';
                         wel     <= '0';
                         st      <= S_IDLE;

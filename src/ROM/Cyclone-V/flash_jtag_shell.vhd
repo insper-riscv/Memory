@@ -21,12 +21,14 @@ entity flash_jtag_shell is
     -- Endereço de palavra do comando.
     o_addr       : out std_logic_vector(23 downto 0);
     -- Dado do comando.
+    -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
     o_data       : out std_logic_vector(31 downto 0);
     -- Alternância que confirma o comando concluído.
     i_done_tog   : in  std_logic;
     -- Endereço da resposta do comando.
     i_rsp_addr   : in  std_logic_vector(23 downto 0);
     -- Dado da resposta do comando.
+    -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
     i_rsp_data   : in  std_logic_vector(31 downto 0);
     -- Status da resposta do comando.
     i_rsp_status : in  std_logic_vector(7 downto 0)

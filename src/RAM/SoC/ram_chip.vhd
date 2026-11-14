@@ -31,6 +31,7 @@
 library ieee;
 use ieee.std_logic_1164.all;
 use ieee.numeric_std.all;
+use work.config_pkg.all;
 use std.textio.all;
 use work.utils_pkg.all;
 use work.ram_pkg.all;
@@ -55,11 +56,11 @@ entity ram_chip is
         i_rst : in    std_logic;
 
         -- Porta de dados: endereço do acesso.
-        i_addr        : in    std_logic_vector(31 downto 0);
+        i_addr        : in    addr_t;
         -- Porta de dados: dado de escrita.
-        i_wdata       : in    std_logic_vector(31 downto 0);
+        i_wdata       : in    word_t;
         -- Porta de dados: habilita de bytes da escrita, um bit por byte.
-        i_byteena     : in    std_logic_vector(3 downto 0);
+        i_byteena     : in    std_logic_vector(XLEN / 8 - 1 downto 0);
         -- Porta de dados: pedido de leitura ('1' = lê).
         i_rden        : in    std_logic;
         -- Porta de dados: pedido de escrita ('1' = escreve).
@@ -69,18 +70,18 @@ entity ram_chip is
         -- Porta de dados: acesso concluído, o dado lido é válido ('1').
         o_ready       : out   std_logic;
         -- Porta de dados: dado lido.
-        o_rdata       : out   std_logic_vector(31 downto 0);
+        o_rdata       : out   word_t;
         -- Porta de dados: acesso de linha, quatro palavras seguidas ('1').
         i_line        : in    std_logic                     := '0';
         -- Porta de dados: palavras 1 a 3 do dado de escrita da linha.
-        i_wdata_x     : in    std_logic_vector(95 downto 0) := (others => '0');
+        i_wdata_x     : in    std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
         -- Porta de dados: habilita de bytes das palavras 1 a 3 da linha.
-        i_byteena_x   : in    std_logic_vector(11 downto 0) := (others => '0');
+        i_byteena_x   : in    std_logic_vector(3 * XLEN / 8 - 1 downto 0) := (others => '0');
         -- Porta de dados: palavras 1 a 3 do dado lido da linha.
-        o_rdata_x     : out   std_logic_vector(95 downto 0);
+        o_rdata_x     : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- Porta de instruções: endereço do acesso.
-        i_ins_addr    : in    std_logic_vector(31 downto 0) := (others => '0');
+        i_ins_addr    : in    addr_t := (others => '0');
         -- Porta de instruções: pedido de leitura ('1' = lê).
         i_ins_rden    : in    std_logic                     := '0';
         -- Porta de instruções: o pipeline avançou neste ciclo.
@@ -88,17 +89,18 @@ entity ram_chip is
         -- Porta de instruções: acesso concluído, o dado lido é válido ('1').
         o_ins_ready   : out   std_logic;
         -- Porta de instruções: dado lido.
-        o_ins_rdata   : out   std_logic_vector(31 downto 0);
+        o_ins_rdata   : out   word_t;
         -- Porta de instruções: acesso de linha, quatro palavras seguidas ('1').
         i_ins_line    : in    std_logic                     := '0';
         -- Porta de instruções: palavras 1 a 3 do dado lido da linha.
-        o_ins_rdata_x : out   std_logic_vector(95 downto 0);
+        o_ins_rdata_x : out   std_logic_vector(3 * XLEN - 1 downto 0);
 
         -- O chip está pronto para atender pedidos ('1' desde a borda seguinte ao reset).
         o_init_done     : out   std_logic;
         -- Índice da palavra que a porta de depuração lê, a partir do início da janela.
         i_dbg_word_addr : in    std_logic_vector(23 downto 0) := (others => '0');
         -- Palavra do chip no índice de i_dbg_word_addr.
+        -- Largura física do dispositivo ou do protocolo (32 bits), não do núcleo.
         o_dbg_word_data : out   std_logic_vector(31 downto 0)
     );
 end entity ram_chip;
@@ -207,23 +209,23 @@ architecture rtl of ram_chip is
     -- O acesso da porta de dados é de linha.
     signal d_line    : std_logic                     := '0';
     -- Endereço de byte do acesso da porta de dados.
-    signal d_addr    : std_logic_vector(31 downto 0) := (others => '0');
+    signal d_addr    : addr_t := (others => '0');
     -- Dado de escrita capturado na porta de dados.
-    signal d_wdata   : std_logic_vector(31 downto 0) := (others => '0');
+    signal d_wdata   : word_t := (others => '0');
     -- Habilita de bytes capturado na porta de dados.
-    signal d_be      : std_logic_vector(3 downto 0)  := (others => '0');
+    signal d_be      : std_logic_vector(XLEN / 8 - 1 downto 0)  := (others => '0');
     -- Palavras 1 a 3 do dado de escrita capturado.
-    signal d_wdx     : std_logic_vector(95 downto 0) := (others => '0');
+    signal d_wdx     : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
     -- Habilita de bytes das palavras 1 a 3 capturado.
-    signal d_bex     : std_logic_vector(11 downto 0) := (others => '0');
+    signal d_bex     : std_logic_vector(3 * XLEN / 8 - 1 downto 0) := (others => '0');
     -- Palavra 0 lida, à espera do avanço do pipeline.
-    signal d_pending : std_logic_vector(31 downto 0) := (others => '0');
+    signal d_pending : word_t := (others => '0');
     -- Palavras 1 a 3 lidas, à espera do avanço do pipeline.
-    signal d_pend_x  : std_logic_vector(95 downto 0) := (others => '0');
+    signal d_pend_x  : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
     -- Palavra 0 entregue ao core.
-    signal d_rdata   : std_logic_vector(31 downto 0) := (others => '0');
+    signal d_rdata   : word_t := (others => '0');
     -- Palavras 1 a 3 entregues ao core.
-    signal d_rdx     : std_logic_vector(95 downto 0) := (others => '0');
+    signal d_rdx     : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
 
     -- Estado da porta de instruções.
     signal i_st      : state_t                       := S_IDLE;
@@ -234,22 +236,22 @@ architecture rtl of ram_chip is
     -- O acesso da porta de instruções é de linha.
     signal i_line_q  : std_logic                     := '0';
     -- Endereço de byte do acesso da porta de instruções.
-    signal i_addr_q  : std_logic_vector(31 downto 0) := (others => '0');
+    signal i_addr_q  : addr_t := (others => '0');
     -- Palavra 0 lida, à espera do avanço do pipeline.
-    signal i_pending : std_logic_vector(31 downto 0) := (others => '0');
+    signal i_pending : word_t := (others => '0');
     -- Palavras 1 a 3 lidas, à espera do avanço do pipeline.
-    signal i_pend_x  : std_logic_vector(95 downto 0) := (others => '0');
+    signal i_pend_x  : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
     -- Palavra 0 entregue ao core.
-    signal i_rdata   : std_logic_vector(31 downto 0) := (others => '0');
+    signal i_rdata   : word_t := (others => '0');
     -- Palavras 1 a 3 entregues ao core.
-    signal i_rdx     : std_logic_vector(95 downto 0) := (others => '0');
+    signal i_rdx     : std_logic_vector(3 * XLEN - 1 downto 0) := (others => '0');
 
     -- O chip aceita pedidos.
     signal init_done : std_logic := '0';
 
     -- Devolve o índice da palavra de um endereço de byte, ou WORDS quando está fora da janela.
 
-    function word_index (addr : std_logic_vector(31 downto 0)) return natural is
+    function word_index (addr : addr_t) return natural is
 
         -- Deslocamento do endereço dentro da janela do chip, em bytes.
         variable offset : unsigned(25 downto 0);
@@ -272,10 +274,10 @@ architecture rtl of ram_chip is
 
     -- Devolve o endereço inicial de um acesso: o da linha alinhado em 16 bytes, ou o da palavra.
 
-    function start_addr (addr : std_logic_vector(31 downto 0); line : std_logic) return std_logic_vector is
+    function start_addr (addr : addr_t; line : std_logic) return std_logic_vector is
 
         -- Endereço de partida, alinhado em 16 bytes quando o acesso é de linha.
-        variable a : std_logic_vector(31 downto 0) := addr;
+        variable a : addr_t := addr;
 
     begin
 
@@ -290,6 +292,12 @@ architecture rtl of ram_chip is
     end function start_addr;
 
 begin
+
+    -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
+    -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
+    assert XLEN = 32
+        report "este bloco só elabora com XLEN = 32"
+        severity failure;
 
     o_ready       <= '1' when d_st = S_DONE else '0';
     o_rdata       <= d_rdata;
@@ -411,9 +419,9 @@ begin
                                 if base < WORDS then
                                     store.write_word(base, d_wdata, d_be);
                                     if d_line = '1' then
-                                        store.write_word(base + 1, d_wdx(31 downto 0), d_bex(3 downto 0));
-                                        store.write_word(base + 2, d_wdx(63 downto 32), d_bex(7 downto 4));
-                                        store.write_word(base + 3, d_wdx(95 downto 64), d_bex(11 downto 8));
+                                        store.write_word(base + 1, d_wdx(XLEN - 1 downto 0), d_bex(XLEN / 8 - 1 downto 0));
+                                        store.write_word(base + 2, d_wdx(2 * XLEN - 1 downto XLEN), d_bex(2 * XLEN / 8 - 1 downto XLEN / 8));
+                                        store.write_word(base + 3, d_wdx(3 * XLEN - 1 downto 2 * XLEN), d_bex(3 * XLEN / 8 - 1 downto 2 * XLEN / 8));
                                     end if;
                                 end if;
                             else
