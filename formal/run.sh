@@ -22,7 +22,7 @@ source "$root/formal/common.sh"
 # the chain, in the order the invariants read it (bit 1 is the last stage), and the arbiter passes it on.
 netlist() {
   local work="$out/work_$2"; mkdir -p "$work"
-  ghdl_run -a --std=08 --workdir="$work" "$(formal_vhdl "$root/src/common/src/synchronizer.vhd" "synchronizer_$2")" "$1"
+  ghdl_run -a --std=08 --workdir="$work" "$root/src/common/src/utils_pkg.vhd" "$root/src/common/src/config_pkg.vhd" "$(formal_vhdl "$root/src/common/src/synchronizer.vhd" "synchronizer_$2")" "$1"
   ghdl_run --synth --std=08 --workdir="$work" --out=verilog sdram_arbiter > "$2.v"
   sed -e 's/^   output o_d);/   output o_d,\n   output [1:0] dbg_chain);/' \
       -e 's/^\(  assign o_d = .*\)$/\1\n  assign dbg_chain = {chain[0], chain[1]};/' \
