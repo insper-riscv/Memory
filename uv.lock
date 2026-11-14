@@ -265,7 +265,7 @@ wheels = [
 
 [[package]]
 name = "riscv-memory"
-version = "0.4.8"
+version = "0.5.0"
 source = { virtual = "." }
 dependencies = [
     { name = "cocotb" },
