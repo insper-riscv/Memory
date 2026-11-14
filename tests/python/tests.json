@@ -37,8 +37,6 @@
     "SdramSystem": {
         "toplevel": "sdram_system",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -61,8 +59,6 @@
     "SdramSystem32": {
         "toplevel": "sdram_system",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -88,8 +84,6 @@
     "SdramSystem100MHz": {
         "toplevel": "sdram_system",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -117,8 +111,6 @@
     "SdramBist": {
         "toplevel": "sdram_bist_system",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -141,8 +133,6 @@
     "SdramBistRegisteredPins": {
         "toplevel": "sdram_bist_system",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -165,8 +155,6 @@
     "SdramDebugPort": {
         "toplevel": "sdram_system",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -189,8 +177,6 @@
     "SdramCtrl": {
         "toplevel": "sdram_ctrl_tb",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -209,8 +195,6 @@
     "SdramCtrl32": {
         "toplevel": "sdram_ctrl_tb",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -232,8 +216,6 @@
     "SdramCtrl100MHz": {
         "toplevel": "sdram_ctrl_tb",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -257,8 +239,6 @@
     "SdramArbiter": {
         "toplevel": "sdram_arbiter",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/RAM/SoC/sdram/sdram_arbiter.vhd"
@@ -274,8 +254,6 @@
     "SdramCpuBridge": {
         "toplevel": "sdram_cpu_bridge",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd"
         ],
@@ -340,7 +318,6 @@
         "toplevel": "sdram_dcache_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -369,7 +346,6 @@
         "toplevel": "sdram_dcache_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -400,8 +376,6 @@
     "AxiSdramSlave": {
         "toplevel": "axi_sdram_slave_system",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -427,7 +401,6 @@
         "toplevel": "icache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/icache.vhd"
         ],
@@ -443,7 +416,6 @@
         "toplevel": "flash_chip",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/cache/SoC/flash_chip.vhd"
         ],
@@ -459,7 +431,6 @@
         "toplevel": "flash_cmd_port",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/cache/SoC/flash_cmd_port.vhd"
         ],
@@ -469,8 +440,7 @@
             "sector_bytes": 4096,
             "page_bytes": 256,
             "erase_latency": 40,
-            "program_latency": 10,
-            "base_addr": "00100000000000000000000000000000"
+            "program_latency": 10
         },
         "build_args": [
             "--std=08"
@@ -483,7 +453,6 @@
         "toplevel": "flash_dual_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/cache/SoC/flash_chip.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -503,7 +472,6 @@
         "toplevel": "mem_region_router",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/mem_region_router.vhd"
         ],
@@ -519,15 +487,14 @@
         "toplevel": "mem_region_router",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/mem_region_router.vhd"
         ],
         "test_module": "tests.python.unittests.cache.mem_region_router_low",
         "parameters": {
-            "flash_base_kib": 2,
-            "flash_end_kib": 32,
-            "flash_window_kib": 30
+            "rom_base_kib": 2,
+            "rom_end_kib": 32,
+            "rom_window_kib": 30
         },
         "build_args": [
             "--std=08"
@@ -540,7 +507,6 @@
         "toplevel": "mem_region_router",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/mem_region_router.vhd"
         ],
@@ -558,8 +524,6 @@
     "FlashArbiter": {
         "toplevel": "flash_arbiter",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/flash_arbiter.vhd"
         ],
         "test_module": "tests.python.unittests.cache.flash_arbiter",
@@ -574,7 +538,6 @@
         "toplevel": "flash_path_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/icache.vhd",
             "src/latency/SoC/latency_counter.vhd",
@@ -597,7 +560,6 @@
         "toplevel": "dcache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd"
         ],
@@ -616,7 +578,6 @@
         "toplevel": "dcache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd"
         ],
@@ -635,7 +596,6 @@
         "toplevel": "icache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/icache.vhd"
         ],
@@ -654,7 +614,6 @@
         "toplevel": "dcache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd"
         ],
@@ -674,7 +633,6 @@
         "toplevel": "ram_chip",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd"
@@ -691,7 +649,6 @@
         "toplevel": "ram_chip",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd"
@@ -711,7 +668,6 @@
         "toplevel": "ram_chip",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd"
@@ -732,7 +688,6 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
@@ -759,7 +714,6 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
@@ -787,7 +741,6 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
@@ -814,7 +767,6 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
@@ -842,7 +794,6 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
@@ -870,7 +821,6 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
@@ -899,7 +849,6 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
@@ -928,7 +877,6 @@
         "toplevel": "ifetch_bridge",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/ifetch_bridge.vhd"
         ],
@@ -944,7 +892,6 @@
         "toplevel": "ifetch_bridge",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/ifetch_bridge.vhd"
         ],
@@ -963,7 +910,6 @@
         "toplevel": "flash_path_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/ifetch_bridge.vhd",
             "src/latency/SoC/latency_counter.vhd",
@@ -991,7 +937,6 @@
         "toplevel": "flash_path_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/ifetch_bridge.vhd",
             "src/latency/SoC/latency_counter.vhd",
@@ -1123,7 +1068,6 @@
         "toplevel": "onchip_ram_port",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd"
@@ -1143,7 +1087,6 @@
         "toplevel": "onchip_ram_port",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/onchip_ram_port.vhd"
@@ -1163,8 +1106,6 @@
     "AxiSlaveWordBridge": {
         "toplevel": "axi_slave_word_bridge",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/barramento/SoC/axi_slave_word_bridge.vhd"
         ],
         "test_module": "tests.python.unittests.barramento.axi_slave_word_bridge",
@@ -1178,8 +1119,6 @@
     "AxiMasterBridge": {
         "toplevel": "axi_master_bridge",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/barramento/SoC/axi_master_bridge.vhd"
         ],
         "test_module": "tests.python.unittests.barramento.axi_master_bridge",
@@ -1208,7 +1147,6 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
@@ -1236,7 +1174,6 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
@@ -1265,7 +1202,6 @@
         "toplevel": "onchip_ram_system",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "src/RAM/SoC/ram_chip.vhd",
@@ -1289,11 +1225,42 @@
             "LATENCY": 3
         }
     },
+    "Max10Flash": {
+        "toplevel": "max10_flash_tb",
+        "sources": [
+            "src/ROM/SoC/max10_flash.vhd",
+            "src/ROM/SoC/sim/max10_flash_model.vhd",
+            "src/ROM/SoC/sim/max10_flash_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.max10_flash",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "EpcsCtrl": {
+        "toplevel": "epcs_ctrl_tb",
+        "sources": [
+            "src/ROM/SoC/epcs_spi.vhd",
+            "src/ROM/SoC/epcs_cmd.vhd",
+            "src/ROM/SoC/epcs_ctrl.vhd",
+            "src/ROM/SoC/sim/epcs_model.vhd",
+            "src/ROM/SoC/sim/epcs_ctrl_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.epcs_ctrl",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
     "NorFlashCtrl": {
         "toplevel": "nor_flash_ctrl_tb",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
@@ -1314,7 +1281,6 @@
         "toplevel": "nor_flash_ctrl_tb",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
@@ -1339,7 +1305,6 @@
         "toplevel": "nor_flash_ctrl_tb",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
@@ -1388,7 +1353,6 @@
         "toplevel": "sram_ctrl_tb",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
@@ -1409,7 +1373,6 @@
         "toplevel": "sram_ctrl_tb",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
@@ -1435,7 +1398,6 @@
         "toplevel": "sram_ctrl_tb",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
             "src/latency/SoC/latency_counter.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
@@ -1479,8 +1441,6 @@
     "SdramDebugPort32": {
         "toplevel": "sdram_system",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/sdram/sdram_pkg.vhd",
             "src/common/src/synchronizer.vhd",
             "src/ROM/SoC/chip_timing_pkg.vhd",
@@ -1507,7 +1467,6 @@
         "toplevel": "icache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/icache.vhd"
         ],
@@ -1526,7 +1485,6 @@
         "toplevel": "dcache",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "src/cache/SoC/dcache.vhd"
         ],
@@ -1546,7 +1504,6 @@
         "toplevel": "cache_pkg_tb",
         "sources": [
             "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/cache/SoC/cache_pkg.vhd",
             "tests/vhdl/cache_pkg_tb.vhd"
         ],
@@ -1561,8 +1518,6 @@
     "RamPkg": {
         "toplevel": "ram_pkg_tb",
         "sources": [
-            "src/common/src/utils_pkg.vhd",
-            "src/common/src/config_pkg.vhd",
             "src/RAM/SoC/ram_pkg.vhd",
             "tests/vhdl/ram_pkg_tb.vhd"
         ],
