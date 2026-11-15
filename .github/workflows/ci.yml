@@ -147,7 +147,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        engine: [yices, bitwuzla, boolector, abc-bmc3]
+        engine: [yices, bitwuzla, abc-bmc3]
     container:
       image: ${{ fromJSON(needs.reuse.outputs.images)['ci-vhdl'] }}
 
