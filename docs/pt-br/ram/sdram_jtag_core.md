@@ -2,7 +2,8 @@
 
 ## 1. Função do componente no SoC
 
-O núcleo JTAG da depuração da SDRAM é a lógica atrás de uma instância do Virtual JTAG. No clock da cadeia JTAG, ele desloca um comando de 64 bits vindo do hospedeiro, devolve o estado do comando anterior e entrega o comando ao mestre de depuração (`sdram_dbg_master`), que roda no clock do controlador. A instância do Virtual JTAG fica no invólucro de placa `src/RAM/FPGA/Cyclone-V/sdram_jtag_shell.vhd`, e em simulação o testbench conduz as portas do núcleo diretamente. Os registradores, os comandos e os limites do ponto de vista do hospedeiro estão em [sdram_debug.md](sdram_debug.md).
+O núcleo JTAG da depuração da SDRAM é a lógica atrás de uma instância do Virtual JTAG. No clock da cadeia JTAG, ele desloca um comando de 64 bits vindo do hospedeiro, devolve o estado do comando anterior e entrega o comando ao mestre de depuração (`sdram_dbg_master`), que roda no clock do controlador. Além do comando único, o núcleo move rajadas de até 128 palavras entre o hospedeiro e a SDRAM, como uma sequência de comandos de leitura e de escrita ao mesmo mestre, sem consulta de status no meio. O protocolo visto pelo hospedeiro está em [sdram_jtag_protocol.md](sdram_jtag_protocol.md).
+ A instância do Virtual JTAG fica no invólucro de placa `src/RAM/FPGA/Cyclone-V/sdram_jtag_shell.vhd`, e em simulação o testbench conduz as portas do núcleo diretamente. Os registradores, os comandos e os limites do ponto de vista do hospedeiro estão em [sdram_debug.md](sdram_debug.md).
 
 ## 2. Interface
 
@@ -38,9 +39,11 @@ Todos os registradores do bloco rodam em `i_tck`, e as saídas de comando mudam 
 | :--- | ---: | :--- | :--- |
 | instrução (`ir`) | 2 | carregado a cada Update-IR | escolhe o registrador de dados |
 | DEBUG (`sr`) | 64 | instrução igual a 1 | recebe o comando e envia o estado |
-| bypass | 1 | qualquer outra instrução | repete o bit de entrada, sem enviar nada à memória |
+| bypass | 1 | instrução igual a 0 ou não listada | repete o bit de entrada, sem enviar nada à memória |
+| rajada de escrita | 32 por palavra | instrução igual a 2 | monta cada palavra que entra e a escreve na SDRAM; o que sai é o quadro de status e depois zeros |
+| rajada de leitura | 64 mais 32 por palavra | instrução igual a 3 | envia o quadro de status e depois as palavras lidas da SDRAM |
 
-`o_tdo` é o bit 0 do DEBUG quando a instrução é 1 e o bypass nos demais casos.
+`o_tdo` é o bit 0 do registrador de deslocamento `sr` nas instruções 1 a 3 e o bypass nos demais casos.
 
 ### 3.2. Formato do registrador DEBUG
 
@@ -60,7 +63,9 @@ Todos os registradores do bloco rodam em `i_tck`, e as saídas de comando mudam 
 | 1 | bit 1 de `i_rsp_status` | o controlador não respondeu |
 | 2 | bit 2 de `i_rsp_status` | a SDRAM está inicializada |
 | 3 | `overrun` | um comando chegou com o mestre ocupado e foi descartado |
-| 4 a 7 | constante | zero |
+| 4 | `stream_err` | uma palavra da rajada anterior chegou tarde ou foi perdida |
+| 5 | bit 4 de `i_rsp_status` | o mestre de depuração mantém o núcleo parado (hold) |
+| 6 e 7 | constante | zero |
 
 ### 3.3. Ciclo de um deslocamento
 
@@ -71,6 +76,7 @@ Todos os registradores do bloco rodam em `i_tck`, e as saídas de comando mudam 
 | Update-DR | aceita o comando se `op` for diferente de 0 | nenhum |
 | Update-IR | carrega `ir` com `i_ir_in` | carrega `ir` com `i_ir_in` |
 
+As instruções 2 e 3 não seguem as colunas acima, e a seção 3.5 descreve o que fazem.
 No Update-DR com `op` diferente de 0, o comportamento depende de `busy`, que vale 1 enquanto `o_cmd_tog` difere de `i_done_tog` sincronizado.
 
 | `busy` | Efeito |
@@ -83,6 +89,19 @@ Um deslocamento com `op` igual a 0 só lê o status e não envia nada. A leitura
 ### 3.4. Travessia de clock e temporização
 
 `i_done_tog` entra em `i_tck` por uma instância `u_sync_done` do `synchronizer` de dois estágios, interna ao bloco, e só avança em bordas de `i_tck`. O status é capturado no início do deslocamento, uma ou duas bordas de `i_tck` depois do envio do comando, de modo que o primeiro deslocamento depois de um comando ainda pode mostrar `busy` e o seguinte não, porque os 64 deslocamentos dão tempo ao sincronizador. `o_cmd_tog`, `o_op`, `o_be`, `o_addr` e `o_data` ficam estáveis até o próximo comando aceito, e o mestre de depuração os lê depois de sincronizar `o_cmd_tog` ao seu clock. `i_rsp_addr`, `i_rsp_data` e `i_rsp_status` são capturados direto no Capture-DR, sem sincronizador, e só valem quando `busy` é 0, porque o mestre de depuração os mantém estáveis desde antes da inversão de `i_done_tog`.
+
+### 3.5. Rajadas
+
+O ponteiro de rajada `sp` tem 25 bits e é o endereço de palavra da próxima palavra a mover. O comando 7 com `be` igual a 2 (seek), enviado pelo DEBUG, carrega `sp` com o endereço do comando (o bit 24 vem do bit 63). O seek não vai ao mestre de depuração e é aceito mesmo com `busy` igual a 1. Um contador `cnt` conta as bordas de Shift-DR desde o Capture-DR.
+
+| Instrução | Capture-DR | A cada borda de Shift-DR |
+| :--- | :--- | :--- |
+| 2, escrita | carrega o quadro de status em `sr` e limpa `stream_err` depois de o quadro o ler | desloca `i_tdi` para o registrador de palavra; a cada 32 bits (até a 128ª palavra) escreve a palavra em `sp` e avança `sp`; se `busy` vale 1, em vez disso sobe `stream_err` e perde a palavra |
+| 3, leitura | carrega o quadro, limpa `stream_err` e pede a leitura de `sp`; se `busy` vale 1, sobe `stream_err` | desloca `sr`; no último bit do quadro e no de cada palavra, carrega `i_rsp_data` em `sr` e pede a leitura de `sp` mais 1; `sp` avança quando o primeiro bit de uma palavra sai |
+
+Na leitura, a palavra carregada só vale se `busy` vale 0 e `i_rsp_addr` é igual a `sp`; caso contrário `stream_err` sobe. O avanço de `sp` no primeiro bit de cada palavra mantém o ponteiro consistente quando o hospedeiro termina o deslocamento no meio, porque a última carga antecipada não é contada. Um comando aceito pelo DEBUG e um seek limpam `stream_err`.
+
+Cada pedido de leitura ou de escrita usa os mesmos registradores de comando do DEBUG (`o_op`, `o_be`, `o_addr` e `o_data`) e inverte `o_cmd_tog`, com `o_be` igual a `"1111"`, e o bit 3 de `o_op` leva o bit 24 de `sp`. A palavra seguinte só é pedida depois de a anterior terminar, e a condição de tempo (32 clocks de `i_tck` por palavra) está em [sdram_jtag_protocol.md](sdram_jtag_protocol.md).
 
 ## 4. Integração
 
@@ -104,6 +123,11 @@ Os testes de `tests/python/unittests/ram/sdram_debug_port.py` (entrada `SdramDeb
 | `test_a_command_while_busy_is_dropped` | o comando que chega com `busy` em 1 sobe `overrun` e não executa |
 | `test_other_instructions_are_a_bypass` | com outra instrução o registrador é de 1 bit e nada chega à memória |
 | `test_write_and_read_back` e os demais de leitura e escrita | o formato dos 64 bits e a leitura do status até `busy` voltar a 0 |
+| `test_seek_only_moves_the_pointer` | o seek não chega ao mestre e a rajada escreve a partir do seu endereço |
+| `test_a_stream_write_moves_the_pointer_between_shifts`, `test_a_stream_write_of_the_largest_burst` e `test_a_partial_word_is_not_written` | palavras consecutivas entre deslocamentos, o limite de 128 palavras por deslocamento e bits que não fecham uma palavra |
+| `test_a_stream_read_returns_the_words_in_order` e `test_a_seek_reaches_the_upper_half_of_a_128_mb_sdram` | a leitura continua de um deslocamento para o seguinte, e o endereço de 25 bits do ponteiro |
+| `test_a_slow_master_flags_the_stream_error`, `test_a_late_read_word_is_flagged`, `test_a_wrong_word_in_a_stream_read_is_flagged` e `test_the_stream_error_clears_when_a_stream_starts` | o bit de erro de rajada por palavra tardia, por palavra de outro endereço e a sua limpeza |
+| `test_the_status_reports_the_hold_of_the_master` e `test_the_control_commands_other_than_seek_reach_the_master` | o bit 5 do status e a passagem do hold e do CRC ao mestre |
 
 Não há prova formal deste bloco.
 

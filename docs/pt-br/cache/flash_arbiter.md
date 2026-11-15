@@ -74,9 +74,11 @@ A concessão custa um ciclo entre o primeiro `i_*_rden` visto e o dono assumir o
 
 Os roteadores que alimentam o árbitro são o [mem_region_router](mem_region_router.md). O árbitro não conhece escritas, pois o roteador conclui qualquer escrita à FLASH sem repassá-la.
 
+O árbitro serve a qualquer par de mestres de leitura que sigam o contrato do chip, e a mesma entidade se repete em série. Quando a SDRAM guarda a FLASH, o mestre A é a face da FLASH (já arbitrada entre a busca e os dados), o mestre B é a porta de instruções que alcança a RAM de dados, e a saída vai à ponte de instruções da SDRAM ([sdram_cpu_bridge](../ram/sdram_cpu_bridge.md)). O árbitro e a ponte ficam no caminho do barramento (`on_bus: true` no mapa da plataforma), nunca na porta direta do núcleo, e nada neles supõe que o outro lado seja a SDRAM: a ponte e o chip da FLASH emulada trocam de lugar sem mudar o árbitro.
+
 ## 5. Verificação
 
-Os testes são cocotb em `tests/python/unittests/cache`, registrados em `tests/python/tests.json`. Não há provas formais do árbitro da FLASH.
+Os testes são cocotb em `tests/python/unittests/cache`, registrados em `tests/python/tests.json`. A prova formal do árbitro está em [blocks.md](../formal/blocks.md).
 
 | Entrada de `tests.json` | Módulo de teste | O que cobre |
 | :--- | :--- | :--- |

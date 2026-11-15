@@ -29,7 +29,13 @@ A mesma ponte serve ao caminho de dados e ao de instruções, em duas instância
 
 ### 2.2. Lado do controlador
 
-O generic `addr_bits` (natural, padrão 24) é a largura do endereço de palavra de 32 bits do chip, 25 com o chip de 32 bits da DE2-115.
+Os generics da ponte descrevem o chip e a janela da região dentro dele.
+
+| Generic | Tipo | Padrão | Significado |
+| :--- | :--- | :--- | :--- |
+| `addr_bits` | natural | 24 | largura do endereço de palavra de 32 bits do chip, 25 com o chip de 32 bits da DE2-115 |
+| `fixed_msb` | `std_logic` | `'U'` | `'0'` ou `'1'` força o bit mais significativo do endereço de palavra do chip, e a ponte só alcança a metade escolhida; qualquer outro valor deixa o bit como veio do núcleo |
+| `word_offset` | natural | 0 | deslocamento constante, em palavras de 32 bits, somado ao endereço depois do bit fixo, módulo $2^{\text{addr\_bits}}$; 0 não gera somador |
 
 | Porta | Dir. | Largura | Significado |
 | :--- | :--- | ---: | :--- |
@@ -37,7 +43,7 @@ O generic `addr_bits` (natural, padrão 24) é a largura do endereço de palavra
 | `i_ack_tog` | entrada | 1 | toggle de confirmação do controlador, sincronizado dentro da ponte |
 | `i_init_done` | entrada | 1 | a inicialização da SDRAM terminou, sincronizada dentro da ponte |
 | `o_c_we` | saída | 1 | escrita (`'1'`) ou leitura (`'0'`) |
-| `o_c_addr` | saída | `addr_bits` | endereço de palavra, os bits `addr_bits` + 1 a 2 de `i_addr` |
+| `o_c_addr` | saída | `addr_bits` | endereço de palavra no chip: os bits `addr_bits` + 1 a 2 de `i_addr` com a janela da seção 3.2 |
 | `o_c_wdata` | saída | 32 | dado de escrita |
 | `o_c_be` | saída | 4 | habilita de bytes |
 | `i_c_rdata` | entrada | 32 | dado lido |
@@ -58,15 +64,29 @@ O generic `addr_bits` (natural, padrão 24) é a largura do endereço de palavra
 
 No avanço de uma leitura o dado guardado vai para `o_rdata` e `o_rdata_x`. No avanço de uma escrita essas saídas não mudam. Se `i_rden` e `i_wren` valem `'1'` juntos, o acesso é uma escrita. Depois do avanço a ponte volta ao estado livre e aceita, na borda seguinte, o acesso que estiver nas entradas.
 
-### 3.2. Endereço
+### 3.2. Endereço e janela no chip
 
-O endereço enviado ao controlador é
+O endereço enviado ao controlador é o endereço de palavra do núcleo, com o bit mais significativo forçado por `fixed_msb` e somado a `word_offset`:
 
 $$
-\text{o\_c\_addr} = \text{i\_addr}[25:2]
+a = \text{i\_addr}[\text{addr\_bits}+1:2]
 $$
 
-Os dois bits baixos escolhem o byte dentro da palavra e não vão ao controlador. Os bits acima de `addr_bits + 1` não são usados: com `addr_bits` igual a 24 (padrão), o endereço de palavra cobre os 64 MB do chip, e com 25 cobre os 128 MiB dos dois chips da DE2-115. Num acesso de linha, o controlador ignora ainda os dois bits baixos do endereço de palavra e usa a linha de 16 bytes alinhada que contém o endereço.
+$$
+\text{o\_c\_addr} = \left(a \text{ com o bit mais significativo igual a } \text{fixed\_msb} + \text{word\_offset}\right) \bmod 2^{\text{addr\_bits}}
+$$
+
+Com os padrões (`'U'` e 0) vale $\text{o\_c\_addr} = \text{i\_addr}[\text{addr\_bits}+1:2]$, sem nenhuma lógica no caminho do endereço. O tamanho de cada região no chip vem do mapa da plataforma, e uma mesma SDRAM serve duas regiões de qualquer tamanho. Na SDRAM de 64 MiB da DE0-CV (1 MiB são $2^{18}$ palavras), a região de instruções ocupa o início do chip, com o mesmo endereço que o núcleo usa, e a de dados vem depois dela:
+
+| Divisão instruções / dados | Ponte de instruções | Ponte de dados |
+| :--- | :--- | :--- |
+| 32 MiB / 32 MiB | `fixed_msb` `'0'`, `word_offset` 0 | `fixed_msb` `'1'`, `word_offset` 0 |
+| 16 MiB / 48 MiB | padrões | `word_offset` 4194304 (16 MiB) |
+| 48 MiB / 16 MiB | padrões | `word_offset` 12582912 (48 MiB) |
+
+Com `fixed_msb` forçado a ponte só alcança a metade escolhida, por construção, qualquer que seja o endereço do núcleo. Com `word_offset` a janela vale enquanto o roteador de região entrega à ponte só endereços da sua região.
+
+Os dois bits baixos do endereço do núcleo escolhem o byte dentro da palavra e não vão ao controlador. Os bits acima de `addr_bits + 1` não são usados: com `addr_bits` igual a 24 (padrão), o endereço de palavra cobre os 64 MB do chip, e com 25 cobre os 128 MiB dos dois chips da DE2-115. Num acesso de linha, o controlador ignora ainda os dois bits baixos do endereço de palavra e usa a linha de 16 bytes alinhada que contém o endereço.
 
 ### 3.3. Cruzamento de clocks
 
@@ -92,6 +112,10 @@ Depois disso a confirmação atravessa o sincronizador de volta ao clock do núc
 | `u_bridge` em `sdram_system` | A, o caminho de dados | leitura, escrita e linha completas |
 | `u_ibridge` em `sdram_system` | I, o caminho de instruções | `i_wren` e os dados de escrita fixos em zero, por isso só lê |
 
+As duas instâncias de `sdram_system` recebem a janela por generics próprios (`data_fixed_msb`, `data_word_offset`, `ins_fixed_msb` e `ins_word_offset`).
+
+A ponte e o árbitro ficam no caminho do barramento. A memória externa (SDRAM, SRAM e FLASH externa real) é lida pelo núcleo através do barramento, o que o mapa da plataforma declara com `on_bus: true`, e só a memória de porta dedicada (`on_bus: false`) é lida direto da porta do núcleo sem passar por elas. A ponte de instruções não pressupõe o que há além dela: atende a leitura de instruções e de constantes da face da FLASH e qualquer outro mestre de leitura que siga o contrato da seção 1, como a porta de instruções que alcança a RAM de dados.
+
 As outras pontes do repositório seguem o mesmo contrato do lado do núcleo, entre elas a do mestre AXI, a cache de dados e o modelo de RAM externa.
 
 O sincronizador vem de Common-Components (`src/common/src/synchronizer.vhd`). O fim da inicialização usado para liberar acessos é o `o_init_done` do controlador.
@@ -103,8 +127,12 @@ O sincronizador vem de Common-Components (`src/common/src/synchronizer.vhd`). O 
 | `SdramSystem` | [sdram_system.py](../../../tests/python/unittests/ram/sdram_system.py) | escrita e leitura com todas as máscaras de bytes, dado lido que só muda quando o pipeline avança (pipeline parado por ciclos extras depois do pronto), clocks do núcleo e do controlador em relações diferentes (14 ns, 53 ns com deslocamento e 100 ns com deslocamento, contra 7 ns), limites de latência em ciclos do núcleo, acessos de linha e mistura de linhas e palavras |
 | `SdramDebugPort` | [sdram_debug_port.py](../../../tests/python/unittests/ram/sdram_debug_port.py) | acessos do núcleo concorrentes com o hospedeiro, com limite de espera |
 | `DataCache`, `DataCacheWriteThrough` e `AxiSdramSlave` | [axi_sdram_slave.py](../../../tests/python/unittests/barramento/axi_sdram_slave.py) e os módulos da cache | a ponte atrás da cache e do escravo AXI, com rajadas de linha e de palavra |
+| `SdramCpuBridgeWindowNeutral`, `SdramCpuBridgeWindowMsb0`, `SdramCpuBridgeWindowMsb1`, `SdramCpuBridgeWindow16`, `SdramCpuBridgeWindow48` e `SdramCpuBridgeWindowMsb1Offset` | [sdram_cpu_bridge_window.py](../../../tests/python/unittests/ram/sdram_cpu_bridge_window.py) | o endereço que o controlador recebe para cada combinação de `fixed_msb` e `word_offset`, em leitura, escrita e linha |
+| `SdramWindow` | [sdram_window.py](../../../tests/python/unittests/ram/sdram_window.py) | as duas pontes no `sdram_system` com o controlador e o modelo do chip: a de dados escreve na metade alta, a de instruções lê só a metade baixa, e o hospedeiro vê o chip inteiro |
 
-A instância de instruções existe no topo de simulação, mas os testes de SDRAM não a dirigem. Ela usa a mesma descrição da instância de dados.
+A prova formal de `formal/sdram_cpu_bridge` verifica o endereço com os padrões e com uma janela (`fixed_msb` `'1'` e `word_offset` 16), e os mutantes dessa janela (bit fixo solto, deslocamento perdido e deslocamento errado) a reprovam.
+
+A instância de instruções usa a mesma descrição da instância de dados, e só o teste de janela a dirige.
 
 ---
 

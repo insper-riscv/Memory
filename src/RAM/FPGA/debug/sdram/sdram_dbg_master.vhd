@@ -17,6 +17,12 @@
 --   4  define o count do comando 3 como data(24:0), até 2**24 palavras: a SDRAM inteira
 --   5  lê a palavra seguinte à acessada por último
 --   6  escreve data na palavra seguinte à acessada por último, bytes por be
+--   7  controle, escolhido pelos bits 2 a 0 de be:
+--        0  hold: o_core_hold recebe data(0), o núcleo fica parado enquanto vale '1'
+--        1  crc32: lê count = data(24:0) palavras a partir de addr, calcula o CRC-32 (o do zlib, com os bytes de cada
+--           palavra do menor para o maior endereço, valor inicial e final todo em 1) e devolve o resultado em rsp_data
+--        2  seek: reservado ao núcleo JTAG (aponta o fluxo de rajada), aqui só responde
+--        3 a 7  só respondem
 --
 -- O código usa os bits 2 a 0 de op. Com addr_bits igual a 25 (a SDRAM de 128 MB da
 -- DE2-115), o bit 3 de op é o bit 24 do endereço de palavra do comando, o que cabe no
@@ -24,7 +30,7 @@
 --
 -- rsp_addr é a última palavra acessada (seus 24 bits baixos), rsp_data o que uma leitura devolveu e
 -- rsp_status: bit 1 indica que o controlador não respondeu (o comando foi
--- descartado) e bit 2 que a SDRAM está inicializada.
+-- descartado), bit 2 que a SDRAM está inicializada e bit 4 que o hold está ativo.
 -- =============================================================================
 
 library ieee;
@@ -49,7 +55,7 @@ entity sdram_dbg_master is
         i_cmd_tog    : in    std_logic;
         -- Alternância que confirma o comando concluído.
         o_done_tog   : out   std_logic;
-        -- Código do comando de debug (0 a 6 nos bits 2 a 0) e, com addr_bits igual a 25, o bit 24 do endereço no bit 3.
+        -- Código do comando de debug (0 a 7 nos bits 2 a 0) e, com addr_bits igual a 25, o bit 24 do endereço no bit 3.
         i_op         : in    std_logic_vector(3 downto 0);
         -- Habilita de bytes das escritas.
         i_be         : in    std_logic_vector(3 downto 0);
@@ -61,7 +67,7 @@ entity sdram_dbg_master is
         o_rsp_addr   : out   std_logic_vector(23 downto 0);
         -- Dado devolvido pela última leitura.
         o_rsp_data   : out   std_logic_vector(31 downto 0);
-        -- Status do último comando: bit 1 sem resposta do controlador, bit 2 SDRAM inicializada.
+        -- Status do último comando: bit 1 sem resposta do controlador, bit 2 SDRAM inicializada, bit 4 hold ativo.
         o_rsp_status : out   std_logic_vector(7 downto 0);
 
         -- A inicialização da SDRAM terminou ('1').
@@ -81,14 +87,18 @@ entity sdram_dbg_master is
         -- Porta do mestre B (porta de debug): habilita de bytes da escrita.
         o_b_be      : out   std_logic_vector(3 downto 0);
         -- Porta do mestre B (porta de debug): dado lido.
-        i_b_rdata   : in    std_logic_vector(31 downto 0)
+        i_b_rdata   : in    std_logic_vector(31 downto 0);
+
+        -- Pede ao SoC que mantenha o núcleo em reset ('1'), ligado pelo comando 7 com be = 0; zera no reset do módulo.
+        o_core_hold : out   std_logic
     );
 end entity sdram_dbg_master;
 
 architecture rtl of sdram_dbg_master is
 
-    -- Estados do mestre: livre, esperando a resposta e avançando para a próxima palavra do preenchimento.
-    type state_t is (ST_IDLE, ST_WAIT, ST_NEXT);
+    -- Estados do mestre: livre, esperando a resposta, avançando para a próxima palavra do preenchimento ou do CRC e
+    -- publicando o resultado do CRC.
+    type state_t is (ST_IDLE, ST_WAIT, ST_NEXT, ST_FIN);
 
     -- Estado atual do mestre.
     signal st : state_t := ST_IDLE;
@@ -127,6 +137,36 @@ architecture rtl of sdram_dbg_master is
     signal init_sync : std_logic_vector(0 downto 0);
     -- Dado lido devolvido ao hospedeiro (registrado).
     signal rdata_i   : std_logic_vector(31 downto 0)     := (others => '0');
+    -- Acumulador do CRC-32 do comando 7 com be = 1.
+    signal crc       : std_logic_vector(31 downto 0)     := (others => '1');
+    -- Pedido de parada do núcleo (registrado).
+    signal hold_i    : std_logic                         := '0';
+
+    -- Polinômio do CRC-32 (IEEE 802.3, o do zlib), refletido: o bit menos significativo sai primeiro.
+    constant CRC_POLY : std_logic_vector(31 downto 0) := x"EDB88320";
+
+    -- Acumula uma palavra no CRC-32: os bits entram do menos significativo ao mais significativo, o que equivale aos
+    -- quatro bytes na ordem do menor para o maior endereço (palavra little-endian).
+    function crc32_word (
+        c : std_logic_vector(31 downto 0);
+        w : std_logic_vector(31 downto 0)
+    ) return std_logic_vector is
+        -- Acumulador local do CRC durante as 32 iterações.
+        variable r : std_logic_vector(31 downto 0);
+    begin
+
+        r := c;
+        for i in 0 to 31 loop
+            if (r(0) xor w(i)) = '1' then
+                r := ('0' & r(31 downto 1)) xor CRC_POLY;
+            else
+                r := '0' & r(31 downto 1);
+            end if;
+        end loop;
+
+        return r;
+
+    end function crc32_word;
 
 begin
 
@@ -152,7 +192,8 @@ begin
     o_rsp_addr   <= std_logic_vector(resize(last, 24));
     cmd_addr     <= unsigned(i_op(3 downto 3) & i_addr) when addr_bits = 25 else resize(unsigned(i_addr), addr_bits);
     o_rsp_data   <= rdata_i;
-    o_rsp_status <= "00000" & init_sync(0) & err & '0';
+    o_rsp_status <= "000" & hold_i & '0' & init_sync(0) & err & '0';
+    o_core_hold  <= hold_i;
     pending      <= '1' when cmd_sync(0) /= done_i else '0';
 
     p_dbg_master : process (i_clk) is
@@ -186,6 +227,7 @@ begin
                 req_i  <= '0';
                 err    <= '0';
                 last   <= (others => '0');
+                hold_i <= '0';
                 count  <= to_unsigned(1, 25);
             else
 
@@ -232,6 +274,31 @@ begin
 
                                     issue(last + 1, '1', i_data, i_be);
 
+                                when "111" =>
+
+                                    case i_be(2 downto 0) is
+
+                                        when "000" =>
+
+                                            hold_i <= i_data(0);
+                                            done_i <= cmd_sync(0);
+
+                                        when "001" =>
+
+                                            crc <= (others => '1');
+                                            if unsigned(i_data(24 downto 0)) = 0 then
+                                                rdata_i <= (others => '0');
+                                                done_i  <= cmd_sync(0);
+                                            else
+                                                left <= unsigned(i_data(24 downto 0)) - 1;
+                                                issue(cmd_addr, '0', (others => '0'), "1111");
+                                            end if;
+
+                                        when others =>
+
+                                            done_i <= cmd_sync(0);
+
+                                    end case;
                                 when others =>
 
                                     done_i <= cmd_sync(0);
@@ -256,13 +323,29 @@ begin
 
                     when ST_NEXT =>
 
-                        if op_l(2 downto 0) = "011" and left /= 0 then
+                        if op_l(2 downto 0) = "111" then
+                            -- CRC: acumula a palavra lida e, na última, publica o resultado invertido.
+                            crc <= crc32_word(crc, rdata_i);
+                            if left /= 0 then
+                                left <= left - 1;
+                                issue(cur_addr + 1, '0', (others => '0'), "1111");
+                            else
+                                rdata_i <= not crc32_word(crc, rdata_i);
+                                st      <= ST_FIN;
+                            end if;
+                        elsif op_l(2 downto 0) = "011" and left /= 0 then
                             left <= left - 1;
                             issue(cur_addr + 1, '1', data_l, "1111");
                         else
                             done_i <= cmd_sync(0);
                             st     <= ST_IDLE;
                         end if;
+
+                    when ST_FIN =>
+
+                        -- O resultado já está em rdata_i, estável antes da inversão de done_tog.
+                        done_i <= cmd_sync(0);
+                        st     <= ST_IDLE;
 
                 end case;
 

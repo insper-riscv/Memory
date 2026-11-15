@@ -7,11 +7,13 @@ timeout of the master is a generic, set small by tests.json.
 
 """
 
+import zlib
+
 import cocotb
 from cocotb.clock import Clock
 from cocotb.triggers import RisingEdge, Timer
 
-from tests.python.unittests.checks import check_equal, check_true
+from tests.python.unittests.checks import Prng, check_equal, check_true
 from tests.python.unittests.dut import Dut
 
 CLK_NS = 10
@@ -20,8 +22,13 @@ ARBITER_DELAY = 3  # clock cycles the arbiter takes per request
 OP_NOP, OP_READ, OP_WRITE, OP_FILL, OP_COUNT, OP_READ_NEXT, OP_WRITE_NEXT = (
     range(7)
 )
+OP_CONTROL = 7
+CTRL_HOLD, CTRL_CRC = 0, 1  # subcommands of op 7, in be
+CRC_WORDS = 20  # words the CRC test reads
+FILL_BASE, FILL_END = 0x100, 0x200  # words the fill of the test reaches
 ERROR = 0b010
 INIT = 0b100
+HOLD = 0b10000
 ALL = 0xF
 FILL_VALUE = 0xFEEDF00D
 FILL_COUNT = 5
@@ -231,3 +238,100 @@ async def test_the_error_clears_with_the_next_command(dut: Dut):
     await host.command(OP_WRITE, 0x20, 0x5)
     status, _, _ = await host.command(OP_NOP)
     check_equal(status & ERROR, 0, "error cleared")
+
+
+def word_crc(words: list[int]) -> int:
+    """Return the CRC-32 (zlib) of words stored little-endian."""
+    data = b"".join(w.to_bytes(4, "little") for w in words)
+    return zlib.crc32(data)
+
+
+@cocotb.test()
+async def test_hold_follows_the_control_command(dut: Dut):
+    """Op 7 with be 0 raises and drops the hold of the core."""
+    host, arbiter = await start(dut)
+    check_equal(int(dut.o_core_hold.value), 0, "no hold after reset")
+    status, _, _ = await host.command(OP_CONTROL, 0, 1, CTRL_HOLD)
+    check_equal(int(dut.o_core_hold.value), 1, "hold raised")
+    check_equal(status & HOLD, HOLD, "the status reports the hold")
+    status, _, _ = await host.command(OP_NOP)
+    check_equal(status & HOLD, HOLD, "the hold stays between commands")
+    status, _, _ = await host.command(OP_CONTROL, 0, 0, CTRL_HOLD)
+    check_equal(int(dut.o_core_hold.value), 0, "hold dropped")
+    check_equal(status & HOLD, 0, "the status drops the hold")
+    check_equal(len(arbiter.log), 0, "a hold does not touch the memory")
+
+
+@cocotb.test()
+async def test_the_reset_drops_the_hold(dut: Dut):
+    """The reset of the module releases the core."""
+    host, _ = await start(dut)
+    await host.command(OP_CONTROL, 0, 1, CTRL_HOLD)
+    check_equal(int(dut.o_core_hold.value), 1)
+    dut.i_rst.value = 1
+    for _ in range(3):
+        await RisingEdge(dut.i_clk)
+    dut.i_rst.value = 0
+    await Timer(1, unit="ns")
+    check_equal(int(dut.o_core_hold.value), 0, "released by the reset")
+
+
+@cocotb.test()
+async def test_crc32_matches_zlib(dut: Dut):
+    """The CRC of a range is the zlib CRC of its little-endian bytes."""
+    host, arbiter = await start(dut)
+    rng = Prng(5)
+    words = [rng.getrandbits(32) for _ in range(CRC_WORDS)]
+    for i, word in enumerate(words):
+        arbiter.memory[0x500 + i] = word
+    status, last, crc = await host.command(
+        OP_CONTROL, 0x500, CRC_WORDS, CTRL_CRC
+    )
+    check_equal(crc, word_crc(words), f"crc {crc:08X}")
+    check_equal(last, 0x500 + CRC_WORDS - 1, "last word read")
+    check_equal(status & ERROR, 0, "no error")
+    check_equal(len(arbiter.log), CRC_WORDS, "one read per word")
+    check_true(all(entry[0] == 0 for entry in arbiter.log), "only reads")
+
+
+@cocotb.test()
+async def test_crc32_of_one_word_and_of_nothing(dut: Dut):
+    """One word gives its CRC, and a count of zero gives 0."""
+    host, arbiter = await start(dut)
+    arbiter.memory[0x10] = 0x04030201
+    _, _, crc = await host.command(OP_CONTROL, 0x10, 1, CTRL_CRC)
+    check_equal(crc, zlib.crc32(bytes([1, 2, 3, 4])), "one word")
+    before = len(arbiter.log)
+    _, _, crc = await host.command(OP_CONTROL, 0x10, 0, CTRL_CRC)
+    check_equal(crc, 0, "the CRC of no data")
+    check_equal(len(arbiter.log), before, "no request for a count of zero")
+
+
+@cocotb.test()
+async def test_crc32_leaves_the_fill_count_alone(dut: Dut):
+    """The count of the CRC does not touch the count of the fill."""
+    host, arbiter = await start(dut)
+    await host.command(OP_COUNT, 0, FILL_COUNT)
+    await host.command(OP_CONTROL, 0x20, 3, CTRL_CRC)
+    await host.command(OP_FILL, 0x100, FILL_VALUE)
+    check_equal(
+        sum(1 for a in arbiter.memory if FILL_BASE <= a < FILL_END), FILL_COUNT
+    )
+
+
+@cocotb.test()
+async def test_crc32_of_a_silent_arbiter_is_an_error(dut: Dut):
+    """Without an answer the CRC command is dropped and flagged."""
+    host, _ = await start(dut, answer=False)
+    status, _, _ = await host.command(OP_CONTROL, 0x10, 4, CTRL_CRC)
+    check_equal(status & ERROR, ERROR, "error flag")
+
+
+@cocotb.test()
+async def test_the_other_control_subcommands_only_answer(dut: Dut):
+    """The seek of the JTAG core and the unused ones touch nothing."""
+    host, arbiter = await start(dut)
+    for sub in range(2, 8):
+        await host.command(OP_CONTROL, 0x99, 0x1, sub)
+    check_equal(len(arbiter.log), 0, "no request")
+    check_equal(int(dut.o_core_hold.value), 0, "no hold")
