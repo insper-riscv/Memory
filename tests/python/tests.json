@@ -1822,5 +1822,64 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "EpcsXip": {
+        "toplevel": "epcs_xip_tb",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/ROM/SoC/epcs_spi.vhd",
+            "src/ROM/SoC/epcs_xip.vhd",
+            "src/ROM/SoC/sim/epcs_model.vhd",
+            "src/ROM/SoC/sim/epcs_xip_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.epcs_xip",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "EpcsXipFast": {
+        "toplevel": "epcs_xip_tb",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/ROM/SoC/epcs_spi.vhd",
+            "src/ROM/SoC/epcs_xip.vhd",
+            "src/ROM/SoC/sim/epcs_model.vhd",
+            "src/ROM/SoC/sim/epcs_xip_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.epcs_xip",
+        "parameters": {
+            "clk_div": 1,
+            "gap_ticks": 2,
+            "fast_read": true
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "Max10Xip": {
+        "toplevel": "max10_xip_tb",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/ROM/SoC/max10_flash.vhd",
+            "src/ROM/SoC/max10_xip.vhd",
+            "src/ROM/SoC/sim/max10_flash_model.vhd",
+            "src/ROM/SoC/sim/max10_xip_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.max10_xip",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
