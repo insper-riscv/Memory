@@ -13,7 +13,7 @@ A pasta `chips/` guarda um arquivo por chip de memória que alguma placa carrega
 | `kind` | `sdram`, `sram`, `nor` ou `serial_flash` |
 | `organization` | `words` e `width`, e na SDRAM também `banks`, `row_bits` e `col_bits` |
 | `cas_latency` | Latência de coluna da SDRAM |
-| `timing` | Tempos com os nomes do datasheet, em picossegundos quando o nome termina em `_ps` |
+| `timing` | Tempos com os nomes do datasheet, em picossegundos quando o nome termina em `_ps`; na flash serial, `max_spi_mhz`, `read_spi_mhz` e `fast_read_spi_mhz` são os tetos do clock SPI em MHz, geral, da instrução READ e da FAST_READ (o `epcs_xip` escolhe `clk_div` por eles) |
 | `io_timing` | Setup, hold e acesso dos pinos, em nanossegundos, usados no `.sdc` |
 | `sector_bytes`, `boot_sector_bytes` | Setor de apagamento da FLASH |
 | `max_mhz` | Teto de relógio do grau |
@@ -32,7 +32,7 @@ A pasta `chips/` guarda um arquivo por chip de memória que alguma placa carrega
 | `EPCS64` | `serial_flash` | 8 MiB | Inferido |
 | `W25Q16DV` | `serial_flash` | 2 MiB | Inferido; peça confirmada pelo esquemático |
 
-A capacidade de uma SDRAM da placa é a do chip vezes o número de chips em paralelo.
+A capacidade de uma SDRAM da placa é a do chip vezes o número de chips em paralelo. A flash interna do MAX 10 faz parte do dispositivo e não tem arquivo na pasta.
 
 ---
 

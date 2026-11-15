@@ -11,6 +11,8 @@ tree:
       nor_flash_ctrl: [formal/nor_flash_ctrl/props.sv]
       max10_flash: [formal/max10_flash/props.sv]
       epcs_ctrl: [formal/epcs_ctrl/props.sv]
+      epcs_xip: [formal/epcs_xip/props.sv]
+      max10_xip: [formal/max10_xip/props.sv]
       sram_ctrl: [formal/sram_ctrl/props.sv]
       icache: []
       mem_region_router: []
@@ -31,8 +33,8 @@ tree:
 references:
   - {name: per-entity tests.json, file: tests/python/tests.json, yaml: "*.sources", base: .}
   - {name: Quartus IP files, paths: [src/ROM/Cyclone-V/boot_memory.qip, src/ROM/Cyclone-V/flash.qip, src/ROM/Cyclone-V/flash_loader.qip, src/ROM/Cyclone-V/flash_store.qip, src/RAM/FPGA/Cyclone-V/ram.qip, src/ROM/MAX-10/max10_flash_core.tcl]}
-  - {name: entry points, paths: [tests/python/runner.py, src/cache/SoC, src/latency/SoC, src/RAM/SoC, src/ROM/SoC, src/ROM/SoC/sim, src/barramento/SoC, src/sim/SoC, src/RAM/FPGA/debug/sdram, src/tests, formal/all.sh, formal/common.sh, formal/aggregate.sh, formal/test-aggregate.sh, formal/run.sh, formal/sdram_arbiter/props.sv, formal/axi_master/run.sh, formal/axi_master/props.sv, formal/axi_slave/run.sh, formal/axi_slave/props.sv, formal/flash_arbiter/run.sh, formal/flash_arbiter/props.sv, formal/flash_cmd_port/run.sh, formal/flash_cmd_port/props.sv, formal/max10_flash/run.sh, formal/max10_flash/props.sv, formal/epcs_ctrl/run.sh, formal/epcs_ctrl/props.sv, formal/latency_counter/run.sh, formal/latency_counter/props.sv, formal/mem_region_router/run.sh, formal/mem_region_router/props.sv, formal/sdram_cpu_bridge/run.sh, formal/sdram_cpu_bridge/props.sv, formal/sdram_ctrl/run.sh, formal/sdram_ctrl/props.sv, formal/icache/run.sh, formal/icache/props.sv, formal/dcache/run.sh, formal/dcache/props.sv]}
-  - {name: design documents, paths: [docs/pt-br/barramento/dcache_axi.md, docs/pt-br/barramento/dcache_axi_decisions.md, docs/pt-br/formal/formal.md, docs/pt-br/formal/blocks.md, docs/pt-br/ram/sdram_debug.md, docs/pt-br/rom/flash_loader.md, docs/pt-br/rom/flash_jtag_core.md, docs/pt-br/rom/flash_simulation.md, docs/pt-br/rom/flash_cmd_port.md, docs/pt-br/rom/nor_flash_ctrl.md, docs/pt-br/rom/nor_flash_model.md, docs/pt-br/rom/max10_flash.md, docs/pt-br/rom/epcs_ctrl.md, docs/pt-br/rom/chip_timing_pkg.md, docs/pt-br/cache/cache_pkg.md, docs/pt-br/ram/ram_pkg.md, docs/pt-br/sim/sim_util_pkg.md, docs/pt-br/ram/sram_ctrl.md, docs/pt-br/ram/sram_model.md, docs/pt-br/latency/latency_counter.md, docs/pt-br/ram/sdram_line.md, docs/pt-br/ram/sdram_subword_read.md, docs/pt-br/ram/sdram_timings.md, docs/pt-br/bugs/AXI_UNALIGNED_BYTE_STORE.md, docs/pt-br/bugs/CACHE_HOST_COHERENCE.md, docs/pt-br/bugs/CACHE_MASTER_SHARING.md, docs/pt-br/bugs/FILL_COUNT_24_BITS.md, docs/pt-br/bugs/JTAG_STATUS_POLL.md, docs/pt-br/bugs/QUARTUS_VHDL_SUBSET.md, docs/pt-br/bugs/SDRAM_MODEL_RESET_COMMAND.md, docs/en/barramento/dcache_axi.md, docs/en/barramento/dcache_axi_decisions.md, docs/en/formal/formal.md, docs/en/formal/blocks.md, docs/en/ram/sdram_debug.md, docs/en/rom/flash_loader.md, docs/en/rom/flash_jtag_core.md, docs/en/rom/flash_simulation.md, docs/en/rom/flash_cmd_port.md, docs/en/rom/nor_flash_ctrl.md, docs/en/rom/nor_flash_model.md, docs/en/rom/max10_flash.md, docs/en/rom/epcs_ctrl.md, docs/en/rom/chip_timing_pkg.md, docs/en/cache/cache_pkg.md, docs/en/ram/ram_pkg.md, docs/en/sim/sim_util_pkg.md, docs/en/ram/sram_ctrl.md, docs/en/ram/sram_model.md, docs/en/latency/latency_counter.md, docs/en/ram/sdram_line.md, docs/en/ram/sdram_subword_read.md, docs/en/ram/sdram_timings.md, docs/en/bugs/AXI_UNALIGNED_BYTE_STORE.md, docs/en/bugs/CACHE_HOST_COHERENCE.md, docs/en/bugs/CACHE_MASTER_SHARING.md, docs/en/bugs/FILL_COUNT_24_BITS.md, docs/en/bugs/JTAG_STATUS_POLL.md, docs/en/bugs/QUARTUS_VHDL_SUBSET.md, docs/en/bugs/SDRAM_MODEL_RESET_COMMAND.md]}
+  - {name: entry points, paths: [tests/python/runner.py, src/cache/SoC, src/latency/SoC, src/RAM/SoC, src/ROM/SoC, src/ROM/SoC/sim, src/barramento/SoC, src/sim/SoC, src/RAM/FPGA/debug/sdram, src/tests, formal/all.sh, formal/common.sh, formal/aggregate.sh, formal/test-aggregate.sh, formal/run.sh, formal/sdram_arbiter/props.sv, formal/axi_master/run.sh, formal/axi_master/props.sv, formal/axi_slave/run.sh, formal/axi_slave/props.sv, formal/flash_arbiter/run.sh, formal/flash_arbiter/props.sv, formal/flash_cmd_port/run.sh, formal/flash_cmd_port/props.sv, formal/max10_flash/run.sh, formal/max10_flash/props.sv, formal/epcs_ctrl/run.sh, formal/epcs_ctrl/props.sv, formal/epcs_xip/run.sh, formal/epcs_xip/props.sv, formal/max10_xip/run.sh, formal/max10_xip/props.sv, formal/latency_counter/run.sh, formal/latency_counter/props.sv, formal/mem_region_router/run.sh, formal/mem_region_router/props.sv, formal/sdram_cpu_bridge/run.sh, formal/sdram_cpu_bridge/props.sv, formal/sdram_ctrl/run.sh, formal/sdram_ctrl/props.sv, formal/icache/run.sh, formal/icache/props.sv, formal/dcache/run.sh, formal/dcache/props.sv]}
+  - {name: design documents, paths: [docs/pt-br/barramento/dcache_axi.md, docs/pt-br/barramento/dcache_axi_decisions.md, docs/pt-br/formal/formal.md, docs/pt-br/formal/blocks.md, docs/pt-br/ram/sdram_debug.md, docs/pt-br/rom/flash_loader.md, docs/pt-br/rom/flash_jtag_core.md, docs/pt-br/rom/flash_simulation.md, docs/pt-br/rom/flash_cmd_port.md, docs/pt-br/rom/nor_flash_ctrl.md, docs/pt-br/rom/nor_flash_model.md, docs/pt-br/rom/max10_flash.md, docs/pt-br/rom/epcs_ctrl.md, docs/pt-br/rom/epcs_xip.md, docs/pt-br/rom/max10_xip.md, docs/pt-br/rom/chip_timing_pkg.md, docs/pt-br/cache/cache_pkg.md, docs/pt-br/ram/ram_pkg.md, docs/pt-br/sim/sim_util_pkg.md, docs/pt-br/ram/sram_ctrl.md, docs/pt-br/ram/sram_model.md, docs/pt-br/latency/latency_counter.md, docs/pt-br/ram/sdram_line.md, docs/pt-br/ram/sdram_subword_read.md, docs/pt-br/ram/sdram_timings.md, docs/pt-br/bugs/AXI_UNALIGNED_BYTE_STORE.md, docs/pt-br/bugs/CACHE_HOST_COHERENCE.md, docs/pt-br/bugs/CACHE_MASTER_SHARING.md, docs/pt-br/bugs/FILL_COUNT_24_BITS.md, docs/pt-br/bugs/JTAG_STATUS_POLL.md, docs/pt-br/bugs/QUARTUS_VHDL_SUBSET.md, docs/pt-br/bugs/SDRAM_MODEL_RESET_COMMAND.md, docs/en/barramento/dcache_axi.md, docs/en/barramento/dcache_axi_decisions.md, docs/en/formal/formal.md, docs/en/formal/blocks.md, docs/en/ram/sdram_debug.md, docs/en/rom/flash_loader.md, docs/en/rom/flash_jtag_core.md, docs/en/rom/flash_simulation.md, docs/en/rom/flash_cmd_port.md, docs/en/rom/nor_flash_ctrl.md, docs/en/rom/nor_flash_model.md, docs/en/rom/max10_flash.md, docs/en/rom/epcs_ctrl.md, docs/en/rom/epcs_xip.md, docs/en/rom/max10_xip.md, docs/en/rom/chip_timing_pkg.md, docs/en/cache/cache_pkg.md, docs/en/ram/ram_pkg.md, docs/en/sim/sim_util_pkg.md, docs/en/ram/sram_ctrl.md, docs/en/ram/sram_model.md, docs/en/latency/latency_counter.md, docs/en/ram/sdram_line.md, docs/en/ram/sdram_subword_read.md, docs/en/ram/sdram_timings.md, docs/en/bugs/AXI_UNALIGNED_BYTE_STORE.md, docs/en/bugs/CACHE_HOST_COHERENCE.md, docs/en/bugs/CACHE_MASTER_SHARING.md, docs/en/bugs/FILL_COUNT_24_BITS.md, docs/en/bugs/JTAG_STATUS_POLL.md, docs/en/bugs/QUARTUS_VHDL_SUBSET.md, docs/en/bugs/SDRAM_MODEL_RESET_COMMAND.md]}
 
 provides:
   # Each component lists its sources in GHDL dependency order and the components it needs. A requires with the
@@ -240,6 +242,15 @@ provides:
     requires: [max10_flash, max10_flash_model]
     sources:
       - src/ROM/SoC/sim/max10_flash_tb.vhd
+  # The direct read adapter of the user flash of the MAX 10, with the contract of the flash chip, and its bench: the adapter and the register controller share the Avalon-MM data interface of the model.
+  max10_xip:
+    requires: [Common-Components/utils]
+    sources:
+      - src/ROM/SoC/max10_xip.vhd
+  max10_xip_tb:
+    requires: [max10_xip, max10_flash, max10_flash_model]
+    sources:
+      - src/ROM/SoC/sim/max10_xip_tb.vhd
   # The thin shell of the generated IP max10_flash_core (src/ROM/MAX-10/max10_flash_core.tcl); only Quartus builds it.
   max10_flash_ip:
     requires: []
@@ -266,6 +277,15 @@ provides:
     requires: [epcs_ctrl, epcs_model]
     sources:
       - src/ROM/SoC/sim/epcs_ctrl_tb.vhd
+  # The direct read adapter of the serial flash, with the contract of the flash chip: it uses the SPI master alone, so it owns the pins.
+  epcs_xip:
+    requires: [Common-Components/utils, epcs_spi]
+    sources:
+      - src/ROM/SoC/epcs_xip.vhd
+  epcs_xip_tb:
+    requires: [epcs_xip, epcs_model]
+    sources:
+      - src/ROM/SoC/sim/epcs_xip_tb.vhd
   # The ASMI blocks that take the SPI pins of the epcs_ctrl to the dedicated configuration pins; only Quartus builds them.
   epcs_asmi_cyclone_iv_e:
     requires: []
