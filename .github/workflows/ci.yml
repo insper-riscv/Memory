@@ -142,8 +142,9 @@ jobs:
     name: formal - ${{ matrix.engine }}
     needs: reuse
     if: ${{ needs.reuse.outputs.skip != 'true' && fromJSON(needs.reuse.outputs.gates)['formal'].skip != 'true' }}
-    runs-on: ubuntu-26.04
-    timeout-minutes: 240
+    # Self-hosted runners (label formal) by default; the variable RUNNERS_FORMAL=hosted and any fork go to the hosted runner.
+    runs-on: ${{ (vars.RUNNERS_FORMAL == 'hosted' || github.event.pull_request.head.repo.fork) && 'ubuntu-26.04' || fromJSON('["self-hosted","formal"]') }}
+    timeout-minutes: 120
     strategy:
       fail-fast: false
       matrix:
