@@ -96,10 +96,15 @@ module props (input clk);
   end
 
 `ifdef COVER
+  // Cada cenário só emite o seu comando (SE ou PP), então cobre só o quadro do seu comando.
   always @(posedge clk) if (f_past_valid) begin
     cover (frame_end && ins == 8'h06);
+`ifdef SC_SE
     cover (frame_end && ins == 8'hD8 && wel_chip);
+`endif
+`ifdef SC_PP
     cover (frame_end && ins == 8'h02 && wel_chip);
+`endif
   end
 `endif
 endmodule

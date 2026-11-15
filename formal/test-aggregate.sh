@@ -30,7 +30,7 @@ check() {
 }
 
 # 1. the engines agree on every proof
-for e in yices bitwuzla boolector; do
+for e in yices bitwuzla; do
   row agree "$e" safety pass pass
   row agree "$e" mut_a fail fail
 done
@@ -38,7 +38,7 @@ check agree 0 "the engines agree with what is expected"
 
 # 2. one engine has an error and the others decide
 for e in yices bitwuzla; do row error_one "$e" safety pass pass; done
-row error_one boolector safety pass error
+row error_one abc-bmc3 safety pass error
 check error_one 0 "an engine with an error does not stop the others from deciding"
 
 # 3. a skip is no answer either, and the engine that can run the proof decides
