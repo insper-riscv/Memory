@@ -445,9 +445,10 @@ async def test_the_crc_is_the_one_of_the_stored_bytes(dut: Dut):
     await start_debug(dut)
     rng = Prng(21)
     words = [rng.getrandbits(32) for _ in range(CRC_WORDS)]
-    for i, word in enumerate(words[: CRC_WORDS // 2]):
+    half = CRC_WORDS // 2
+    for i, word in enumerate(words[:half]):
         await write(dut, 0x2000 + i, word)
-    for i, word in enumerate(words[CRC_WORDS // 2 :], CRC_WORDS // 2):
+    for i, word in enumerate(words[half:], half):
         await access(dut, True, 0x2000 + i, word)  # written by the core
     await debug(dut, OP_CONTROL, 0x2000, CRC_WORDS, CTRL_CRC)
     status, word, crc = await settle(dut)
@@ -498,11 +499,13 @@ async def test_a_stream_read_gives_back_what_was_written(dut: Dut):
     check_equal(status & STREAM_ERROR, 0, "no stream error")
 
 
-@cocotb.test()
-async def test_a_stream_keeps_up_while_the_core_uses_the_memory(dut: Dut):
-    """The core hammers the memory: the words still arrive in time."""
+async def stream_under_traffic(dut: Dut, half_tck_ns: int, seed: int) -> None:
+    """Stream 128 words out and back while the core hammers memory.
+
+    The JTAG clock has the given half period, in ns.
+    """
     await start_debug(dut)
-    rng = Prng(34)
+    rng = Prng(seed)
     words = [rng.getrandbits(32) for _ in range(STREAM_WORDS)]
     core_words = {0x60000 + i * 3: rng.getrandbits(32) for i in range(60)}
 
@@ -513,16 +516,27 @@ async def test_a_stream_keeps_up_while_the_core_uses_the_memory(dut: Dut):
             got, _ = await access(dut, False, addr)
             check_equal(got, value, f"core word 0x{addr:06X}")
 
-    task = cocotb.start_soon(core())
-    await seek(dut, 0x70000)
-    await stream_write(dut, words)
-    await settle(dut)
-    await seek(dut, 0x70000)
-    got = await stream_read(dut, STREAM_WORDS)
-    await task
+    saved = jtag.HALF_TCK_NS
+    jtag.HALF_TCK_NS = half_tck_ns
+    try:
+        task = cocotb.start_soon(core())
+        await seek(dut, 0x70000)
+        await stream_write(dut, words)
+        await settle(dut)
+        await seek(dut, 0x70000)
+        got = await stream_read(dut, STREAM_WORDS)
+        await task
+        status, _, _ = await debug(dut, OP_NOP)
+    finally:
+        jtag.HALF_TCK_NS = saved
     check_equal(got, words, "the stream corrupted under traffic")
-    status, _, _ = await debug(dut, OP_NOP)
     check_equal(status & STREAM_ERROR, 0, "a word was late")
+
+
+@cocotb.test()
+async def test_a_stream_keeps_up_while_the_core_uses_the_memory(dut: Dut):
+    """The core hammers the memory: the words still arrive in time."""
+    await stream_under_traffic(dut, jtag.HALF_TCK_NS, 34)
 
 
 @cocotb.test()
@@ -545,27 +559,4 @@ async def test_a_stream_reaches_the_upper_half_of_a_128_mb_sdram(dut: Dut):
 @cocotb.test()
 async def test_a_stream_keeps_up_at_the_fastest_jtag_clock(dut: Dut):
     """A 24 MHz TCK, the fastest of the USB-Blaster, still keeps up."""
-    await start_debug(dut)
-    rng = Prng(55)
-    words = [rng.getrandbits(32) for _ in range(STREAM_WORDS)]
-    core_words = {0x61000 + i * 5: rng.getrandbits(32) for i in range(80)}
-
-    async def core():
-        for addr, value in core_words.items():
-            await access(dut, True, addr, value)
-
-    saved = jtag.HALF_TCK_NS
-    jtag.HALF_TCK_NS = FAST_HALF_TCK_NS
-    try:
-        task = cocotb.start_soon(core())
-        await seek(dut, 0x71000)
-        await stream_write(dut, words)
-        await settle(dut)
-        await seek(dut, 0x71000)
-        got = await stream_read(dut, STREAM_WORDS)
-        await task
-        status, _, _ = await debug(dut, OP_NOP)
-    finally:
-        jtag.HALF_TCK_NS = saved
-    check_equal(got, words, "the stream corrupted at 24 MHz")
-    check_equal(status & STREAM_ERROR, 0, "a word was late at 24 MHz")
+    await stream_under_traffic(dut, FAST_HALF_TCK_NS, 55)

@@ -52,6 +52,21 @@ class Master:
         self.memory = memory
         self.commands: list[tuple[int, int, int, int]] = []
 
+    def _respond(self) -> None:
+        """Set the response data for the command just received."""
+        dut = self.dut
+        op, _be, addr, data = self.commands[-1]
+        if self.memory is None:
+            dut.i_rsp_addr.value = RESPONSE_ADDR
+            dut.i_rsp_data.value = RESPONSE_DATA
+            return
+        word = addr | (op >> 3 & 1) << 24
+        if op & 7 == OP_WRITE:
+            self.memory[word] = data
+        if op & 7 in (OP_READ, OP_WRITE):
+            dut.i_rsp_addr.value = word & 0xFFFFFF
+            dut.i_rsp_data.value = self.memory.get(word, 0)
+
     async def run(self) -> None:
         """Answer every command, one master clock a step."""
         dut = self.dut
@@ -72,17 +87,7 @@ class Master:
             )
             for _ in range(self.delay):
                 await Timer(MASTER_CLK_NS, unit="ns")
-            op, _be, addr, data = self.commands[-1]
-            if self.memory is None:
-                dut.i_rsp_addr.value = RESPONSE_ADDR
-                dut.i_rsp_data.value = RESPONSE_DATA
-            else:
-                word = addr | (op >> 3 & 1) << 24
-                if op & 7 == OP_WRITE:
-                    self.memory[word] = data
-                if op & 7 in (OP_READ, OP_WRITE):
-                    dut.i_rsp_addr.value = word & 0xFFFFFF
-                    dut.i_rsp_data.value = self.memory.get(word, 0)
+            self._respond()
             dut.i_rsp_status.value = RESPONSE_STATUS
             dut.i_done_tog.value = tog
 
