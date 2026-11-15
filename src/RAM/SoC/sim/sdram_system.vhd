@@ -30,7 +30,15 @@ entity sdram_system is
         -- Bits do endereço de banco do chip.
         bank_bits      : natural := 2;
         -- Bits do endereço de coluna do chip.
-        col_bits       : natural := 10
+        col_bits       : natural := 10;
+        -- Bit mais significativo do endereço de palavra que a ponte de dados força ('0', '1') ou deixa ('U').
+        data_fixed_msb : std_logic := 'U';
+        -- Deslocamento, em palavras, que a ponte de dados soma ao endereço do chip.
+        data_word_offset : natural := 0;
+        -- Bit mais significativo do endereço de palavra que a ponte de instruções força ('0', '1') ou deixa ('U').
+        ins_fixed_msb  : std_logic := 'U';
+        -- Deslocamento, em palavras, que a ponte de instruções soma ao endereço do chip.
+        ins_word_offset : natural := 0
     );
     port (
         -- Clock do lado do controlador SDRAM.
@@ -98,6 +106,8 @@ entity sdram_system is
         );
         -- Posição do bit invertido na palavra.
         i_dbg_flip_bit  : in    std_logic_vector(4 downto 0);
+        -- O mestre de depuração pede que o núcleo fique parado ('1').
+        o_core_hold     : out   std_logic;
         -- Contagem de comandos AUTO REFRESH recebidos pelo chip.
         o_dbg_refreshes : out   std_logic_vector(31 downto 0);
         -- A sequência de inicialização do chip foi aceita ('1').
@@ -277,7 +287,9 @@ begin
 
     u_bridge : entity work.sdram_cpu_bridge
         generic map (
-            addr_bits => ADDR_BITS
+            addr_bits => ADDR_BITS,
+            fixed_msb   => data_fixed_msb,
+            word_offset => data_word_offset
         )
         port map (
             i_clk_cpu     => i_clk_cpu,
@@ -310,7 +322,9 @@ begin
 
     u_ibridge : entity work.sdram_cpu_bridge
         generic map (
-            addr_bits => ADDR_BITS
+            addr_bits => ADDR_BITS,
+            fixed_msb   => ins_fixed_msb,
+            word_offset => ins_word_offset
         )
         port map (
             i_clk_cpu     => i_clk_cpu,
@@ -385,7 +399,8 @@ begin
             o_b_addr     => dbg_addr,
             o_b_wdata    => b_wdata,
             o_b_be       => b_be,
-            i_b_rdata    => b_rdata
+            i_b_rdata    => b_rdata,
+            o_core_hold  => o_core_hold
         );
 
     u_arb : entity work.sdram_arbiter

@@ -127,13 +127,14 @@ The memory side of the [dcache](dcache.md) uses the same request and answer conv
 
 ## 5. Verification
 
-The tests are cocotb tests in `tests/python/unittests/cache`, registered in `tests/python/tests.json`. The router has no formal proofs.
+The tests are cocotb tests in `tests/python/unittests/cache`, registered in `tests/python/tests.json`. The formal proof of the router is in [blocks.md](../formal/blocks.md).
 
 | `tests.json` entry | Test module | What it covers |
 | :--- | :--- | :--- |
 | `MemRegionRouter` | [mem_region_router.py](../../../tests/python/unittests/cache/mem_region_router.py) | Line read to the SDRAM and to the FLASH, FLASH store absorbed, read outside the window returns zero, SDRAM store passed through, mixed sequence |
 | `MemRegionRouterLow` | [mem_region_router_low.py](../../../tests/python/unittests/cache/mem_region_router_low.py) | Generics `flash_base_kib` equal to 2, `flash_end_kib` equal to 32 and `flash_window_kib` equal to 30; a read inside the region reaches the ROM, region edges, ROM store absorbed and SDRAM store passed through |
 | `MemRegionRouterHold` | [mem_region_router_hold.py](../../../tests/python/unittests/cache/mem_region_router_hold.py) | Generic `hold_rdata` set to `true`; the FLASH word and the SDRAM word stay after the address changes, and an absorbed store leaves zero |
+| `MemRegionRouterWindow16`, `MemRegionRouterWindow32` and `MemRegionRouterWindow48` | [mem_region_router_window.py](../../../tests/python/unittests/cache/mem_region_router_window.py) | FLASH of 16, 32 and 48 MiB from 4 KiB, with `flash_window_kib` equal to the size of the region; a read at the first line, above 1 MiB, in the middle and at the last line reaches the chip, the edges of the region go to the SDRAM or to the FLASH by side, and a high store to the FLASH is absorbed |
 | `FlashPath` | [flash_path.py](../../../tests/python/unittests/cache/flash_path.py) | Two routers, the icache, the arbiter and the chip together; a FLASH store never reaches the chip, a read beyond the window returns zero without touching the chip, SDRAM requests do not touch the FLASH path |
 
 ---

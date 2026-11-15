@@ -186,6 +186,34 @@
             "--std=08"
         ]
     },
+    "SdramWindow": {
+        "toplevel": "sdram_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
+            "src/RAM/SoC/sdram/sdram_arbiter.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "src/RAM/SoC/sim/sdram_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_window",
+        "parameters": {
+            "data_fixed_msb": "'1'",
+            "ins_fixed_msb": "'0'"
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
     "SdramCtrl": {
         "toplevel": "sdram_ctrl_tb",
         "sources": [
@@ -280,6 +308,118 @@
             "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd"
         ],
         "test_module": "tests.python.unittests.ram.sdram_cpu_bridge",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramCpuBridgeWindowNeutral": {
+        "toplevel": "sdram_cpu_bridge",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_cpu_bridge_window",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramCpuBridgeWindowMsb0": {
+        "toplevel": "sdram_cpu_bridge",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_cpu_bridge_window",
+        "parameters": {
+            "fixed_msb": "'0'"
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramCpuBridgeWindowMsb1": {
+        "toplevel": "sdram_cpu_bridge",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_cpu_bridge_window",
+        "parameters": {
+            "fixed_msb": "'1'"
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramCpuBridgeWindow16": {
+        "toplevel": "sdram_cpu_bridge",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_cpu_bridge_window",
+        "parameters": {
+            "word_offset": 4194304
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramCpuBridgeWindow48": {
+        "toplevel": "sdram_cpu_bridge",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_cpu_bridge_window",
+        "parameters": {
+            "word_offset": 12582912
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "SdramCpuBridgeWindowMsb1Offset": {
+        "toplevel": "sdram_cpu_bridge",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd"
+        ],
+        "test_module": "tests.python.unittests.ram.sdram_cpu_bridge_window",
+        "parameters": {
+            "fixed_msb": "'1'",
+            "word_offset": 16
+        },
         "build_args": [
             "--std=08"
         ],
@@ -528,6 +668,69 @@
             "flash_base_kib": 2,
             "flash_end_kib": 32,
             "flash_window_kib": 30
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "MemRegionRouterWindow16": {
+        "toplevel": "mem_region_router",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
+            "src/cache/SoC/mem_region_router.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.mem_region_router_window",
+        "parameters": {
+            "flash_base_kib": 4,
+            "flash_end_kib": 16384,
+            "flash_window_kib": 16380
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "MemRegionRouterWindow32": {
+        "toplevel": "mem_region_router",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
+            "src/cache/SoC/mem_region_router.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.mem_region_router_window",
+        "parameters": {
+            "flash_base_kib": 4,
+            "flash_end_kib": 32768,
+            "flash_window_kib": 32764
+        },
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "MemRegionRouterWindow48": {
+        "toplevel": "mem_region_router",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
+            "src/cache/SoC/mem_region_router.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.mem_region_router_window",
+        "parameters": {
+            "flash_base_kib": 4,
+            "flash_end_kib": 49152,
+            "flash_window_kib": 49148
         },
         "build_args": [
             "--std=08"

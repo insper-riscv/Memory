@@ -29,7 +29,13 @@ The same bridge serves the data path and the instruction path, in two instances.
 
 ### 2.2. Controller side
 
-The generic `addr_bits` (natural, default 24) is the width of the 32-bit word address of the chip, 25 with the 32-bit chip of the DE2-115.
+The generics of the bridge describe the chip and the window of the region inside it.
+
+| Generic | Type | Default | Meaning |
+| :--- | :--- | :--- | :--- |
+| `addr_bits` | natural | 24 | width of the 32-bit word address of the chip, 25 with the 32-bit chip of the DE2-115 |
+| `fixed_msb` | `std_logic` | `'U'` | `'0'` or `'1'` forces the most significant bit of the chip word address, and the bridge reaches only the chosen half; any other value leaves the bit as it came from the core |
+| `word_offset` | natural | 0 | constant offset, in 32-bit words, added to the address after the fixed bit, modulo $2^{\text{addr\_bits}}$; 0 generates no adder |
 
 | Port | Dir. | Width | Meaning |
 | :--- | :--- | ---: | :--- |
@@ -37,7 +43,7 @@ The generic `addr_bits` (natural, default 24) is the width of the 32-bit word ad
 | `i_ack_tog` | in | 1 | acknowledge toggle of the controller, synchronized inside the bridge |
 | `i_init_done` | in | 1 | the SDRAM initialization finished, synchronized inside the bridge |
 | `o_c_we` | out | 1 | write (`'1'`) or read (`'0'`) |
-| `o_c_addr` | out | `addr_bits` | word address, bits `addr_bits` + 1 to 2 of `i_addr` |
+| `o_c_addr` | out | `addr_bits` | word address in the chip: bits `addr_bits` + 1 to 2 of `i_addr` with the window of section 3.2 |
 | `o_c_wdata` | out | 32 | write data |
 | `o_c_be` | out | 4 | byte enables |
 | `i_c_rdata` | in | 32 | read data |
@@ -58,15 +64,29 @@ The generic `addr_bits` (natural, default 24) is the width of the 32-bit word ad
 
 At the advance of a read, the stored data goes to `o_rdata` and `o_rdata_x`. At the advance of a write those outputs do not change. If `i_rden` and `i_wren` are `'1'` together, the access is a write. After the advance the bridge returns to the idle state and accepts, on the next edge, the access that is on the inputs.
 
-### 3.2. Address
+### 3.2. Address and window in the chip
 
-The address sent to the controller is
+The address sent to the controller is the word address of the core, with the most significant bit forced by `fixed_msb` and added to `word_offset`:
 
 $$
-\text{o\_c\_addr} = \text{i\_addr}[25:2]
+a = \text{i\_addr}[\text{addr\_bits}+1:2]
 $$
 
-The two low bits select the byte inside the word and do not go to the controller. The bits above `addr_bits + 1` are not used: with `addr_bits` equal to 24 (the default), the word address covers the 64 MB of the chip, and with 25 it covers the 128 MiB of the two chips of the DE2-115. In a line access, the controller also ignores the two low bits of the word address and uses the aligned 16-byte line that contains the address.
+$$
+\text{o\_c\_addr} = \left(a \text{ with the most significant bit set to } \text{fixed\_msb} + \text{word\_offset}\right) \bmod 2^{\text{addr\_bits}}
+$$
+
+With the defaults (`'U'` and 0) $\text{o\_c\_addr} = \text{i\_addr}[\text{addr\_bits}+1:2]$, with no logic in the address path. The size of each region in the chip comes from the platform map, and one SDRAM serves two regions of any size. In the 64 MiB SDRAM of the DE0-CV (1 MiB is $2^{18}$ words), the instruction region takes the start of the chip, with the same address the core uses, and the data region comes after it:
+
+| Instruction / data split | Instruction bridge | Data bridge |
+| :--- | :--- | :--- |
+| 32 MiB / 32 MiB | `fixed_msb` `'0'`, `word_offset` 0 | `fixed_msb` `'1'`, `word_offset` 0 |
+| 16 MiB / 48 MiB | defaults | `word_offset` 4194304 (16 MiB) |
+| 48 MiB / 16 MiB | defaults | `word_offset` 12582912 (48 MiB) |
+
+With `fixed_msb` forced the bridge reaches only the chosen half, by construction, whatever the core address. With `word_offset` the window holds as long as the region router hands the bridge only addresses of its region.
+
+The two low bits of the core address select the byte inside the word and do not go to the controller. The bits above `addr_bits + 1` are not used: with `addr_bits` equal to 24 (the default), the word address covers the 64 MB of the chip, and with 25 it covers the 128 MiB of the two chips of the DE2-115. In a line access, the controller also ignores the two low bits of the word address and uses the aligned 16-byte line that contains the address.
 
 ### 3.3. Clock crossing
 
@@ -92,6 +112,10 @@ After that the acknowledge crosses the synchronizer back to the core clock, and 
 | `u_bridge` in `sdram_system` | A, the data path | full read, write and line |
 | `u_ibridge` in `sdram_system` | I, the instruction path | `i_wren` and the write data fixed at zero, so it only reads |
 
+The two instances of `sdram_system` take the window through generics of their own (`data_fixed_msb`, `data_word_offset`, `ins_fixed_msb` and `ins_word_offset`).
+
+The bridge and the arbiter sit on the bus path. External memory (SDRAM, SRAM and real external FLASH) is read by the core through the bus, which the platform map declares with `on_bus: true`, and only dedicated-port memory (`on_bus: false`) is read straight from the core port without going through them. The instruction bridge does not assume what lies beyond it: it serves the instruction and constant reads of the FLASH face and any other read master that follows the contract of section 1, such as the instruction port that reaches the data RAM.
+
 The other bridges of the repository follow the same core-side contract, among them the AXI master bridge, the data cache and the external RAM model.
 
 The synchronizer comes from Common-Components (`src/common/src/synchronizer.vhd`). The end of initialization used to release accesses is the controller's `o_init_done`.
@@ -103,8 +127,12 @@ The synchronizer comes from Common-Components (`src/common/src/synchronizer.vhd`
 | `SdramSystem` | [sdram_system.py](../../../tests/python/unittests/ram/sdram_system.py) | write and read with every byte-enable mask, read data that changes only when the pipeline advances (pipeline held for extra cycles after ready), core and controller clocks in different relations (14 ns, 53 ns with offset and 100 ns with offset, against 7 ns), latency bounds in core cycles, line accesses and a mix of lines and words |
 | `SdramDebugPort` | [sdram_debug_port.py](../../../tests/python/unittests/ram/sdram_debug_port.py) | core accesses concurrent with the host, with a wait bound |
 | `DataCache`, `DataCacheWriteThrough` and `AxiSdramSlave` | [axi_sdram_slave.py](../../../tests/python/unittests/barramento/axi_sdram_slave.py) and the cache modules | the bridge behind the cache and the AXI slave, with line and word bursts |
+| `SdramCpuBridgeWindowNeutral`, `SdramCpuBridgeWindowMsb0`, `SdramCpuBridgeWindowMsb1`, `SdramCpuBridgeWindow16`, `SdramCpuBridgeWindow48` and `SdramCpuBridgeWindowMsb1Offset` | [sdram_cpu_bridge_window.py](../../../tests/python/unittests/ram/sdram_cpu_bridge_window.py) | the address the controller receives for each combination of `fixed_msb` and `word_offset`, in read, write and line |
+| `SdramWindow` | [sdram_window.py](../../../tests/python/unittests/ram/sdram_window.py) | the two bridges in `sdram_system` with the controller and the chip model: the data bridge writes the upper half, the instruction bridge reads only the lower half, and the host sees the whole chip |
 
-The instruction instance exists in the simulation top, but the SDRAM tests do not drive it. It uses the same description as the data instance.
+The formal proof in `formal/sdram_cpu_bridge` checks the address with the defaults and with a window (`fixed_msb` `'1'` and `word_offset` 16), and the mutants of that window (loose fixed bit, lost offset and wrong offset) fail it.
+
+The instruction instance uses the same description as the data instance, and only the window test drives it.
 
 ---
 

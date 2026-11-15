@@ -74,9 +74,11 @@ The grant costs one cycle between the first `i_*_rden` seen and the owner taking
 
 The routers that feed the arbiter are the [mem_region_router](mem_region_router.md). The arbiter knows nothing about writes, because the router completes any FLASH write without forwarding it.
 
+The arbiter serves any pair of read masters that follow the chip contract, and the same entity repeats in series. When the SDRAM holds the FLASH, master A is the FLASH face (already arbitrated between fetch and data), master B is the instruction port that reaches the data RAM, and the output goes to the instruction bridge of the SDRAM ([sdram_cpu_bridge](../ram/sdram_cpu_bridge.md)). The arbiter and the bridge sit on the bus path (`on_bus: true` in the platform map), never on the direct port of the core, and nothing in them assumes the other side is the SDRAM: the bridge and the emulated FLASH chip swap places without changing the arbiter.
+
 ## 5. Verification
 
-The tests are cocotb tests in `tests/python/unittests/cache`, registered in `tests/python/tests.json`. The FLASH arbiter has no formal proofs.
+The tests are cocotb tests in `tests/python/unittests/cache`, registered in `tests/python/tests.json`. The formal proof of the arbiter is in [blocks.md](../formal/blocks.md).
 
 | `tests.json` entry | Test module | What it covers |
 | :--- | :--- | :--- |

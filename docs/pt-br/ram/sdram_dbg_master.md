@@ -21,13 +21,13 @@ O mestre de depuração da SDRAM executa, no clock do controlador, os comandos d
 | `i_rst` | entrada | 1 | reset síncrono, ativo em `'1'` |
 | `i_cmd_tog` | entrada | 1 | alternância de comando vinda do hospedeiro (de qualquer clock), cada inversão é um comando novo |
 | `o_done_tog` | saída | 1 | alternância que confirma o comando concluído |
-| `i_op` | entrada | 4 | código do comando, de 0 a 6 nos bits 2 a 0, e o bit 24 do endereço no bit 3 quando `addr_bits` vale 25 |
+| `i_op` | entrada | 4 | código do comando, de 0 a 7 nos bits 2 a 0, e o bit 24 do endereço no bit 3 quando `addr_bits` vale 25 |
 | `i_be` | entrada | 4 | habilita de bytes das escritas |
 | `i_addr` | entrada | 24 | endereço de palavra do comando |
 | `i_data` | entrada | 32 | dado de escrita ou, no comando 4, a quantidade de palavras do preenchimento |
 | `o_rsp_addr` | saída | 24 | última palavra acessada |
 | `o_rsp_data` | saída | 32 | dado devolvido pela porta B no último acesso |
-| `o_rsp_status` | saída | 8 | bit 1 sinaliza erro (sem resposta do controlador), bit 2 sinaliza SDRAM inicializada, os demais valem 0 |
+| `o_rsp_status` | saída | 8 | bit 1 sinaliza erro (sem resposta do controlador), bit 2 sinaliza SDRAM inicializada, bit 4 sinaliza hold ativo, os demais valem 0 |
 | `i_init_done` | entrada | 1 | a inicialização da SDRAM terminou, de qualquer clock |
 | `o_b_req_tog` | saída | 1 | alternância de pedido ao árbitro |
 | `i_b_ack_tog` | entrada | 1 | alternância de confirmação, igual a `o_b_req_tog` quando o pedido foi atendido |
@@ -36,6 +36,7 @@ O mestre de depuração da SDRAM executa, no clock do controlador, os comandos d
 | `o_b_wdata` | saída | 32 | dado de escrita |
 | `o_b_be` | saída | 4 | habilita de bytes da escrita |
 | `i_b_rdata` | entrada | 32 | dado lido |
+| `o_core_hold` | saída | 1 | pedido de parada do núcleo, `'1'` mantém o núcleo em reset; vai a `'1'` e a `'0'` pelo comando 7 e volta a `'0'` no reset do módulo |
 
 ## 3. Comportamento
 
@@ -54,7 +55,17 @@ Um comando é uma inversão de `i_cmd_tog`, com `i_op`, `i_be`, `i_addr` e `i_da
 | 4 | define `count` como os 25 bits baixos de `i_data`, até $2^{24}$ palavras, a SDRAM inteira |
 | 5 | lê a palavra seguinte à acessada por último |
 | 6 | escreve `i_data` na palavra seguinte à acessada por último, bytes por `i_be` |
-| 7 a 15 | tratados como o comando 0 |
+| 7 | controle, escolhido pelos bits 2 a 0 de `i_be` (tabela abaixo) |
+
+O bit 3 de `i_op` só tem efeito com `addr_bits` igual a 25, e fora disso os códigos 8 a 15 repetem os de 0 a 7.
+
+| `i_be` (bits 2 a 0) | Controle | Efeito |
+| ---: | :--- | :--- |
+| 0 | hold | `o_core_hold` recebe `i_data(0)`, e o comando responde na hora |
+| 1 | crc32 | lê $n$ palavras a partir de `i_addr`, com $n$ igual aos 25 bits baixos de `i_data`, e devolve em `o_rsp_data` o CRC-32 delas |
+| 2 a 7 | nenhum | só respondem (o seek de 2 é do núcleo JTAG e não chega aqui) |
+
+O CRC-32 usa o polinômio refletido $\texttt{0xEDB88320}$, valor inicial e inversão final todos em 1, e cada palavra entra com os bytes do menor para o maior endereço, o que dá o `zlib.crc32` dos bytes lidos. Com $n$ igual a 0 o resultado é 0 e nada é lido. `o_rsp_addr` termina na última palavra lida.
 
 Com `addr_bits` igual a 23, o bit 23 de `i_addr` é ignorado, e `o_rsp_addr` devolve os 24 bits baixos da última palavra acessada (o bit 24 não aparece com 25).
 
@@ -66,6 +77,7 @@ O valor de `count` é 1 depois do reset e se mantém entre comandos. O registrad
 | :--- | :--- | :--- |
 | `ST_IDLE` | com comando pendente, trava `i_op`, `i_be` e `i_data`, limpa o erro e executa o comando; leituras e escritas emitem um pedido ao árbitro (endereço, `o_b_we`, dado e máscara, inversão de `o_b_req_tog`, zera o contador de espera), os comandos 0 e 4 e o 3 com `count` zero respondem na hora | `ST_WAIT`, ou permanece |
 | `ST_WAIT` | espera `i_b_ack_tog` igual a `o_b_req_tog`; ao receber, grava a palavra acessada em `o_rsp_addr` e `i_b_rdata` em `o_rsp_data` | `ST_NEXT` |
+| `ST_FIN` | no comando 7 com o CRC, `o_rsp_data` já tem o resultado, e este estado inverte `o_done_tog` um ciclo depois, para o resultado ficar estável antes da resposta | `ST_IDLE` |
 | `ST_NEXT` | no comando 3 com palavras restantes, emite a escrita da palavra seguinte; nos demais casos responde | `ST_WAIT` ou `ST_IDLE` |
 
 O preenchimento escreve $\text{count}$ palavras, com $\text{count} - 1$ delas restantes depois da primeira, e `o_rsp_addr` termina na última palavra escrita. O dado em `o_rsp_data` é copiado de `i_b_rdata` ao fim de todo acesso, escrita incluída, então só tem significado depois de uma leitura.
@@ -103,6 +115,8 @@ Os testes cocotb de `tests/python/unittests/ram/sdram_debug_port.py` rodam o sis
 | `test_a_command_while_busy_is_dropped` | o comando que chega com o mestre ocupado é descartado e sinalizado |
 | `test_other_instructions_are_a_bypass` | outra instrução do JTAG não envia nada à memória |
 | `test_the_core_is_not_starved_by_a_long_fill` | um preenchimento longo não atrasa o core além do limite do árbitro |
+
+Os testes do comando 7 estão em `tests/python/unittests/ram/sdram_dbg_master.py` (entrada `SdramDbgMaster`, com o árbitro modelado por um dicionário) e em `sdram_debug_port.py`.
 
 Não há prova formal deste bloco. A prova de [formal.md](../formal/formal.md) cobre o árbitro, com o mestre B modelado pelas hipóteses sobre o ambiente.
 

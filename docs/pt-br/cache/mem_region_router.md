@@ -127,13 +127,14 @@ O lado da memória da [dcache](dcache.md) usa a mesma convenção de pedido e re
 
 ## 5. Verificação
 
-Os testes são cocotb em `tests/python/unittests/cache`, registrados em `tests/python/tests.json`. Não há provas formais do roteador.
+Os testes são cocotb em `tests/python/unittests/cache`, registrados em `tests/python/tests.json`. A prova formal do roteador está em [blocks.md](../formal/blocks.md).
 
 | Entrada de `tests.json` | Módulo de teste | O que cobre |
 | :--- | :--- | :--- |
 | `MemRegionRouter` | [mem_region_router.py](../../../tests/python/unittests/cache/mem_region_router.py) | Leitura de linha à SDRAM e à FLASH, store à FLASH absorvido, leitura fora da janela devolve zero, store à SDRAM repassado, sequência mista |
 | `MemRegionRouterLow` | [mem_region_router_low.py](../../../tests/python/unittests/cache/mem_region_router_low.py) | Generics `flash_base_kib` igual a 2, `flash_end_kib` igual a 32 e `flash_window_kib` igual a 30; leitura dentro da região chega à ROM, bordas da região, store à ROM absorvido e à SDRAM repassado |
 | `MemRegionRouterHold` | [mem_region_router_hold.py](../../../tests/python/unittests/cache/mem_region_router_hold.py) | Generic `hold_rdata` em `true`; o dado da FLASH e o da SDRAM continuam depois que o endereço muda, e um store absorvido deixa zero |
+| `MemRegionRouterWindow16`, `MemRegionRouterWindow32` e `MemRegionRouterWindow48` | [mem_region_router_window.py](../../../tests/python/unittests/cache/mem_region_router_window.py) | FLASH de 16, 32 e 48 MiB a partir de 4 KiB, com `flash_window_kib` igual ao tamanho da região; leitura na primeira linha, acima de 1 MiB, no meio e na última linha chega ao chip, as bordas da região vão à SDRAM ou à FLASH conforme o lado, e um store alto na FLASH é absorvido |
 | `FlashPath` | [flash_path.py](../../../tests/python/unittests/cache/flash_path.py) | Dois roteadores, a icache, o árbitro e o chip juntos; store à FLASH nunca chega ao chip, leitura além da janela devolve zero sem tocar o chip, pedidos à SDRAM não tocam o caminho da FLASH |
 
 ---

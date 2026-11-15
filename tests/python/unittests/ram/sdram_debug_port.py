@@ -10,8 +10,12 @@ instance does, with a 64-bit DEBUG register selected by instruction 1
 
 """
 
-import cocotb
+import zlib
 
+import cocotb
+from cocotb.triggers import RisingEdge
+
+from tests.python.unittests import jtag
 from tests.python.unittests.checks import (
     Prng,
     check_equal,
@@ -37,6 +41,15 @@ OP_NOP, OP_READ, OP_WRITE, OP_FILL, OP_COUNT, OP_READ_NEXT, OP_WRITE_NEXT = (
     range(7)
 )
 BUSY, ERROR, INIT, OVERRUN = 1, 2, 4, 8
+STREAM_ERROR, HOLD = 0x10, 0x20  # status bits above the overrun
+OP_CONTROL = 7
+CTRL_HOLD, CTRL_CRC, CTRL_SEEK = 0, 1, 2  # subcommands of op 7, in be
+IR_DEBUG, IR_STREAM_WRITE, IR_STREAM_READ = 1, 2, 3
+STREAM_WORDS = 128  # words of the largest burst
+FRAME_BITS = 64  # bits of the status frame that open a stream shift
+CRC_WORDS = 24  # words the CRC test covers
+MAX_STALE_CYCLES = 200_000  # memory clocks a command left over may take
+FAST_HALF_TCK_NS = 20  # half a period of a 24 MHz TCK
 ADDR_BITS_128_MB = (
     25  # word address bits of the 32-bit chip pair of the DE2-115
 )
@@ -104,6 +117,12 @@ async def write(dut: Dut, addr: int, value: int, be: int = 0xF):
 async def start_debug(dut: Dut):
     """Start the clock and the debug port."""
     await start(dut)
+    # The JTAG side has no reset, so the reset master runs again a
+    # command the previous test left; wait for it.
+    for _ in range(MAX_STALE_CYCLES):
+        if int(dut.u_jtag.cmd_i.value) == int(dut.u_dbg.done_i.value):
+            break
+        await RisingEdge(dut.i_clk_mem)
     await load_ir(dut, 1)
     status, _, _ = await settle(dut)
     check_true(
@@ -374,3 +393,179 @@ async def test_the_host_reaches_the_upper_half_of_a_128_mb_sdram(dut: Dut):
     await debug(dut, OP_WRITE_NEXT, 0, 0x33333333)
     await settle(dut)
     check_equal(await read(dut, high + 1), 0x33333333, "write next")
+
+
+def word_crc(words: list[int]) -> int:
+    """Return the CRC-32 (zlib) of words stored little-endian."""
+    return zlib.crc32(b"".join(w.to_bytes(4, "little") for w in words))
+
+
+async def stream_write(dut: Dut, words: list[int]) -> None:
+    """Shift words into the stream register, and back to DEBUG."""
+    await load_ir(dut, IR_STREAM_WRITE)
+    await shift_dr(
+        dut,
+        32 * len(words),
+        sum(w << (32 * i) for i, w in enumerate(words)),
+    )
+    await load_ir(dut, IR_DEBUG)
+
+
+async def stream_read(dut: Dut, count: int) -> list[int]:
+    """Shift `count` words out of the stream register, and back."""
+    await load_ir(dut, IR_STREAM_READ)
+    out = await shift_dr(dut, FRAME_BITS + 32 * count, 0)
+    await load_ir(dut, IR_DEBUG)
+    return [(out >> (FRAME_BITS + 32 * i)) & 0xFFFFFFFF for i in range(count)]
+
+
+async def seek(dut: Dut, addr: int) -> None:
+    """Point the stream at a word."""
+    await debug(dut, OP_CONTROL, addr, 0, CTRL_SEEK)
+
+
+@cocotb.test()
+async def test_the_hold_goes_out_to_the_soc(dut: Dut):
+    """Op 7 with be 0 raises o_core_hold, and the status says so."""
+    await start_debug(dut)
+    check_equal(int(dut.o_core_hold.value), 0, "no hold at the start")
+    await debug(dut, OP_CONTROL, 0, 1, CTRL_HOLD)
+    status, _, _ = await settle(dut)
+    check_equal(int(dut.o_core_hold.value), 1, "hold raised")
+    check_equal(status & HOLD, HOLD, "the status reports it")
+    await debug(dut, OP_CONTROL, 0, 0, CTRL_HOLD)
+    status, _, _ = await settle(dut)
+    check_equal(int(dut.o_core_hold.value), 0, "hold dropped")
+    check_equal(status & HOLD, 0, "the status drops it")
+
+
+@cocotb.test()
+async def test_the_crc_is_the_one_of_the_stored_bytes(dut: Dut):
+    """The CRC computed on the board matches zlib over the words."""
+    await start_debug(dut)
+    rng = Prng(21)
+    words = [rng.getrandbits(32) for _ in range(CRC_WORDS)]
+    for i, word in enumerate(words[: CRC_WORDS // 2]):
+        await write(dut, 0x2000 + i, word)
+    for i, word in enumerate(words[CRC_WORDS // 2 :], CRC_WORDS // 2):
+        await access(dut, True, 0x2000 + i, word)  # written by the core
+    await debug(dut, OP_CONTROL, 0x2000, CRC_WORDS, CTRL_CRC)
+    status, word, crc = await settle(dut)
+    check_equal(crc, word_crc(words), f"crc {crc:08X}")
+    check_equal(word, 0x2000 + CRC_WORDS - 1, "last word read")
+    check_equal(status & ERROR, 0, "no error")
+
+
+@cocotb.test()
+async def test_a_stream_write_lands_in_the_chip(dut: Dut):
+    """A burst of 1, 32 and 128 words is stored word by word."""
+    await start_debug(dut)
+    rng = Prng(8)
+    base = 0x30000
+    sent: list[int] = []
+    await seek(dut, base)
+    for count in (1, 32, STREAM_WORDS, 7):
+        words = [rng.getrandbits(32) for _ in range(count)]
+        await stream_write(dut, words)
+        await settle(dut)
+        sent += words
+    for i in (0, 1, 32, 33, 160, len(sent) - 1):
+        check_equal(await model_word(dut, base + i), sent[i], f"chip word {i}")
+    status, _, _ = await debug(dut, OP_NOP)
+    check_equal(status & STREAM_ERROR, 0, "no stream error")
+    await debug(dut, OP_CONTROL, base, len(sent), CTRL_CRC)
+    _, _, crc = await settle(dut)
+    check_equal(crc, word_crc(sent), "the CRC on the board matches")
+
+
+@cocotb.test()
+async def test_a_stream_read_gives_back_what_was_written(dut: Dut):
+    """A written image reads back through the stream, burst by burst."""
+    await start_debug(dut)
+    rng = Prng(13)
+    base = 0x48000
+    image = [rng.getrandbits(32) for _ in range(STREAM_WORDS + 40)]
+    await seek(dut, base)
+    await stream_write(dut, image[:STREAM_WORDS])
+    await settle(dut)
+    await stream_write(dut, image[STREAM_WORDS:])
+    await settle(dut)
+    await seek(dut, base)
+    got = await stream_read(dut, STREAM_WORDS)
+    got += await stream_read(dut, 40)
+    check_equal(got, image, "the stream read differs from the image")
+    status, _, _ = await debug(dut, OP_NOP)
+    check_equal(status & STREAM_ERROR, 0, "no stream error")
+
+
+@cocotb.test()
+async def test_a_stream_keeps_up_while_the_core_uses_the_memory(dut: Dut):
+    """The core hammers the memory: the words still arrive in time."""
+    await start_debug(dut)
+    rng = Prng(34)
+    words = [rng.getrandbits(32) for _ in range(STREAM_WORDS)]
+    core_words = {0x60000 + i * 3: rng.getrandbits(32) for i in range(60)}
+
+    async def core():
+        for addr, value in core_words.items():
+            await access(dut, True, addr, value)
+        for addr, value in core_words.items():
+            got, _ = await access(dut, False, addr)
+            check_equal(got, value, f"core word 0x{addr:06X}")
+
+    task = cocotb.start_soon(core())
+    await seek(dut, 0x70000)
+    await stream_write(dut, words)
+    await settle(dut)
+    await seek(dut, 0x70000)
+    got = await stream_read(dut, STREAM_WORDS)
+    await task
+    check_equal(got, words, "the stream corrupted under traffic")
+    status, _, _ = await debug(dut, OP_NOP)
+    check_equal(status & STREAM_ERROR, 0, "a word was late")
+
+
+@cocotb.test()
+async def test_a_stream_reaches_the_upper_half_of_a_128_mb_sdram(dut: Dut):
+    """The pointer of the stream has 25 bits."""
+    if addr_bits(dut) < ADDR_BITS_128_MB:
+        log_info("the chip has 2**24 words: nothing above to reach")
+        return
+    await start_debug(dut)
+    base = (1 << 24) - 2
+    words = [0x11111111, 0x22222222, 0x33333333, 0x44444444]
+    await seek(dut, base)
+    await stream_write(dut, words)
+    await settle(dut)
+    check_equal(await model_word(dut, base + 2), 0x33333333, "above 2**24")
+    await seek(dut, base)
+    check_equal(await stream_read(dut, 4), words)
+
+
+@cocotb.test()
+async def test_a_stream_keeps_up_at_the_fastest_jtag_clock(dut: Dut):
+    """A 24 MHz TCK, the fastest of the USB-Blaster, still keeps up."""
+    await start_debug(dut)
+    rng = Prng(55)
+    words = [rng.getrandbits(32) for _ in range(STREAM_WORDS)]
+    core_words = {0x61000 + i * 5: rng.getrandbits(32) for i in range(80)}
+
+    async def core():
+        for addr, value in core_words.items():
+            await access(dut, True, addr, value)
+
+    saved = jtag.HALF_TCK_NS
+    jtag.HALF_TCK_NS = FAST_HALF_TCK_NS
+    try:
+        task = cocotb.start_soon(core())
+        await seek(dut, 0x71000)
+        await stream_write(dut, words)
+        await settle(dut)
+        await seek(dut, 0x71000)
+        got = await stream_read(dut, STREAM_WORDS)
+        await task
+        status, _, _ = await debug(dut, OP_NOP)
+    finally:
+        jtag.HALF_TCK_NS = saved
+    check_equal(got, words, "the stream corrupted at 24 MHz")
+    check_equal(status & STREAM_ERROR, 0, "a word was late at 24 MHz")

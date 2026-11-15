@@ -20,6 +20,12 @@
 -- e ficam estáveis até ack_tog inverter; o controlador só os amostra depois de
 -- ver a inversão, então precisam de uma restrição de atraso apenas no caminho de
 -- dados (menor que a latência do sincronizador), não de sincronizadores.
+--
+-- Janela no chip: o endereço de palavra enviado ao controlador é o do core (bits addr_bits+1 a 2), com o bit mais
+-- significativo forçado por fixed_msb e depois somado a word_offset (módulo 2**addr_bits). Com os padrões ('U' e 0) o
+-- endereço passa sem nenhuma lógica. Assim uma mesma SDRAM serve duas regiões de tamanhos quaisquer (FLASH e RAM): a
+-- ponte de cada região recebe, do platform.yaml, o bit fixo da sua metade (regiões de 32 MiB) ou o deslocamento
+-- dentro do chip (outras divisões, como 16/48 ou 48/16 MiB).
 -- =============================================================================
 
 library ieee;
@@ -30,7 +36,13 @@ use work.config_pkg.all;
 entity sdram_cpu_bridge is
     generic (
         -- Bits do endereço de palavra de 32 bits do chip (linha, banco e coluna da palavra; 24 no padrão da DE0-CV).
-        addr_bits : natural := 24
+        addr_bits : natural := 24;
+        -- Bit mais significativo do endereço de palavra do chip: '0' ou '1' o força nesse valor (a ponte alcança só a
+        -- metade do chip que o bit escolhe); qualquer outro valor ('U', o padrão) deixa o bit como veio do core.
+        fixed_msb   : std_logic := 'U';
+        -- Deslocamento constante, em palavras de 32 bits, somado ao endereço depois do bit fixo (módulo 2**addr_bits);
+        -- 0 (o padrão) não gera somador. Coloca no chip uma região que não começa numa fronteira de metade.
+        word_offset : natural   := 0
     );
     port (
         -- Clock do lado do core.
@@ -117,12 +129,37 @@ architecture rtl of sdram_cpu_bridge is
     -- O acesso em andamento é de linha.
     signal line_l    : std_logic                     := '0';
 
+    -- Endereço de palavra do chip que corresponde ao endereço do core: bit mais significativo forçado por fixed_msb e
+    -- deslocamento word_offset.
+    function chip_addr (
+        a : std_logic_vector(addr_bits - 1 downto 0)
+    ) return std_logic_vector is
+        -- Endereço de palavra do chip em construção: o do core, depois o bit fixo e o deslocamento.
+        variable v : unsigned(addr_bits - 1 downto 0);
+    begin
+
+        v := unsigned(a);
+        if fixed_msb = '0' or fixed_msb = '1' then
+            v(addr_bits - 1) := fixed_msb;
+        end if;
+        if word_offset /= 0 then
+            v := v + to_unsigned(word_offset, addr_bits);
+        end if;
+
+        return std_logic_vector(v);
+
+    end function chip_addr;
+
 begin
 
     -- A palavra do núcleo tem XLEN bits, mas a linha de 4 palavras, o mapa de bits do endereço e a largura física do
     -- dispositivo deste bloco supõem a palavra de 32 bits e só elaboram com XLEN = 32.
     assert XLEN = 32
         report "este bloco só elabora com XLEN = 32"
+        severity failure;
+
+    assert word_offset < 2 ** addr_bits
+        report "word_offset não cabe no endereço de palavra do chip"
         severity failure;
 
     -- Leva o toggle de confirmação e o init_done do clock do controlador ao do core.
@@ -164,7 +201,7 @@ begin
                     when ST_IDLE =>
 
                         if (i_rden = '1' or i_wren = '1') and init_sync(0) = '1' then
-                            o_c_addr    <= i_addr(addr_bits + 1 downto 2);
+                            o_c_addr    <= chip_addr(i_addr(addr_bits + 1 downto 2));
                             o_c_wdata   <= i_wdata;
                             o_c_be      <= i_byteena;
                             line_l      <= i_line;

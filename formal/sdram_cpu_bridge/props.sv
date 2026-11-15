@@ -6,6 +6,13 @@
 `define K 3      // o controlador responde em até K ciclos depois do pedido (só a vivacidade usa)
 `endif
 
+`ifndef FMSB
+`define FMSB 2      // 0 ou 1 força o bit mais significativo do endereço do chip; 2 deixa como veio
+`endif
+`ifndef WOFF
+`define WOFF 0      // deslocamento constante somado ao endereço de palavra do chip
+`endif
+
 module props (input clk);
   (* anyseq *) wire rst;
   (* anyseq *) wire [31:0] addr, wdata, c_rdata;
@@ -47,6 +54,16 @@ module props (input clk);
   // Ciclos desde que o ack do controlador igualou o pedido, e ciclos de espera de uma resposta.
   reg [3:0] ack_age = 0, resp_wait = 0;
 
+  // O endereço de palavra do chip que a janela da ponte (generics fixed_msb e word_offset) dá a um endereço do núcleo.
+  function [23:0] chip_addr(input [23:0] a);
+    reg [23:0] v;
+    begin
+      v = a;
+      if (`FMSB != 2) v[23] = `FMSB;
+      chip_addr = v + `WOFF;
+    end
+  endfunction
+
   wire accept = p_st == 2'd0 && (p_rden || p_wren) && p_init && !p_rst;
   wire seen = d_st == 2'd1 && d_ack == d_req;
 
@@ -87,7 +104,7 @@ module props (input clk);
     if (accept) assert (req_tog != p_req);
     // 2. A carga útil que o controlador vê é a do núcleo no ciclo do pedido, e se mantém até o pedido seguinte.
     if (req_tog != p_req) begin
-      assert (c_addr == p_addr[25:2] && c_wdata == p_wdata && c_be == p_be && c_we == p_wren && c_line == p_line);
+      assert (c_addr == chip_addr(p_addr[25:2]) && c_wdata == p_wdata && c_be == p_be && c_we == p_wren && c_line == p_line);
       assert (c_wdata_x == p_wx && c_be_x == p_bex);
     end else begin
       assert (c_addr == p_caddr && c_wdata == p_cwdata && c_be == p_cbe && c_we == p_cwe && c_line == p_cline);
@@ -113,6 +130,9 @@ module props (input clk);
     cover (ready && c_we);
     cover (req_tog != p_req && c_line);
     cover (p_ready && p_adv && !ready);
+`ifdef WINDOW
+    cover (req_tog != p_req && c_addr != p_addr[25:2]);
+`endif
   end
 `endif
 endmodule
