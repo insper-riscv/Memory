@@ -1587,5 +1587,37 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "Max10Flash": {
+        "toplevel": "max10_flash_tb",
+        "sources": [
+            "src/ROM/SoC/max10_flash.vhd",
+            "src/ROM/SoC/sim/max10_flash_model.vhd",
+            "src/ROM/SoC/sim/max10_flash_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.max10_flash",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
+    },
+    "EpcsCtrl": {
+        "toplevel": "epcs_ctrl_tb",
+        "sources": [
+            "src/ROM/SoC/epcs_spi.vhd",
+            "src/ROM/SoC/epcs_cmd.vhd",
+            "src/ROM/SoC/epcs_ctrl.vhd",
+            "src/ROM/SoC/sim/epcs_model.vhd",
+            "src/ROM/SoC/sim/epcs_ctrl_tb.vhd"
+        ],
+        "test_module": "tests.python.unittests.rom.epcs_ctrl",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ]
     }
 }
