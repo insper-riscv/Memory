@@ -1,8 +1,9 @@
 # FLASH serial de configuração da DE0-Nano (Altera EPCS64, 64 Mbit, SPI). Setor de 64 KiB e página de 256 bytes.
+# read_spi_mhz é o teto do clock SPI da instrução READ (0x03), que o epcs_xip usa; a EPCS64 não traz teto de FAST_READ no catálogo.
 chip: EPCS64
 kind: serial_flash
 organization: {words: 8388608, width: 8}
-timing: {max_spi_mhz: 25}
+timing: {max_spi_mhz: 25, read_spi_mhz: 25}
 sector_bytes: 65536
 max_mhz: 25
 source: inferido
