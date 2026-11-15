@@ -22,7 +22,7 @@ test:
 
 # Formal verification of the SDRAM arbiter (docs/FORMAL.md) and of the AXI4 master and slave bridges
 # (docs/DCACHE_AXI.md), all at once: needs yosys, sby and the solver, in the toolchain image. FORMAL_ENGINE
-# chooses the engine (yices, bitwuzla, boolector or abc-bmc3; default bitwuzla), and FORMAL_JOBS limits the
+# chooses the engine (yices, bitwuzla or abc-bmc3; default bitwuzla), and FORMAL_JOBS limits the
 # proofs that run at the same time (default: the number of cores, up to 8). The results of the engine go to
 # build/formal-results, for formal/aggregate.sh.
 formal:

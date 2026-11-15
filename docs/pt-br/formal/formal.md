@@ -10,7 +10,7 @@ Três mestres enviam pedidos a um controlador: A (a ponte de dados do core, em o
 
 1. O GHDL sintetiza o VHDL numa netlist Verilog (`ghdl --synth --out=verilog`).
 2. O Yosys lê a netlist junto com as propriedades, escritas em SystemVerilog ao redor dela.
-3. O SymbiYosys roda um motor sobre o resultado, que é um solver SMT (`yices`, `bitwuzla` ou `boolector`, pelo `smtbmc`) ou o verificador de modelos limitado do ABC (`abc bmc3`). A seção 9 diz o que cada motor roda e como o CI decide entre eles.
+3. O SymbiYosys roda um motor sobre o resultado, que é um solver SMT (`yices` ou `bitwuzla`, pelo `smtbmc`) ou o verificador de modelos limitado do ABC (`abc bmc3`). A seção 9 diz o que cada motor roda e como o CI decide entre eles.
 
 Uma cópia da netlist expõe como saídas nove registradores internos (o estado, o mestre atendido e o último mestre atendido, com dois flags cada, o toggle travado e a cadeia do sincronizador de A e de I, que a netlist expõe pelo módulo do `synchronizer` e o árbitro repassa). A lógica é a mesma, e os registradores deixam a prova enunciar invariantes do árbitro, de que a indução precisa para descartar estados que não podem ocorrer.
 
@@ -82,7 +82,7 @@ Um FAIL esperado só vale para o código 2. Um ERROR faz a execução falhar com
 
 | Motor | O que roda | Provas que não roda |
 | :--- | :--- | :--- |
-| `yices`, `bitwuzla`, `boolector` | Um solver SMT, pelo motor `smtbmc` do SymbiYosys | Nenhuma |
+| `yices`, `bitwuzla` | Um solver SMT, pelo motor `smtbmc` do SymbiYosys | Nenhuma |
 | `abc-bmc3` | O verificador de modelos limitado do ABC, sem solver SMT, com a netlist entregue como lógica pura e os valores indefinidos como entradas livres | As coberturas e as provas por indução, que terminam como skip |
 
 Cada execução escreve uma linha por verificação em `build/formal-results/result-<motor>.jsonl`, com a prova, o resultado esperado, o veredito (pass, fail, error ou skip), o código de saída e os segundos. O script `formal/aggregate.sh` lê os arquivos de todos os motores e decide cada prova. Um error (a ferramenta não chegou a um veredito) e um skip não são resposta.
@@ -104,15 +104,17 @@ Para saber o que um motor pula, leia a lista da variável do motor no `run.sh` d
 | :--- | :--- | :--- | :--- | :--- |
 | `nor_flash_ctrl` | `bitwuzla` | `safety_a_program`, configuração A, cenário `program` | 80 | `yices` |
 | `nor_flash_ctrl` | `bitwuzla` | `safety_b_read`, configuração B, cenário `read` | 60 | `yices` |
+| `epcs_ctrl` | `bitwuzla` | `cover_se`, cenário `se` (apagar) | 120 | `yices` |
+| `epcs_ctrl` | `bitwuzla` | `cover_pp`, cenário `pp` (gravar) | 150 | `yices` |
 
 Siga este procedimento ao mexer em uma lista.
 
-1. Confirme que a prova não fecha no motor dentro do `FORMAL_TIMEOUT` do bloco (1500 s no `nor_flash_ctrl`), com `FORMAL_JOBS` igual ao da CI.
+1. Confirme que a prova não fecha no motor dentro do `FORMAL_TIMEOUT` do bloco (1500 s no `nor_flash_ctrl` e no `epcs_ctrl`), com `FORMAL_JOBS` igual ao da CI.
 2. Confirme que pelo menos um outro motor fecha a prova. O agregador `formal/aggregate.sh` continua exigindo veredito de pelo menos um motor para cada prova, então o pulo nunca esconde uma prova.
-3. Pule só o motor que não fecha, e só os nomes exatos. Os mutantes e as coberturas do mesmo bloco continuam rodando em todos os motores.
+3. Pule só o motor que não fecha, e só os nomes exatos. Os mutantes e as demais coberturas do mesmo bloco continuam rodando em todos os motores.
 4. Atualize a tabela acima quando a lista mudar.
 
-No `nor_flash_ctrl`, o `yices` fecha as duas provas (773 s e 62 s), o `boolector` fecha a segunda e o `bitwuzla` não termina nenhuma das duas em 1500 s.
+No `nor_flash_ctrl`, o `yices` fecha as duas provas (773 s e 62 s) e o `bitwuzla` não termina nenhuma das duas em 1500 s.
 
 ### 10.1. Prova com limite de tempo próprio
 
@@ -138,7 +140,7 @@ Um aviso do GHDL, do Yosys ou do SymbiYosys indica código fora da norma ou no l
 | `ghdl -a` e `ghdl --synth` | Saída de erro do GHDL, lida por `ghdl_run` | O comando falha e imprime cada aviso com o arquivo e a linha do VHDL |
 | `sby` de cada prova e de cada mutante | Log completo da prova, lido por `prove` | O veredito vira ERROR, mesmo quando o código de saída foi 0 ou 2, e a mensagem aponta `<log>:<linha>` |
 
-Um aviso é uma linha com a palavra `warning` ou `warnings`, em qualquer caixa, como palavra inteira. Nomes que apenas contêm a palavra (`no_warnings.sv`) e o resumo do Yosys com contagem zero (`Warnings: 0 unique messages, 0 total`) não contam. A única exceção são três mensagens do ABC, aceitas só no log do motor `abc-bmc3` (o relógio do módulo de propriedades sem driver, a contagem de bits sem driver e as saídas lidas como restrições); a leitura da netlist pelo ABC as produz e elas não saem do projeto. Yices, Bitwuzla e Boolector não têm exceção, e qualquer outra mensagem do ABC continua sendo erro. As notas informativas `found RAM` do GHDL não são avisos e não aparecem no terminal.
+Um aviso é uma linha com a palavra `warning` ou `warnings`, em qualquer caixa, como palavra inteira. Nomes que apenas contêm a palavra (`no_warnings.sv`) e o resumo do Yosys com contagem zero (`Warnings: 0 unique messages, 0 total`) não contam. A única exceção são três mensagens do ABC, aceitas só no log do motor `abc-bmc3` (o relógio do módulo de propriedades sem driver, a contagem de bits sem driver e as saídas lidas como restrições); a leitura da netlist pelo ABC as produz e elas não saem do projeto. Yices e Bitwuzla não têm exceção, e qualquer outra mensagem do ABC continua sendo erro. As notas informativas `found RAM` do GHDL não são avisos e não aparecem no terminal.
 
 Três regras mantêm as netlists sem aviso.
 
