@@ -21,13 +21,13 @@ The SDRAM debug master runs, on the controller clock, the read, write and fill c
 | `i_rst` | input | 1 | synchronous reset, active at `'1'` |
 | `i_cmd_tog` | input | 1 | command toggle from the host (any clock), each flip is a new command |
 | `o_done_tog` | output | 1 | toggle that acknowledges the finished command |
-| `i_op` | input | 4 | debug command code, 0 to 6 in bits 2 to 0, and bit 24 of the address in bit 3 when `addr_bits` is 25 |
+| `i_op` | input | 4 | debug command code, 0 to 7 in bits 2 to 0, and bit 24 of the address in bit 3 when `addr_bits` is 25 |
 | `i_be` | input | 4 | byte enables of the writes |
 | `i_addr` | input | 24 | word address of the command |
 | `i_data` | input | 32 | write data or, in command 4, the number of words of the fill |
 | `o_rsp_addr` | output | 24 | last word accessed |
 | `o_rsp_data` | output | 32 | data returned by port B on the last access |
-| `o_rsp_status` | output | 8 | bit 1 flags an error (controller did not answer), bit 2 flags SDRAM initialized, the others are 0 |
+| `o_rsp_status` | output | 8 | bit 1 flags an error (controller did not answer), bit 2 flags SDRAM initialized, bit 4 flags hold active, the others are 0 |
 | `i_init_done` | input | 1 | the SDRAM initialization has finished, from any clock |
 | `o_b_req_tog` | output | 1 | request toggle to the arbiter |
 | `i_b_ack_tog` | input | 1 | acknowledge toggle, equal to `o_b_req_tog` when the request has been served |
@@ -36,6 +36,7 @@ The SDRAM debug master runs, on the controller clock, the read, write and fill c
 | `o_b_wdata` | output | 32 | write data |
 | `o_b_be` | output | 4 | byte enables of the write |
 | `i_b_rdata` | input | 32 | read data |
+| `o_core_hold` | output | 1 | request to stop the core, `'1'` keeps the core in reset; set and cleared by command 7 and back to `'0'` on the reset of the module |
 
 ## 3. Behavior
 
@@ -54,7 +55,17 @@ A command is a flip of `i_cmd_tog`, with `i_op`, `i_be`, `i_addr` and `i_data` s
 | 4 | sets `count` to the low 25 bits of `i_data`, up to $2^{24}$ words, the whole SDRAM |
 | 5 | reads the word after the one accessed last |
 | 6 | writes `i_data` to the word after the one accessed last, bytes by `i_be` |
-| 7 to 15 | treated as command 0 |
+| 7 | control, chosen by bits 2 to 0 of `i_be` (table below) |
+
+Bit 3 of `i_op` has an effect only with `addr_bits` equal to 25, and otherwise the codes 8 to 15 repeat those of 0 to 7.
+
+| `i_be` (bits 2 to 0) | Control | Effect |
+| ---: | :--- | :--- |
+| 0 | hold | `o_core_hold` takes `i_data(0)`, and the command answers at once |
+| 1 | crc32 | reads $n$ words from `i_addr`, with $n$ equal to the 25 low bits of `i_data`, and returns their CRC-32 in `o_rsp_data` |
+| 2 to 7 | none | only answer (the seek of 2 belongs to the JTAG core and does not arrive here) |
+
+The CRC-32 uses the reflected polynomial $\texttt{0xEDB88320}$, initial value and final inversion all 1, and each word enters with its bytes from the lowest to the highest address, which gives the `zlib.crc32` of the bytes read. With $n$ equal to 0 the result is 0 and nothing is read. `o_rsp_addr` ends at the last word read.
 
 With `addr_bits` equal to 23, bit 23 of `i_addr` is ignored, and `o_rsp_addr` returns the low 24 bits of the last word accessed (bit 24 does not appear with 25).
 
@@ -66,6 +77,7 @@ The value of `count` is 1 after reset and is kept between commands. The register
 | :--- | :--- | :--- |
 | `ST_IDLE` | with a pending command, latches `i_op`, `i_be` and `i_data`, clears the error and runs the command; reads and writes issue a request to the arbiter (address, `o_b_we`, data and mask, flip of `o_b_req_tog`, clear of the wait counter), commands 0 and 4 and command 3 with a zero `count` answer at once | `ST_WAIT`, or stays |
 | `ST_WAIT` | waits for `i_b_ack_tog` to equal `o_b_req_tog`; on receiving it, stores the accessed word in `o_rsp_addr` and `i_b_rdata` in `o_rsp_data` | `ST_NEXT` |
+| `ST_FIN` | in command 7 with the CRC, `o_rsp_data` already has the result, and this state flips `o_done_tog` one cycle later, so the result is stable before the answer | `ST_IDLE` |
 | `ST_NEXT` | in command 3 with words remaining, issues the write of the next word; otherwise answers | `ST_WAIT` or `ST_IDLE` |
 
 The fill writes $\text{count}$ words, with $\text{count} - 1$ of them remaining after the first, and `o_rsp_addr` ends at the last word written. The data in `o_rsp_data` is copied from `i_b_rdata` at the end of every access, writes included, so it only has meaning after a read.
@@ -103,6 +115,8 @@ The cocotb tests of `tests/python/unittests/ram/sdram_debug_port.py` run the com
 | `test_a_command_while_busy_is_dropped` | the command that arrives with the master busy is dropped and flagged |
 | `test_other_instructions_are_a_bypass` | another JTAG instruction sends nothing to the memory |
 | `test_the_core_is_not_starved_by_a_long_fill` | a long fill does not delay the core beyond the arbiter bound |
+
+The tests of command 7 are in `tests/python/unittests/ram/sdram_dbg_master.py` (entry `SdramDbgMaster`, with the arbiter modeled by a dictionary) and in `sdram_debug_port.py`.
 
 There is no formal proof of this block. The proof in [formal.md](../formal/formal.md) covers the arbiter, with master B modeled by the assumptions about the environment.
 

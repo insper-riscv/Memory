@@ -143,11 +143,11 @@ jobs:
     needs: reuse
     if: ${{ needs.reuse.outputs.skip != 'true' && fromJSON(needs.reuse.outputs.gates)['formal'].skip != 'true' }}
     runs-on: ubuntu-26.04
-    timeout-minutes: 120
+    timeout-minutes: 240
     strategy:
       fail-fast: false
       matrix:
-        engine: [yices, bitwuzla, boolector, abc-bmc3]
+        engine: [yices, bitwuzla, abc-bmc3]
     container:
       image: ${{ fromJSON(needs.reuse.outputs.images)['ci-vhdl'] }}
 

@@ -4,7 +4,7 @@ from cocotb.triggers import Timer
 
 from tests.python.unittests.dut import Dut
 
-HALF_TCK_NS = 40
+HALF_TCK_NS: int = 40
 
 
 async def tck(dut: Dut, port: str = "jtag_", **states: bool) -> None:

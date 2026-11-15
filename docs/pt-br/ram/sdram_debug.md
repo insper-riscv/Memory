@@ -14,7 +14,7 @@ Um acesso do hospedeiro nunca muda o que o core vê, porque os dois leem e escre
 
 ## 2. Os registradores da JTAG
 
-A instância tem um registrador de instrução de 2 bits. A instrução 1 seleciona o registrador de dados DEBUG de 64 bits, e qualquer outra deixa um bypass de 1 bit.
+A instância tem um registrador de instrução de 2 bits. A instrução 1 seleciona o registrador de dados DEBUG de 64 bits, as instruções 2 e 3 selecionam as rajadas de escrita e de leitura, e qualquer outra deixa um bypass de 1 bit.
 
 ### 2.1 Entrada (hospedeiro para a placa), bit menos significativo primeiro
 
@@ -39,6 +39,8 @@ A instância tem um registrador de instrução de 2 bits. A instrução 1 seleci
 | 1 error | O controlador não respondeu ao comando anterior |
 | 2 initialized | A SDRAM terminou a sequência de energização |
 | 3 overrun | Um comando chegou com a porta ocupada e foi descartado (limpo pelo próximo comando aceito) |
+| 4 stream error | Uma palavra de uma rajada chegou tarde ou foi perdida (limpo pelo próximo comando aceito ou pela rajada seguinte) |
+| 5 hold | O mestre de depuração mantém o núcleo parado |
 
 O comando sai quando a varredura termina. O status de um comando só está atualizado alguns clocks da JTAG depois de ele ser enviado, então a primeira varredura depois de um comando ainda pode mostrar busy, e a seguinte não.
 
@@ -53,6 +55,9 @@ O comando sai quando a varredura termina. O status de um comando só está atual
 | 4 | set count | `count` $=$ `data[24:0]`, até $2^{24}$ palavras, a SDRAM inteira (começa em 1) |
 | 5 | read next | Lê a palavra seguinte à última acessada |
 | 6 | write next | Escreve `data` na palavra seguinte à última acessada, com os bytes dados por `be` |
+| 7 | control | Subcomando em `be`: 0 liga ou desliga o hold do núcleo, 1 calcula o CRC-32 de uma faixa na placa, 2 aponta o ponteiro das rajadas |
+
+O hold mantém o núcleo em reset enquanto o hospedeiro escreve uma região que o núcleo executa, e o CRC-32 confere a imagem na placa, sem trafegar a faixa pelo JTAG. Uma rajada move até 128 palavras (4096 bits) em um só deslocamento das instruções 2 e 3 do Virtual JTAG. O protocolo completo, com os formatos, o tempo e as receitas de carga e de despejo, está em [sdram_jtag_protocol.md](sdram_jtag_protocol.md).
 
 Um preenchimento roda sozinho no clock do controlador, então zerar uma faixa não exige uma varredura por palavra. À taxa do controlador, de cerca de 15 clocks por palavra, os 64 MB inteiros levam cerca de dois segundos (uma estimativa, e a documentação da plataforma tem a medição na placa).
 
@@ -71,7 +76,7 @@ A ponte do core é o mestre A e o mestre de depuração é o mestre B. Quando os
 
 ## 6. Limites
 
-A vazão é a do cabo JTAG, uma palavra por comando e alguns milissegundos cada, então ler um quilobyte leva cerca de um segundo. O preenchimento é a exceção, porque roda dentro da placa. Uma cache entre o core e a SDRAM precisa escrever através (ou ser descarregada) para o hospedeiro ler o que o core escreveu.
+A vazão de um comando por palavra é a do cabo JTAG, alguns milissegundos cada, então ler um quilobyte leva cerca de um segundo. O preenchimento e o CRC são a exceção, porque rodam dentro da placa, e a rajada move até 128 palavras por deslocamento, sem um comando por palavra. Uma cache entre o core e a SDRAM precisa escrever através (ou ser descarregada) para o hospedeiro ler o que o core escreveu.
 
 ## 7. A porta de depuração de cada backend (contrato K5)
 

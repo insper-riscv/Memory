@@ -13,7 +13,7 @@ The `chips/` folder keeps one file per memory chip that some board carries. The 
 | `kind` | `sdram`, `sram`, `nor` or `serial_flash` |
 | `organization` | `words` and `width`, and for the SDRAM also `banks`, `row_bits` and `col_bits` |
 | `cas_latency` | Column latency of the SDRAM |
-| `timing` | Timings with the datasheet names, in picoseconds when the name ends in `_ps` |
+| `timing` | Timings with the datasheet names, in picoseconds when the name ends in `_ps`; in the serial flash, `max_spi_mhz`, `read_spi_mhz` and `fast_read_spi_mhz` are the SPI clock ceilings in MHz, general, of the READ instruction and of FAST_READ (the `epcs_xip` picks `clk_div` from them) |
 | `io_timing` | Setup, hold and access times of the pins, in nanoseconds, used in the `.sdc` |
 | `sector_bytes`, `boot_sector_bytes` | Erase sector of the FLASH |
 | `max_mhz` | Clock ceiling of the grade |
@@ -32,7 +32,7 @@ The `chips/` folder keeps one file per memory chip that some board carries. The 
 | `EPCS64` | `serial_flash` | 8 MiB | Inferred |
 | `W25Q16DV` | `serial_flash` | 2 MiB | Inferred; part confirmed by the schematic |
 
-The SDRAM capacity of a board is the chip capacity times the number of chips in parallel.
+The SDRAM capacity of a board is the chip capacity times the number of chips in parallel. The internal flash of the MAX 10 is part of the device and has no file in the folder.
 
 ---
 

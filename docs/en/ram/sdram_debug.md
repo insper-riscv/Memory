@@ -17,7 +17,7 @@ A host access never changes what the core sees: it reads and writes the same chi
 ## 2. The JTAG registers
 
 The instance has a 2-bit instruction register. Instruction 1 selects the 64-bit DEBUG
-data register; any other instruction leaves a 1-bit bypass.
+data register, instructions 2 and 3 select the write and read bursts, and any other instruction leaves a 1-bit bypass.
 
 ### 2.1 Shifted in (host to board), least significant bit first
 
@@ -42,6 +42,8 @@ data register; any other instruction leaves a 1-bit bypass.
 | 1 error | the controller did not answer the previous command |
 | 2 initialized | the SDRAM finished its power-up sequence |
 | 3 overrun | a command arrived while busy and was dropped (cleared by the next accepted command) |
+| 4 stream error | a word of a burst arrived late or was lost (cleared by the next accepted command or by the next burst) |
+| 5 hold | the debug master keeps the core stopped |
 
 The command goes out when the shift ends. The status of a command is up to date only a
 few JTAG clocks after it was sent, so the first shift after a command may still show
@@ -58,6 +60,9 @@ busy; the next one does not.
 | 4 | set count | `count` $=$ `data[24:0]`, up to $2^{24}$ words, the whole SDRAM (it starts at 1) |
 | 5 | read next | reads the word after the one accessed last |
 | 6 | write next | writes `data` to the word after the one accessed last, bytes by `be` |
+| 7 | control | subcommand in `be`: 0 sets or clears the core hold, 1 computes the CRC-32 of a range on the board, 2 points the burst pointer |
+
+The hold keeps the core in reset while the host writes a region that the core executes, and the CRC-32 checks the image on the board, without moving the range through the JTAG. A burst moves up to 128 words (4096 bits) in a single shift of instructions 2 and 3 of the Virtual JTAG. The complete protocol, with the formats, the timing and the load and dump recipes, is in [sdram_jtag_protocol.md](sdram_jtag_protocol.md).
 
 A fill runs by itself on the controller clock, so zeroing a range does not need one shift
 per word: at the controller's rate of about 15 clocks per word the whole 64 MB take about two
@@ -82,9 +87,9 @@ cycles at a 56 ns core clock, against 5 with no debug traffic.
 
 ## 6. Limits
 
-The throughput is that of the JTAG cable: one word per command, a few milliseconds each,
-so reading a kilobyte takes about a second. A fill is the exception because it runs in
-the board. A cache between the core and the SDRAM must write through (or be flushed) for
+The throughput of one command per word is that of the JTAG cable, a few milliseconds each,
+so reading a kilobyte takes about a second. A fill and the CRC are the exception because they run in
+the board, and a burst moves up to 128 words per shift, with no command per word. A cache between the core and the SDRAM must write through (or be flushed) for
 the host to read what the core wrote.
 
 ## 7. The debug port of each backend (contract K5)

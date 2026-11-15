@@ -10,8 +10,8 @@ formal_jobs="${FORMAL_JOBS:-$(nproc)}"
 # The engine of the proofs: an SMT solver run by smtbmc, or the bounded model checker of ABC.
 engine="${FORMAL_ENGINE:-bitwuzla}"
 case "$engine" in
-  yices | bitwuzla | boolector | abc-bmc3) ;;
-  *) echo "FORMAL_ENGINE must be yices, bitwuzla, boolector or abc-bmc3, not '$engine'" >&2; exit 2 ;;
+  yices | bitwuzla | abc-bmc3) ;;
+  *) echo "FORMAL_ENGINE must be yices, bitwuzla or abc-bmc3, not '$engine'" >&2; exit 2 ;;
 esac
 
 # The slots are shared by the scripts that run at once: formal/all.sh exports FORMAL_SLOTS, and a script run

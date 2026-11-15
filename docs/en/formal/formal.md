@@ -10,7 +10,7 @@ Three masters send requests to one controller: A (the core's data bridge, on ano
 
 1. GHDL synthesizes the VHDL into a Verilog netlist (`ghdl --synth --out=verilog`).
 2. Yosys reads the netlist together with the properties, written in SystemVerilog around it.
-3. SymbiYosys runs an engine on the result: an SMT solver (`yices`, `bitwuzla` or `boolector`, through `smtbmc`) or the bounded model checker of ABC (`abc bmc3`). Section 9 says what each engine runs and how the CI decides across them.
+3. SymbiYosys runs an engine on the result: an SMT solver (`yices` or `bitwuzla`, through `smtbmc`) or the bounded model checker of ABC (`abc bmc3`). Section 9 says what each engine runs and how the CI decides across them.
 
 A copy of the netlist exposes nine internal registers (the state, the served master and the last served master, as two flags each, and the latched toggle and the chain of the synchronizer of A and of I, which the netlist exposes through the `synchronizer` module and the arbiter passes on) as outputs. The logic is the same; the registers let the proof state invariants of the arbiter, which the induction needs to rule out states that cannot occur.
 
@@ -82,7 +82,7 @@ An expected FAIL only holds for the code 2. An ERROR fails the run with the exit
 
 | Engine | What it runs | Proofs it does not run |
 | :--- | :--- | :--- |
-| `yices`, `bitwuzla`, `boolector` | an SMT solver, through the `smtbmc` engine of SymbiYosys | none |
+| `yices`, `bitwuzla` | an SMT solver, through the `smtbmc` engine of SymbiYosys | none |
 | `abc-bmc3` | the bounded model checker of ABC, with no SMT solver; the netlist goes to it as plain logic, with the undefined values as free inputs | the covers and the proofs by induction, which end as a skip |
 
 Each run writes one line per check to `build/formal-results/result-<engine>.jsonl`, with the proof, the expected result, the verdict (pass, fail, error or skip), the exit code and the seconds. The script `formal/aggregate.sh` reads the files of all the engines and decides each proof. An error (the tool reached no verdict) and a skip are no answer.
@@ -104,15 +104,17 @@ To see what an engine skips, read the list in the engine's variable in the `run.
 | :--- | :--- | :--- | :--- | :--- |
 | `nor_flash_ctrl` | `bitwuzla` | `safety_a_program`, configuration A, scenario `program` | 80 | `yices` |
 | `nor_flash_ctrl` | `bitwuzla` | `safety_b_read`, configuration B, scenario `read` | 60 | `yices` |
+| `epcs_ctrl` | `bitwuzla` | `cover_se`, scenario `se` (erase) | 120 | `yices` |
+| `epcs_ctrl` | `bitwuzla` | `cover_pp`, scenario `pp` (program) | 150 | `yices` |
 
 Follow this procedure when changing a list.
 
-1. Confirm that the engine does not close the proof within the `FORMAL_TIMEOUT` of the block (1500 s in `nor_flash_ctrl`), with the same `FORMAL_JOBS` as the CI.
+1. Confirm that the engine does not close the proof within the `FORMAL_TIMEOUT` of the block (1500 s in `nor_flash_ctrl` and `epcs_ctrl`), with the same `FORMAL_JOBS` as the CI.
 2. Confirm that at least one other engine closes the proof. The `formal/aggregate.sh` aggregator still demands a verdict from at least one engine for every proof, so the skip never hides a proof.
-3. Skip only the engine that does not close it, and only the exact names. The mutants and the covers of the same block keep running in every engine.
+3. Skip only the engine that does not close it, and only the exact names. The mutants and the other covers of the same block keep running in every engine.
 4. Update the table above when the list changes.
 
-In `nor_flash_ctrl`, `yices` closes both proofs (773 s and 62 s), `boolector` closes the second and `bitwuzla` finishes neither within 1500 s.
+In `nor_flash_ctrl`, `yices` closes both proofs (773 s and 62 s) and `bitwuzla` finishes neither within 1500 s.
 
 ### 10.1. Proof with its own time limit
 
@@ -138,7 +140,7 @@ A warning from GHDL, Yosys or SymbiYosys points to code outside the standard or 
 | `ghdl -a` and `ghdl --synth` | Standard error of GHDL, read by `ghdl_run` | The command fails and prints each warning with the VHDL file and line |
 | `sby` of each proof and each mutant | Whole log of the proof, read by `prove` | The verdict becomes ERROR, even when the exit code was 0 or 2, and the message points to `<log>:<line>` |
 
-A warning is a line with the word `warning` or `warnings`, in any case, as a whole word. Names that only contain the word (`no_warnings.sv`) and the Yosys summary with a count of zero (`Warnings: 0 unique messages, 0 total`) do not count. The only exception is three ABC messages, accepted only in the log of the `abc-bmc3` engine (the undriven clock of the property module, the count of undriven bits and the outputs read as constraints); the way ABC reads the netlist produces them and they cannot be removed from the design. Yices, Bitwuzla and Boolector have no exception, and any other ABC message is still an error. The informative `found RAM` notes of GHDL are not warnings and do not reach the terminal.
+A warning is a line with the word `warning` or `warnings`, in any case, as a whole word. Names that only contain the word (`no_warnings.sv`) and the Yosys summary with a count of zero (`Warnings: 0 unique messages, 0 total`) do not count. The only exception is three ABC messages, accepted only in the log of the `abc-bmc3` engine (the undriven clock of the property module, the count of undriven bits and the outputs read as constraints); the way ABC reads the netlist produces them and they cannot be removed from the design. Yices and Bitwuzla have no exception, and any other ABC message is still an error. The informative `found RAM` notes of GHDL are not warnings and do not reach the terminal.
 
 Three rules keep the netlists free of warnings.
 
