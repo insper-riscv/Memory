@@ -27,6 +27,9 @@ The overview of the path from the core to the SDRAM, the cost measurements and t
 | `flash_base_kib` | natural | 524288 | Base of the FLASH region in KiB; whatever falls in it is treated as FLASH (0x20000000) |
 | `flash_end_kib` | natural | 1048576 | Exclusive end of the FLASH region in KiB (0x40000000) |
 | `write_through` | boolean | false | True makes every store also go to memory and a store miss not bring the line in |
+| `write_buffer` | natural 0 to 16 | 0 | Words of the write queue between the core and the memory; requires `write_through`, and 0 has no queue |
+| `scratch_kib` | natural 0 to 256 | 0 | Size in KiB of the internal memory inside the SDRAM window, a power of two; 0 has no internal memory |
+| `scratch_base_kib` | natural | 0 | Base of the internal memory in KiB, a multiple of its size |
 
 ### 2.2. Core-side ports
 
@@ -114,7 +117,7 @@ In `S_IDLE`, a pending flush takes priority over an access. In `S_LOOK`, the dec
 | 4 | Miss, line valid and dirty | `S_WB_RD` | Write-back and then fill |
 | 5 | Miss, line clean or invalid | `S_FILL_REQ` | Fill |
 
-A hit is the line being valid with the stored tag equal to the address tag. In a store that follows order 2 and hits, the RAMs also receive the word, except when the address is in the FLASH or `i_bypass` is at 1. Thus a store to the FLASH never changes the cache, neither on a hit nor on a miss; it is only forwarded to memory, where the region router completes it with no effect.
+A hit is the line being valid with the stored tag equal to the address tag. In a store that follows order 2 and hits, the RAMs also receive the word, except when the address is in the FLASH or `i_bypass` is at 1. The word of a store that hits is written to the RAMs in the cycle after `S_LOOK`, from the address, the data and the byte enables registered in that cycle, so the hit, which depends on the stored tag, drives only registers and not the write enable of the RAMs. The write ends before the lookup of the next access, so the result and the latency of the access do not change. A store to the FLASH never changes the cache, neither on a hit nor on a miss; it is only forwarded to memory, where the region router completes it with no effect.
 
 After the fill, the machine returns to `S_IDLE` and repeats the lookup, so the access that caused the miss is served as a hit. For a store without `write_through`, this marks the line dirty (write-allocate).
 
@@ -165,6 +168,22 @@ where $i_{first}$ is the index of the address `i_inval_first`. A region with `i_
 
 `o_miss` is at 1 in `S_FILL_REQ`, one cycle per fill. Uncached loads and write-through stores produce no pulse.
 
+### 3.9. Write queue
+
+With `write_buffer` above zero, a store that reaches `S_WT_REQ` enters a queue of `write_buffer` words (memory address, data and byte enables) and the machine goes straight to `S_DONE`, without waiting for the memory. A write block of the cache itself empties the queue in order, one word at a time, with the same request and `i_d_ready` contract of the memory side. With the queue full, the store waits in `S_WT_REQ` for a slot.
+
+| Situation | Behavior |
+| :--- | :--- |
+| Line fill and load without cache | The request leaves only with the queue empty and the write block idle, so no load passes ahead of a store and the memory sees the stores in program order |
+| Flush | The flush ends, and `o_busy` falls, only with the queue empty |
+| Store with the queue free | , instead of  + k0
+
+### 3.10. Internal memory
+
+With `scratch_kib` above zero, the addresses from `scratch_base_kib` to `scratch_base_kib + scratch_kib` KiB are served by block RAMs of the cache itself, one per byte lane, without the tag, the lines or the memory. The window is aligned to its own size, so the selection compares only the address bits above the word address. In `S_LOOK` an access to the window has priority over the other decisions and goes to `S_DONE`; a read delivers the word read from the RAMs and a write is registered and applied in the next cycle, like the write of a hit. The latency is that of a hit, 2 cycles.
+
+The internal memory holds only what the program writes after the reset, because the host loads the SDRAM behind the cache and does not see the window. An access to it never makes a memory request and does not change the cache.
+
 ## 4. Integration
 
 | Instance | File | Connection |
@@ -187,6 +206,8 @@ The tests are cocotb tests in `tests/python/unittests/cache`, registered in `tes
 | `DataCacheFlash` | [data_cache_flash.py](../../../tests/python/unittests/cache/data_cache_flash.py) | FLASH load is cached, a store never changes the FLASH line, regions do not alias, an SDRAM store still updates the line, `i_bypass` on load and store, one miss pulse per line |
 | `DataCacheRegion` | [data_cache_region.py](../../../tests/python/unittests/cache/data_cache_region.py) | Region invalidation in write-back mode: drops only the line of the region, a region of several lines with index wrap-around, a dirty line of the same index is kept, a region as big as the cache, a backwards region, a fill in progress inside the region does not validate the line |
 | `DataCacheSmall` | [data_cache_small.py](../../../tests/python/unittests/cache/data_cache_small.py) | `size_bits` equal to 4096 with `write_through`, capacity of 32 lines and conflict at 512 bytes; uses only SDRAM addresses |
+| `DataCacheWriteBuffer` | [data_cache_write_buffer.py](../../../tests/python/unittests/cache/data_cache_write_buffer.py) | Store completes without waiting for the chip, load after a store sees the data, burst longer than the queue, random traffic with byte masks with the chip checked after each flush |
+| `DataCacheScratch` | [data_cache_scratch.py](../../../tests/python/unittests/cache/data_cache_scratch.py) | Window access in the latency of a hit and without reaching the chip, byte enables and words without alias, neighbors of the window go through the cache |
 
 ---
 
