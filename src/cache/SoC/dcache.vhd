@@ -217,6 +217,14 @@ architecture rtl of dcache is
     signal tag_rd : std_logic_vector(TAG_BITS - 1 downto 0);
     -- Tag a escrever.
     signal tag_wd : std_logic_vector(TAG_BITS - 1 downto 0);
+    -- Escrita de um acerto de store na memória de dados, registrada: vale no ciclo seguinte ao S_LOOK.
+    signal wr_q   : std_logic                         := '0';
+    -- Endereço da palavra da escrita registrada.
+    signal wr_a_q : std_logic_vector(INDEX_BITS + 1 downto 0) := (others => '0');
+    -- Dado da escrita registrada.
+    signal wr_d_q : word_t                            := (others => '0');
+    -- Habilita de bytes da escrita registrada.
+    signal wr_b_q : std_logic_vector(XLEN / 8 - 1 downto 0) := (others => '0');
     -- Habilita de escrita da memória de tags.
     signal tag_we : std_logic;
 
@@ -305,20 +313,39 @@ begin
     ram_ra <= i_addr(INDEX_BITS + 3 downto 2) when (st = S_IDLE or st = S_LOOK) else cur_idx & std_logic_vector(cnt);
     tag_ra <= cur_idx;
 
-    -- porta de escrita: um acerto escreve a palavra, um preenchimento escreve a palavra que chegou
-    ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1' and is_rom = '0'
-                           and i_bypass = '0') or st = S_FILL_GET else
-              '0';
-    ram_wa <= i_addr(INDEX_BITS + 3 downto 2) when st = S_LOOK else req_idx & std_logic_vector(cnt);
+    -- porta de escrita: o acerto de um store escreve a palavra no ciclo seguinte ao S_LOOK, a partir do que ficou registrado
+    -- (wr_q), e um preenchimento escreve a palavra que chegou; assim o acerto, que depende da tag lida, só alimenta
+    -- registradores, e não a habilitação de escrita das RAMs
+    ram_we <= '1' when wr_q = '1' or st = S_FILL_GET else '0';
+    ram_wa <= wr_a_q when wr_q = '1' else req_idx & std_logic_vector(cnt);
     fill_w <= i_d_rdata when cnt = "00" else
               i_d_rdata_x(XLEN - 1 downto 0) when cnt = "01" else
               i_d_rdata_x(2 * XLEN - 1 downto XLEN) when cnt = "10" else
               i_d_rdata_x(3 * XLEN - 1 downto 2 * XLEN);
-    ram_wd <= i_wdata when st = S_LOOK else fill_w;
-    ram_be <= i_byteena when st = S_LOOK else (others => '1');
+    ram_wd <= wr_d_q when wr_q = '1' else fill_w;
+    ram_be <= wr_b_q when wr_q = '1' else (others => '1');
     tag_we <= '1' when st = S_FILL_GET and cnt = "11" else '0';
     tag_wa <= req_idx;
     tag_wd <= req_tag;
+
+    -- registra o acerto do store e o que ele escreve, no último ciclo do S_LOOK
+    p_write_hit : process (i_clk) is
+    begin
+
+        if rising_edge(i_clk) then
+            wr_a_q <= i_addr(INDEX_BITS + 3 downto 2);
+            wr_d_q <= i_wdata;
+            wr_b_q <= i_byteena;
+            if i_rst = '1' then
+                wr_q <= '0';
+            elsif st = S_LOOK and hit = '1' and i_wren = '1' and is_rom = '0' and i_bypass = '0' then
+                wr_q <= '1';
+            else
+                wr_q <= '0';
+            end if;
+        end if;
+
+    end process p_write_hit;
 
     p_tag_ram : process (i_clk) is
     begin
