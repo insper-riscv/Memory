@@ -62,7 +62,7 @@ Each deliberate defect of the VHDL must make a proof fail. The `run.sh` of each 
 | `sdram_cpu_bridge` | `wrong_rdata`, `rdata_x_zero`, `init_ignored`, `ack_unsynced`, `no_advance_wait`, `write_as_read`, `address_shifted`, `request_lost`, `write_updates_rdata`, `win_msb_free`, `win_offset_lost`, `win_offset_off` |
 | `sdram_ctrl` | `no_precharge`, `few_refreshes`, `init_wait_short`, `mode_wrong`, `init_done_early`, `trcd_short`, `trp_short`, `trfc_short`, `trc_short`, `refresh_never` |
 | `icache` | `dropped_fill_valid`, `invalidate_keeps`, `tag_always_matches`, `ready_without_addr`, `fill_word_swapped`, `hit_without_sel`, `partial_line`, `region_ignored`, `fill_not_dropped`, `region_too_wide`, `region_one_short`, `big_region_partial` |
-| `dcache` | `hit_store_not_cached`, `write_back_on_hit`, `byteena_lost`, `fill_word_swapped`, `hit_ignores_tag`, `store_acked_early`, `store_data_lost`, `inv_inverted`, `region_ignored`, `fill_stays_valid`, `fill_not_marked`, `region_one_short` |
+| `dcache` | `hit_store_not_cached`, `hit_store_data_lost`, `hit_store_byteena_lost`, `hit_store_address_lost`, `write_back_on_hit`, `byteena_lost`, `fill_word_swapped`, `hit_ignores_tag`, `store_acked_early`, `store_data_lost`, `inv_inverted`, `region_ignored`, `fill_stays_valid`, `fill_not_marked`, `region_one_short` |
 
 ## 4. What the proofs do not cover
 

@@ -114,7 +114,7 @@ Em `S_IDLE`, um flush pendente tem prioridade sobre um acesso. Em `S_LOOK`, a de
 | 4 | Falha, linha válida e suja | `S_WB_RD` | Escrita de volta e depois preenchimento |
 | 5 | Falha, linha limpa ou inválida | `S_FILL_REQ` | Preenchimento |
 
-O acerto é a validade da linha com a tag lida igual à tag do endereço. Num store que segue a ordem 2 e acerta, as RAMs também recebem a palavra, exceto se o endereço está na FLASH ou se `i_bypass` está em 1. Assim, um store à FLASH nunca altera a cache, nem num acerto nem numa falha; ele só é repassado à memória, onde o roteador de região o conclui sem efeito.
+O acerto é a validade da linha com a tag lida igual à tag do endereço. Num store que segue a ordem 2 e acerta, as RAMs também recebem a palavra, exceto se o endereço está na FLASH ou se `i_bypass` está em 1. A palavra do store que acerta é escrita nas RAMs no ciclo seguinte ao `S_LOOK`, a partir do endereço, do dado e dos habilita de bytes registrados nesse ciclo, de modo que o acerto, que depende da tag lida, alimenta só registradores e não a habilitação de escrita das RAMs. A escrita termina antes da consulta do acesso seguinte, então o resultado e a latência do acesso não mudam. Um store à FLASH nunca altera a cache, nem num acerto nem numa falha; ele só é repassado à memória, onde o roteador de região o conclui sem efeito.
 
 Terminado o preenchimento, a máquina volta a `S_IDLE` e refaz a consulta, de modo que o acesso que causou a falha é atendido como acerto. Num store sem `write_through`, isso marca a linha como suja (write-allocate).
 

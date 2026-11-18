@@ -114,7 +114,7 @@ In `S_IDLE`, a pending flush takes priority over an access. In `S_LOOK`, the dec
 | 4 | Miss, line valid and dirty | `S_WB_RD` | Write-back and then fill |
 | 5 | Miss, line clean or invalid | `S_FILL_REQ` | Fill |
 
-A hit is the line being valid with the stored tag equal to the address tag. In a store that follows order 2 and hits, the RAMs also receive the word, except when the address is in the FLASH or `i_bypass` is at 1. Thus a store to the FLASH never changes the cache, neither on a hit nor on a miss; it is only forwarded to memory, where the region router completes it with no effect.
+A hit is the line being valid with the stored tag equal to the address tag. In a store that follows order 2 and hits, the RAMs also receive the word, except when the address is in the FLASH or `i_bypass` is at 1. The word of a store that hits is written to the RAMs in the cycle after `S_LOOK`, from the address, the data and the byte enables registered in that cycle, so the hit, which depends on the stored tag, drives only registers and not the write enable of the RAMs. The write ends before the lookup of the next access, so the result and the latency of the access do not change. A store to the FLASH never changes the cache, neither on a hit nor on a miss; it is only forwarded to memory, where the region router completes it with no effect.
 
 After the fill, the machine returns to `S_IDLE` and repeats the lookup, so the access that caused the miss is served as a hit. For a store without `write_through`, this marks the line dirty (write-allocate).
 
