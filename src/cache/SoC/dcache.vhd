@@ -195,8 +195,9 @@ architecture rtl of dcache is
     -- Estado atual da cache.
     signal st : state_t := S_IDLE;
 
-    -- Estados do bloco que esvazia a fila de escrita: parado, esperando a memória aceitar a palavra.
-    type drain_t is (DR_IDLE, DR_WAIT);
+    -- Estados do bloco que esvazia a fila de escrita: parado, esperando a memória aceitar a palavra e esperando o ready
+    -- da palavra anterior cair.
+    type drain_t is (DR_IDLE, DR_WAIT, DR_GAP);
 
     -- Estado do bloco que esvazia a fila de escrita.
     signal dr : drain_t := DR_IDLE;
@@ -810,7 +811,9 @@ begin
 
                     when DR_IDLE =>
 
-                        if wb_cnt > 0 then
+                        -- o ready da memória pode ficar alto alguns ciclos depois do avanço, e um pedido novo só sai
+                        -- com ele baixo
+                        if wb_cnt > 0 and i_d_ready = '0' then
                             d_addr_i  <= wb_a(wb_rd);
                             d_wdata_i <= wb_d(wb_rd);
                             d_be_i    <= wb_b(wb_rd);
@@ -824,7 +827,13 @@ begin
                             d_wren_i <= '0';
                             d_be_i   <= (others => '1');
                             pop_v    := true;
-                            dr       <= DR_IDLE;
+                            dr       <= DR_GAP;
+                        end if;
+
+                    when DR_GAP =>
+
+                        if i_d_ready = '0' then
+                            dr <= DR_IDLE;
                         end if;
 
                 end case;
