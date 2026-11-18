@@ -1,9 +1,9 @@
 """The internal memory of the data cache, in front of the SDRAM.
 
 An access inside the window is served by the block RAMs of the cache in
-the time of a hit and never reaches the chip, and the accesses outside the
-window behave as before. The window is 4 KiB at the word address 0x2000
-(byte 0x00008000 of the SDRAM).
+the time of a hit and never reaches the chip, and the accesses outside
+the window behave as before. The window is 4 KiB at the word address
+0x2000 (byte 0x00008000 of the SDRAM).
 
 """
 
@@ -24,7 +24,7 @@ HALF = 0.5  # probability of the random choices
 async def test_the_window_answers_like_a_hit_and_stays_off_the_chip(
     dut: Dut,
 ):
-    """Check that a word of the window is fast and never reaches the chip."""
+    """Check that a window word is fast and never reaches the chip."""
     await begin(dut)
     before = await model_word(dut, SCRATCH_WORD + 5)
     _, cycles = await access(dut, True, SCRATCH_WORD + 5, 0xCAFEBABE)
@@ -66,7 +66,7 @@ async def test_byte_enables_and_every_word(dut: Dut):
 
 @cocotb.test()
 async def test_outside_the_window_is_the_cache(dut: Dut):
-    """Check that the words beside the window still go through the cache."""
+    """Check that the words beside the window use the cache."""
     await begin(dut)
     m = Mirror(dut)
     for w in (SCRATCH_WORD - 1, SCRATCH_WORD + SCRATCH_WORDS):

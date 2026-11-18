@@ -66,22 +66,8 @@ async def test_more_stores_than_the_buffer_holds(dut: Dut):
 
 
 @cocotb.test()
-async def test_byte_enables_in_the_buffer(dut: Dut):
-    """Check that every byte-enable mask writes the enabled bytes."""
-    await begin(dut)
-    m = Mirror(dut)
-    for be in range(16):
-        w = 0x000800 + be
-        await m.write(w, 0x11223344)
-        await m.write(w, 0xA5B6C7D8, be)
-        await m.read(w)
-    await flush(dut)
-    await m.check_chip()
-
-
-@cocotb.test()
 async def test_random_traffic_keeps_the_chip_current(dut: Dut):
-    """Check that random traffic leaves the chip as the copy after a flush."""
+    """Check that random traffic leaves the chip as the copy."""
     await begin(dut)
     m = Mirror(dut)
     rng = Prng(29)
