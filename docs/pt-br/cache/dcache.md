@@ -27,6 +27,9 @@ A visão geral do caminho do core até a SDRAM, as medições de custo e as esco
 | `flash_base_kib` | natural | 524288 | Base da região da FLASH em KiB; o que cai nela é tratado como FLASH (0x20000000) |
 | `flash_end_kib` | natural | 1048576 | Fim exclusivo da região da FLASH em KiB (0x40000000) |
 | `write_through` | boolean | falso | Verdadeiro faz todo store ir também à memória e a falha de store não trazer a linha |
+| `write_buffer` | natural de 0 a 16 | 0 | Palavras da fila de escrita entre o core e a memória; exige `write_through`, e 0 não tem fila |
+| `scratch_kib` | natural de 0 a 256 | 0 | Tamanho em KiB da memória interna dentro da janela da SDRAM, uma potência de dois; 0 não tem memória interna |
+| `scratch_base_kib` | natural | 0 | Base da memória interna em KiB, um múltiplo do tamanho dela |
 
 ### 2.2. Portas do lado do core
 
@@ -165,6 +168,22 @@ em que $i_{primeira}$ é o índice do endereço `i_inval_first`. Uma região com
 
 `o_miss` fica em 1 em `S_FILL_REQ`, um ciclo por preenchimento. Loads sem cache e escritas diretas não geram pulso.
 
+### 3.9. Fila de escrita
+
+Com `write_buffer` maior que zero, um store que chega a `S_WT_REQ` entra numa fila de `write_buffer` palavras (endereço de memória, dado e habilita de bytes) e a máquina segue direto a `S_DONE`, sem esperar a memória. Um bloco de escrita da própria cache esvazia a fila na ordem, uma palavra por vez, no mesmo contrato de pedido e `i_d_ready` do lado da memória. Com a fila cheia, o store espera em `S_WT_REQ` uma vaga.
+
+| Situação | Comportamento |
+| :--- | :--- |
+| Preenchimento de linha e load sem cache | O pedido só sai com a fila vazia e o bloco de escrita parado, então nenhum load passa à frente de um store e a memória vê os stores na ordem do programa |
+| Flush | O flush só termina, e `o_busy` só cai, com a fila vazia |
+| Store com a fila livre | , no lugar de  + k0
+
+### 3.10. Memória interna
+
+Com `scratch_kib` maior que zero, os endereços de `scratch_base_kib` a `scratch_base_kib + scratch_kib` KiB são atendidos por RAMs de bloco da própria cache, uma por faixa de byte, sem passar pela tag, pelas linhas nem pela memória. A janela é alinhada ao próprio tamanho, então a seleção compara só os bits do endereço acima do endereço de palavra. Em `S_LOOK` o acesso à janela tem prioridade sobre as demais decisões e vai a `S_DONE`; a leitura entrega a palavra lida das RAMs e a escrita fica registrada e é aplicada no ciclo seguinte, como a escrita de um acerto. A latência é a de um acerto, 2 ciclos.
+
+A memória interna guarda só o que o programa escreve depois do reset, porque o hospedeiro carrega a SDRAM por trás da cache e não enxerga a janela. Um acesso a ela nunca gera pedido à memória e não altera a cache.
+
 ## 4. Integração
 
 | Instância | Arquivo | Conexão |
@@ -187,6 +206,8 @@ Os testes são cocotb em `tests/python/unittests/cache`, registrados em `tests/p
 | `DataCacheFlash` | [data_cache_flash.py](../../../tests/python/unittests/cache/data_cache_flash.py) | Load da FLASH em cache, store nunca altera a linha da FLASH, regiões sem alias, store à SDRAM ainda atualiza a linha, `i_bypass` em load e store, um pulso de falha por linha |
 | `DataCacheRegion` | [data_cache_region.py](../../../tests/python/unittests/cache/data_cache_region.py) | Invalidação por região no modo write-back: derruba só a linha da região, região de várias linhas com volta do índice, linha suja do mesmo índice preservada, região do tamanho da cache, região invertida, preenchimento em andamento dentro da região não valida a linha |
 | `DataCacheSmall` | [data_cache_small.py](../../../tests/python/unittests/cache/data_cache_small.py) | `size_bits` igual a 4096 com `write_through`, capacidade de 32 linhas e conflito a 512 bytes; usa apenas endereços da SDRAM |
+| `DataCacheWriteBuffer` | [data_cache_write_buffer.py](../../../tests/python/unittests/cache/data_cache_write_buffer.py) | Store completa sem esperar o chip, load depois de store vê o dado, rajada maior que a fila, habilita de bytes, tráfego aleatório com o chip conferido depois de cada flush |
+| `DataCacheScratch` | [data_cache_scratch.py](../../../tests/python/unittests/cache/data_cache_scratch.py) | Acesso à janela na latência de um acerto e sem chegar ao chip, habilita de bytes e palavras sem alias, vizinhos da janela passam pela cache |
 
 ---
 
