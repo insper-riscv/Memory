@@ -813,7 +813,8 @@ begin
 
                         -- o ready da memória pode ficar alto alguns ciclos depois do avanço, e um pedido novo só sai
                         -- com ele baixo
-                        if wb_cnt > 0 and i_d_ready = '0' then
+                        -- sem fila (write_buffer = 0) o ramo inteiro fica fora do projeto e as filas não são lidas
+                        if write_buffer > 0 and wb_cnt > 0 and i_d_ready = '0' then
                             d_addr_i  <= wb_a(wb_rd);
                             d_wdata_i <= wb_d(wb_rd);
                             d_be_i    <= wb_b(wb_rd);
