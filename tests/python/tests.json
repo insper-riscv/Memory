@@ -1881,5 +1881,72 @@
         "test_args": [
             "--std=08"
         ]
+    },
+    "DataCacheWriteBuffer": {
+        "toplevel": "sdram_dcache_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
+            "src/RAM/SoC/sdram/sdram_arbiter.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "src/RAM/SoC/sim/sdram_system.vhd",
+            "src/barramento/SoC/axi_master_bridge.vhd",
+            "src/barramento/SoC/axi_slave_word_bridge.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
+            "src/cache/SoC/dcache.vhd",
+            "src/cache/SoC/sim/sdram_dcache_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.data_cache_write_buffer",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "WRITE_THROUGH": true,
+            "WRITE_BUFFER": 4
+        }
+    },
+    "DataCacheScratch": {
+        "toplevel": "sdram_dcache_system",
+        "sources": [
+            "src/common/src/utils_pkg.vhd",
+            "src/common/src/config_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_pkg.vhd",
+            "src/common/src/synchronizer.vhd",
+            "src/ROM/SoC/chip_timing_pkg.vhd",
+            "src/RAM/SoC/sdram/sdram_ctrl.vhd",
+            "src/RAM/SoC/sdram/sdram_cpu_bridge.vhd",
+            "src/RAM/SoC/sdram/sdram_arbiter.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_dbg_master.vhd",
+            "src/RAM/FPGA/debug/sdram/sdram_jtag_core.vhd",
+            "src/RAM/SoC/sim/sdram_model.vhd",
+            "src/RAM/SoC/sim/sdram_system.vhd",
+            "src/barramento/SoC/axi_master_bridge.vhd",
+            "src/barramento/SoC/axi_slave_word_bridge.vhd",
+            "src/cache/SoC/cache_pkg.vhd",
+            "src/cache/SoC/dcache.vhd",
+            "src/cache/SoC/sim/sdram_dcache_system.vhd"
+        ],
+        "test_module": "tests.python.unittests.cache.data_cache_scratch",
+        "build_args": [
+            "--std=08"
+        ],
+        "test_args": [
+            "--std=08"
+        ],
+        "parameters": {
+            "WRITE_THROUGH": true,
+            "SCRATCH_KIB": 4,
+            "SCRATCH_BASE_KIB": 1048608
+        }
     }
 }
