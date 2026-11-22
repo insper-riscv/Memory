@@ -41,7 +41,10 @@ done
 
 # Mutants of the VHDL: each defect must make a proof fail.
 export MUT_DEPTH=24 MUT_DEFS='-DDATA'
-start_mutant hit_store_not_cached "/ram_we <= '1' when (st = S_LOOK and hit = '1' and i_wren = '1' and is_rom = '0'/{N;N;s/.*/  ram_we <= '1' when st = S_FILL_GET else '0';/}"
+start_mutant hit_store_not_cached "/elsif st = S_LOOK and hit = '1' and i_wren = '1' and is_rom = '0' and i_bypass = '0' then/{n;s/wr_q <= '1';/wr_q <= '0';/}"
+start_mutant hit_store_data_lost "s/wr_d_q <= i_wdata;/wr_d_q <= (others => '0');/"
+start_mutant hit_store_byteena_lost "s/wr_b_q <= i_byteena;/wr_b_q <= (others => '1');/"
+start_mutant hit_store_address_lost "s/wr_a_q <= i_addr(INDEX_BITS + 3 downto 2);/wr_a_q <= (others => '0');/"
 start_mutant write_back_on_hit    "s/elsif (write_through or is_rom = '1' or i_bypass = '1') and i_wren = '1' then/elsif (is_rom = '1' or i_bypass = '1') and i_wren = '1' then/"
 start_mutant byteena_lost         "s/d_be_i    <= i_byteena;/d_be_i    <= (others => '1');/"
 start_mutant fill_word_swapped    "s/i_d_rdata_x(XLEN - 1 downto 0)[[:space:]]*when cnt = \"01\" else/i_d_rdata_x(2 * XLEN - 1 downto XLEN) when cnt = \"01\" else/"
@@ -71,7 +74,7 @@ done
 for m in region_ignored fill_stays_valid fill_not_marked region_one_short; do
   expect "mutant $m is caught" FAIL "mut_$m"
 done
-for m in hit_store_not_cached write_back_on_hit byteena_lost fill_word_swapped hit_ignores_tag store_acked_early store_data_lost inv_inverted; do
+for m in hit_store_not_cached hit_store_data_lost hit_store_byteena_lost hit_store_address_lost write_back_on_hit byteena_lost fill_word_swapped hit_ignores_tag store_acked_early store_data_lost inv_inverted; do
   expect "mutant $m is caught" FAIL "mut_$m"
 done
 
