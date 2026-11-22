@@ -41,7 +41,7 @@ done
 
 # Mutants of the VHDL: each defect must make a proof fail.
 export MUT_DEPTH=24 MUT_DEFS='-DDATA'
-start_mutant hit_store_not_cached "/elsif st = S_LOOK and hit = '1' and i_wren = '1' and is_rom = '0' and i_bypass = '0' then/{n;s/wr_q <= '1';/wr_q <= '0';/}"
+start_mutant hit_store_not_cached "/if st = S_LOOK and hit = '1' and i_wren = '1' and is_rom = '0' and i_bypass = '0' and is_scr = '0' then/{n;s/wr_q <= '1';/wr_q <= '0';/}"
 start_mutant hit_store_data_lost "s/wr_d_q <= i_wdata;/wr_d_q <= (others => '0');/"
 start_mutant hit_store_byteena_lost "s/wr_b_q <= i_byteena;/wr_b_q <= (others => '1');/"
 start_mutant hit_store_address_lost "s/wr_a_q <= i_addr(INDEX_BITS + 3 downto 2);/wr_a_q <= (others => '0');/"
