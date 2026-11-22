@@ -16,6 +16,12 @@ entity sdram_dcache_system is
     generic (
         -- Verdadeiro: a cache escreve também na memória a cada store.
         write_through  : boolean := false;
+        -- Palavras da fila de escrita da cache de dados (0 não tem fila).
+        write_buffer   : natural := 0;
+        -- KiB da memória interna da cache de dados (0 não tem).
+        scratch_kib    : natural := 0;
+        -- Base em KiB da memória interna.
+        scratch_base_kib : natural := 0;
         -- Período do clock em picossegundos.
         tck_ps         : natural := T_CK_PS;
         -- Ciclos de espera após a energização antes do primeiro comando.
@@ -186,7 +192,10 @@ begin
 
     u_cache : entity work.dcache
         generic map (
-            write_through => write_through
+            write_through => write_through,
+            write_buffer  => write_buffer,
+            scratch_kib   => scratch_kib,
+            scratch_base_kib => scratch_base_kib
         )
         port map (
             i_clk         => i_clk_cpu,
