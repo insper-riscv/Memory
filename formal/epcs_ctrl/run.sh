@@ -47,10 +47,12 @@ echo "epcs_ctrl"
 netlist "$cmd_src" ctrl
 
 # One proof per scenario (see props.sv): the erase and the program, each deep enough to reach the end of its frame.
-export FORMAL_TIMEOUT="${FORMAL_TIMEOUT:-1500}"
+export FORMAL_TIMEOUT="${FORMAL_TIMEOUT:-3000}"
 # The bitwuzla engine reaches the cover goals but never finishes writing the trace of the last one (depth 97 and 118), so
 # it skips exactly these tags. yices closes both (134 s and 320 s alone), and formal/aggregate.sh still demands an answer
 # from some engine for each of them.
+# On the self-hosted runners, with the other proofs of the job running beside it, yices needed 1222 s for cover_se and did not
+# close cover_pp in 1500 s (NO ANSWER in the aggregate), so the limit of this block is 3000 s.
 bitwuzla_slow=" cover_se cover_pp "
 start prove ctrl.v bmc   120 '-DSC_SE'          safety_se
 start prove ctrl.v cover 120 '-DSC_SE -DCOVER'  cover_se
