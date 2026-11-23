@@ -109,7 +109,7 @@ To see what an engine skips, read the list in the engine's variable in the `run.
 
 Follow this procedure when changing a list.
 
-1. Confirm that the engine does not close the proof within the `FORMAL_TIMEOUT` of the block (1500 s in `nor_flash_ctrl` and `epcs_ctrl`), with the same `FORMAL_JOBS` as the CI.
+1. Confirm that the engine does not close the proof within the `FORMAL_TIMEOUT` of the block (1500 s in `nor_flash_ctrl` and 3000 s in `epcs_ctrl`), with the same `FORMAL_JOBS` as the CI.
 2. Confirm that at least one other engine closes the proof. The `formal/aggregate.sh` aggregator still demands a verdict from at least one engine for every proof, so the skip never hides a proof.
 3. Skip only the engine that does not close it, and only the exact names. The mutants and the other covers of the same block keep running in every engine.
 4. Update the table above when the list changes.

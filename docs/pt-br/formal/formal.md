@@ -109,7 +109,7 @@ Para saber o que um motor pula, leia a lista da variável do motor no `run.sh` d
 
 Siga este procedimento ao mexer em uma lista.
 
-1. Confirme que a prova não fecha no motor dentro do `FORMAL_TIMEOUT` do bloco (1500 s no `nor_flash_ctrl` e no `epcs_ctrl`), com `FORMAL_JOBS` igual ao da CI.
+1. Confirme que a prova não fecha no motor dentro do `FORMAL_TIMEOUT` do bloco (1500 s no `nor_flash_ctrl` e 3000 s no `epcs_ctrl`), com `FORMAL_JOBS` igual ao da CI.
 2. Confirme que pelo menos um outro motor fecha a prova. O agregador `formal/aggregate.sh` continua exigindo veredito de pelo menos um motor para cada prova, então o pulo nunca esconde uma prova.
 3. Pule só o motor que não fecha, e só os nomes exatos. Os mutantes e as demais coberturas do mesmo bloco continuam rodando em todos os motores.
 4. Atualize a tabela acima quando a lista mudar.
